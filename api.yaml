@@ -1,0 +1,1162 @@
+openapi: 3.0.0
+servers:
+  - url: 'http://petstore.swagger.io/v2'
+info:
+  description: >-
+    This APIs for iwf SDKs to operate workflows
+  version: 1.0.0
+  title: Workflow APIs
+  license:
+    name: Apache-2.0
+    url: 'https://www.apache.org/licenses/LICENSE-2.0.html'
+paths:
+  /api/v1/workflow/search:
+    post:
+      summary: "search for workflows by a search attribute query"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowSearchRequest'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowSearchResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    KeyValue:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          $ref: '#/components/schemas/EncodedObject'
+    EncodedObject:
+      type: object
+      properties:
+        encoding:
+          type: string
+        data:
+          type: string
+    SearchAttributeKeyAndType:
+      type: object
+      properties:
+        key:
+          type: string
+        valueType:
+          $ref: '#/components/schemas/SearchAttributeValueType'
+    SearchAttributeValueType: # see https://docs.temporal.io/concepts/what-is-a-search-attribute#types
+      type: string
+      enum:
+        - KEYWORD
+        - TEXT
+        - DATETIME
+        - INT
+        - DOUBLE
+        - BOOL
+        - KEYWORD_ARRAY # NOTE: for Cadence/Temporal keyword array is registered in the same type as KEYWORD
+    SearchAttribute:
+      type: object
+      properties:
+        key:
+          type: string
+        stringValue: # It's used for any value than can be stored as string: keyword, text, and DATETIME
+          type: string
+        integerValue: # It's used for INT type
+          type: integer
+          format: int64
+        doubleValue: # For DOUBLE type
+          type: number
+          format: double
+        boolValue: # for BOOL type
+          type: boolean
+        stringArrayValue: # for any type than can be stored as string array: KEYWORD, TEXT, and DATETIME
+          type: array
+          items:
+            type: string
+        valueType:
+          $ref: '#/components/schemas/SearchAttributeValueType'
+    RetryPolicy:
+      type: object
+      properties:
+        initialIntervalSeconds: # default to 1s
+          type: integer
+        backoffCoefficient: # default to 2
+          type: number
+          format: float
+        maximumIntervalSeconds: # default to 100x of initial interval
+          type: integer
+        maximumAttempts: # default to 0, means unlimited
+          type: integer
+        maximumAttemptsDurationSeconds: # the end to end duration of all attempts
+          type: integer
+    WorkflowRetryPolicy:
+      type: object
+      properties:
+        initialIntervalSeconds: # default to 1s
+          type: integer
+        backoffCoefficient: # default to 2
+          type: number
+          format: float
+        maximumIntervalSeconds: # default to 100x of initial interval
+          type: integer
+        maximumAttempts: # default to 0, means unlimited
+          type: integer
+    ExecuteApiFailurePolicy:
+      type: string
+      enum:
+        - FAIL_WORKFLOW_ON_EXECUTE_API_FAILURE
+        - PROCEED_TO_CONFIGURED_STATE
+    StartApiFailurePolicy:
+      type: string
+      enum:
+        - FAIL_WORKFLOW_ON_START_API_FAILURE
+        - PROCEED_TO_DECIDE_ON_START_API_FAILURE # next states derived from decide() API
+    WaitUntilApiFailurePolicy:
+      type: string
+      enum:
+        - FAIL_WORKFLOW_ON_FAILURE
+        - PROCEED_ON_FAILURE # next states derived from execute() API
+    WorkflowStateOptions:
+      type: object
+      properties:
+        searchAttributesLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        waitUntilApiSearchAttributesLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        executeApiSearchAttributesLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        dataObjectsLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        startApiTimeoutSeconds: # NOTE: this is the timeout for the single attempt of Cadence/Temporal activity(start to close timeout)
+          type: integer
+        decideApiTimeoutSeconds: # NOTE: this is the timeout for the single attempt of Cadence/Temporal activity(start to close timeout)
+          type: integer
+        startApiRetryPolicy:
+          $ref: '#/components/schemas/RetryPolicy'
+        decideApiRetryPolicy:
+          $ref: '#/components/schemas/RetryPolicy'
+        startApiFailurePolicy:
+          $ref: '#/components/schemas/StartApiFailurePolicy'
+        executeApiFailurePolicy:
+          $ref: '#/components/schemas/ExecuteApiFailurePolicy'
+        executeApiFailureProceedStateId:
+          type: string
+        executeApiFailureProceedStateOptions:
+          $ref: '#/components/schemas/WorkflowStateOptions'
+        skipStartApi:
+          # all below are for compatibility
+          type: boolean
+        waitUntilApiTimeoutSeconds: # NOTE: this is the timeout for the single attempt of Cadence/Temporal activity(start to close timeout)
+          type: integer
+        executeApiTimeoutSeconds: # NOTE: this is the timeout for the single attempt of Cadence/Temporal activity(start to close timeout)
+          type: integer
+        waitUntilApiRetryPolicy:
+          $ref: '#/components/schemas/RetryPolicy'
+        executeApiRetryPolicy:
+          $ref: '#/components/schemas/RetryPolicy'
+        waitUntilApiFailurePolicy:
+          $ref: '#/components/schemas/WaitUntilApiFailurePolicy'
+        skipWaitUntil:
+          type: boolean
+        dataAttributesLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        waitUntilApiDataAttributesLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        executeApiDataAttributesLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+    WorkflowAlreadyStartedOptions:
+      type: object
+      required:
+        - ignoreAlreadyStartedError
+      properties:
+        ignoreAlreadyStartedError:
+          type: boolean
+        requestId:
+          type: string
+    WorkflowStartOptions:
+      type: object
+      properties:
+        workflowIDReusePolicy:
+          $ref: '#/components/schemas/WorkflowIDReusePolicy'
+        cronSchedule:
+          type: string
+        workflowStartDelaySeconds:
+          type: integer
+          format: int32
+        retryPolicy:
+          $ref: '#/components/schemas/WorkflowRetryPolicy'
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        dataAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        workflowConfigOverride:
+          $ref: '#/components/schemas/WorkflowConfig'
+        # for compatibility
+        idReusePolicy:
+          $ref: '#/components/schemas/IDReusePolicy'
+        useMemoForDataAttributes:
+          type: boolean
+        workflowAlreadyStartedOptions:
+          $ref: '#/components/schemas/WorkflowAlreadyStartedOptions'
+    WorkflowIDReusePolicy:
+      type: string
+      enum:
+        - ALLOW_DUPLICATE_FAILED_ONLY
+        - ALLOW_DUPLICATE
+        - REJECT_DUPLICATE
+        - TERMINATE_IF_RUNNING
+    IDReusePolicy:
+      type: string
+      enum:
+        - ALLOW_IF_PREVIOUS_EXISTS_ABNORMALLY # Keeping typo enum for backwards compatibility
+        - ALLOW_IF_PREVIOUS_EXITS_ABNORMALLY
+        - ALLOW_IF_NO_RUNNING
+        - DISALLOW_REUSE
+        - ALLOW_TERMINATE_IF_RUNNING
+    PersistenceLoadingPolicy:
+      type: object
+      properties:
+        persistenceLoadingType:
+          $ref: '#/components/schemas/PersistenceLoadingType'
+        partialLoadingKeys:
+          type: array
+          items:
+            type: string
+        lockingKeys:
+          type: array
+          items:
+            type: string
+        useKeyAsPrefix:
+          type: boolean
+    PersistenceLoadingType:
+      type: string
+      enum:
+        - LOAD_ALL_WITHOUT_LOCKING
+        - LOAD_PARTIAL_WITHOUT_LOCKING
+        - LOAD_PARTIAL_WITH_EXCLUSIVE_LOCK
+        - LOAD_NONE
+        - LOAD_ALL_WITH_PARTIAL_LOCK
+    WorkerErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        errorType:
+          type: string
+    HealthInfo:
+      type: object
+      properties:
+        condition:
+          type: string
+        hostname:
+          type: string
+        duration: # indicate how long to check the health(in seconds)
+          type: integer
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        subStatus:
+          $ref: '#/components/schemas/ErrorSubStatus'
+        originalWorkerErrorDetail:
+          type: string
+        originalWorkerErrorType:
+          type: string
+        originalWorkerErrorStatus:
+          type: integer
+    ErrorSubStatus:
+      type: string
+      enum:
+        - UNCATEGORIZED_SUB_STATUS
+        - WORKFLOW_ALREADY_STARTED_SUB_STATUS
+        - WORKFLOW_NOT_EXISTS_SUB_STATUS
+        - WORKER_API_ERROR
+        - LONG_POLL_TIME_OUT_SUB_STATUS
+    WorkflowStartRequest:
+      type: object
+      required:
+        - workflowId
+        - iwfWorkerUrl
+        - iwfWorkflowType
+        - workflowTimeoutSeconds
+      properties:
+        workflowId:
+          type: string
+        iwfWorkflowType:
+          type: string
+        workflowTimeoutSeconds:
+          type: integer
+        iwfWorkerUrl:
+          type: string
+        startStateId:
+          type: string
+        waitForCompletionStateIds:
+          type: array
+          items:
+            type: string
+        waitForCompletionStateExecutionIds:
+          type: array
+          items:
+            type: string
+        stateInput:
+          $ref: '#/components/schemas/EncodedObject'
+        stateOptions:
+          $ref: '#/components/schemas/WorkflowStateOptions'
+        workflowStartOptions:
+          $ref: '#/components/schemas/WorkflowStartOptions'
+    WorkflowStartResponse:
+      type: object
+      properties:
+        workflowRunId:
+          type: string
+    WorkflowSignalRequest:
+      type: object
+      required:
+        - workflowId
+        - signalChannelName
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        signalChannelName:
+          type: string
+        signalValue:
+          $ref: '#/components/schemas/EncodedObject'
+    WorkflowStopRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        reason:
+          type: string
+        stopType:
+          $ref: '#/components/schemas/WorkflowStopType'
+    WorkflowStopType:
+      type: string
+      enum:
+        - CANCEL # default behavior
+        - TERMINATE # this will hard terminate the workflow
+        - FAIL
+    WorkflowGetDataObjectsRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        keys: # return all objects if this is empty
+          type: array
+          items:
+            type: string
+        useMemoForDataAttributes:
+          type: boolean
+    WorkflowGetDataObjectsResponse:
+      type: object
+      properties:
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+    WorkflowSetDataObjectsRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+    WorkflowGetSearchAttributesRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttributeKeyAndType'
+    WorkflowGetSearchAttributesResponse:
+      type: object
+      properties:
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+    WorkflowSetSearchAttributesRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+    WorkflowGetRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        needsResults: # result will be return if this is true, and workflow is completed
+          type: boolean
+        waitTimeSeconds: # amount of time that the request will be waiting for, only works for getWithWait API
+          type: integer
+    WorkflowGetResponse:
+      type: object
+      required:
+        - workflowRunId
+        - workflowStatus
+      properties:
+        workflowRunId:
+          type: string
+        workflowStatus:
+          $ref: '#/components/schemas/WorkflowStatus'
+        results: # result will be return if needsResults is true in request, and workflow is completed
+          type: array
+          items:
+            $ref: '#/components/schemas/StateCompletionOutput'
+        errorType:
+          $ref: '#/components/schemas/WorkflowErrorType'
+        errorMessage:
+          type: string
+    WorkflowErrorType:
+      type: string
+      enum:
+        - STATE_DECISION_FAILING_WORKFLOW_ERROR_TYPE
+        - CLIENT_API_FAILING_WORKFLOW_ERROR_TYPE
+        - STATE_API_FAIL_ERROR_TYPE
+        - INVALID_USER_WORKFLOW_CODE_ERROR_TYPE
+        - RPC_ACQUIRE_LOCK_FAILURE
+        - SERVER_INTERNAL_ERROR_TYPE
+    WorkflowStatus:
+      type: string
+      enum:
+        - RUNNING
+        - COMPLETED
+        - FAILED
+        - TIMEOUT
+        - TERMINATED
+        - CANCELED
+        - CONTINUED_AS_NEW
+    StateCompletionOutput:
+      type: object
+      required:
+        - completedStateExecutionId
+        - completedStateId
+      properties:
+        completedStateId:
+          type: string
+        completedStateExecutionId:
+          type: string
+        completedStateOutput:
+          $ref: '#/components/schemas/EncodedObject'
+    WorkflowSearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+        pageSize:
+          type: integer
+          format: int32
+        nextPageToken:
+          type: string
+    WorkflowSearchResponse:
+      type: object
+      properties:
+        workflowExecutions:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowSearchResponseEntry'
+        nextPageToken:
+          type: string
+    WorkflowSearchResponseEntry:
+      type: object
+      required:
+        - workflowId
+        - workflowRunId
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        workflowType:
+          type: string
+        workflowStatus:
+          $ref: '#/components/schemas/WorkflowStatus'
+        historySizeInBytes:
+          type: integer
+        historyLength:
+          type: integer  
+        startTime:
+          type: integer
+          format: int64
+        closeTime:
+          type: integer
+          format: int64
+        taskQueue:
+          type: string
+        customSearchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        customTags:
+          type: array
+          items:
+            type: string
+    WorkflowResetRequest:
+      type: object
+      required:
+        - workflowId
+        - resetType
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        resetType:
+          $ref: '#/components/schemas/WorkflowResetType'
+        historyEventId: #required for resetType of HISTORY_EVENT_ID. The eventID of any event after DecisionTaskStarted you want to reset to (this event is exclusive in a new run. The new run history will fork and continue from the previous eventID of this). It can be DecisionTaskCompleted, DecisionTaskFailed or others
+          type: integer
+        reason: #reason to do the reset for tracking purpose
+          type: string
+        historyEventTime: #Earliest time of history event time, required for resetType of HISTORY_EVENT_TIME.Supported formats are '2006-01-02T15:04:05+07:00', raw UnixNano and time range (N<duration>), where 0 < N < 1000000 and duration (full-notation/short-notation) can be second/s, minute/m, hour/h, day/d, week/w, month/M or year/y. For example, '15minute' or '15m' implies last 15 minutes, meaning that workflow will be reset to the first decision that completed in last 15 minutes
+          type: string
+        stateId: # required for STATE_ID resetType
+          type: string
+        stateExecutionId: # required for STATE_EXECUTION_ID resetType
+          type: string
+        skipSignalReapply: # whether skipping signals reapply after the reset point
+          type: boolean
+        skipUpdateReapply: # whether to skip reapplying updates after the reset point
+          type: boolean
+    WorkflowResetType:
+      type: string
+      enum:
+        - HISTORY_EVENT_ID
+        - BEGINNING
+        - HISTORY_EVENT_TIME
+        - STATE_ID
+        - STATE_EXECUTION_ID
+    WorkflowResetResponse:
+      type: object
+      required:
+        - workflowRunId
+      properties:
+        workflowRunId:
+          type: string
+    WorkflowDumpRequest:
+      type: object
+      required:
+        - workflowId
+        - workflowRunId
+        - pageSizeInBytes
+        - pageNum
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        pageSizeInBytes:
+          type: integer
+        pageNum:
+          type: integer
+    WorkflowDumpResponse:
+      type: object
+      required:
+        - checksum
+        - totalPages
+        - jsonData
+      properties:
+        checksum:
+          type: string # caller should start over if the checksum is not matched anymore
+        totalPages:
+          type: integer
+        jsonData:
+          type: string # serialized data of service.DumpAllInternalResponse model of iwf repo
+    WorkflowStateStartRequest:
+      type: object
+      required:
+        - context
+        - workflowStateId
+        - workflowType
+      properties:
+        context:
+          $ref: '#/components/schemas/Context'
+        workflowType:
+          type: string
+        workflowStateId:
+          type: string
+        stateInput:
+          $ref: '#/components/schemas/EncodedObject'
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        dataObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+    WorkflowSkipTimerRequest:
+      type: object
+      required:
+        - workflowId
+        - workflowStateExecutionId
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        workflowStateExecutionId:
+          type: string
+        timerCommandId: # NOTE: either timerCommandId or timerCommandIndex must be provided
+          type: string
+        timerCommandIndex: # NOTE: either timerCommandId or timerCommandIndex must be provided
+          type: integer
+    WorkflowConfigUpdateRequest:
+      type: object
+      required:
+        - workflowId
+        - workflowConfig
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        workflowConfig:
+          $ref: '#/components/schemas/WorkflowConfig'
+    WorkflowRpcRequest:
+      type: object
+      required:
+        - workflowId
+        - rpcName
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        rpcName:
+          type: string
+        input:
+          $ref: '#/components/schemas/EncodedObject'
+        searchAttributesLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        dataAttributesLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        timeoutSeconds:
+          type: integer
+        useMemoForDataAttributes:
+          type: boolean
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttributeKeyAndType'
+    WorkflowRpcResponse:
+      type: object
+      properties:
+        output:
+          $ref: '#/components/schemas/EncodedObject'
+    WorkflowWorkerRpcRequest:
+      type: object
+      required:
+        - context
+        - workflowType
+        - rpcName
+      properties:
+        context:
+          $ref: '#/components/schemas/Context'
+        workflowType:
+          type: string
+        rpcName:
+          type: string
+        input:
+          $ref: '#/components/schemas/EncodedObject'
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        dataAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        signalChannelInfos:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ChannelInfo'
+        internalChannelInfos:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ChannelInfo'
+    ChannelInfo:
+      type: object
+      properties:
+        size:
+          type: integer
+    WorkflowWorkerRpcResponse:
+      type: object
+      properties:
+        output:
+          $ref: '#/components/schemas/EncodedObject'
+        stateDecision:
+          $ref: '#/components/schemas/StateDecision'
+        upsertSearchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        upsertDataAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        recordEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        upsertStateLocals: # this is probably no much value but we keep it to make the APIs more consistent
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        publishToInterStateChannel:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterStateChannelPublishing'
+    WorkflowStateStartResponse:
+      type: object
+      properties:
+        localActivityInput: # for debugging succeeded local activity which didn't include input in the history
+          type: string
+        upsertSearchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        upsertDataObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        commandRequest:
+          $ref: '#/components/schemas/CommandRequest'
+        upsertStateLocals:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        recordEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        publishToInterStateChannel:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterStateChannelPublishing'
+    WorkflowStateDecideRequest:
+      type: object
+      required:
+        - context
+        - workflowType
+        - workflowStateId
+      properties:
+        context:
+          $ref: '#/components/schemas/Context'
+        workflowType:
+          type: string
+        workflowStateId:
+          type: string
+        stateInput:
+          $ref: '#/components/schemas/EncodedObject'
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        DataObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        stateLocals :
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        commandResults:
+          $ref: '#/components/schemas/CommandResults'
+    WorkflowStateDecideResponse:
+      type: object
+      properties:
+        localActivityInput: # for debugging succeeded local activity which didn't include input in the history
+          type: string
+        stateDecision:
+          $ref: '#/components/schemas/StateDecision'
+        upsertSearchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        upsertDataObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        recordEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        upsertStateLocals: # this is probably no much value but we keep it to make the APIs more consistent
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        publishToInterStateChannel:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterStateChannelPublishing'
+    WorkflowWaitForStateCompletionRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+        stateExecutionId: # either stateExecutionId or stateId + waitForKey must be provided
+          type: string
+        stateId:
+          type: string
+        waitForKey:
+          type: string
+        waitTimeSeconds: # amount of time that the request will be waiting for, only works for getWithWait API
+          type: integer
+    WorkflowWaitForStateCompletionResponse:
+      type: object
+      properties:
+        stateCompletionOutput:
+          $ref: '#/components/schemas/StateCompletionOutput'
+    TriggerContinueAsNewRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+    StateDecision:
+      type: object
+      properties:
+        nextStates:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateMovement'
+        conditionalClose: # note that the above nextStates will be used on condition unmet
+          $ref: '#/components/schemas/WorkflowConditionalClose'
+    WorkflowConditionalClose:
+      type: object
+      properties:
+        conditionalCloseType:
+          $ref: '#/components/schemas/WorkflowConditionalCloseType'
+        channelName:
+          type: string
+        closeInput:
+          $ref: '#/components/schemas/EncodedObject'
+    WorkflowConditionalCloseType:
+      type: string
+      enum:
+        - FORCE_COMPLETE_ON_INTERNAL_CHANNEL_EMPTY
+        - FORCE_COMPLETE_ON_SIGNAL_CHANNEL_EMPTY
+        - GRACEFUL_COMPLETE_ON_ALL_CHANNELS_EMPTY
+    StateMovement:
+      type: object
+      required:
+        - stateId
+      properties:
+        stateId:
+          type: string
+        stateInput:
+          $ref: '#/components/schemas/EncodedObject'
+        stateOptions:
+          $ref: '#/components/schemas/WorkflowStateOptions'
+        waitForKey:
+          type: string
+    CommandRequest:
+      type: object
+      properties:
+        deciderTriggerType:
+          $ref: '#/components/schemas/DeciderTriggerType'
+        commandWaitingType:
+          $ref: '#/components/schemas/CommandWaitingType'
+        timerCommands:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimerCommand'
+        signalCommands:
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalCommand'
+        interStateChannelCommands:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterStateChannelCommand'
+        commandCombinations:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommandCombination'
+    DeciderTriggerType:
+      type: string
+      enum:
+        - ALL_COMMAND_COMPLETED
+        - ANY_COMMAND_COMPLETED
+        - ANY_COMMAND_COMBINATION_COMPLETED # this allows specifying combination using commandIds, all commandIds cannot be emptied in order to use this DeciderTriggerType
+    CommandWaitingType:
+      type: string
+      enum:
+        - ALL_COMPLETED
+        - ANY_COMPLETED
+        - ANY_COMBINATION_COMPLETED # this allows specifying combination using commandIds, all commandIds cannot be emptied in order to use this CommandWaitingType
+    CommandCombination:
+      type: object
+      properties:
+        commandIds:
+          type: array
+          items:
+            type: string
+    CommandResults:
+      type: object
+      properties:
+        signalResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/SignalResult'
+        interStateChannelResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterStateChannelResult'
+        timerResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimerResult'
+        stateStartApiSucceeded:
+          type: boolean
+    TimerCommand:
+      type: object
+      # either firingUnixTimestampSeconds or durationSeconds must be provided
+      properties:
+        commandId:
+          type: string
+        firingUnixTimestampSeconds:
+          type: integer
+          format: int64
+        durationSeconds:
+          type: integer
+          format: int64
+    SignalCommand:
+      type: object
+      required:
+        - signalChannelName
+      properties:
+        commandId:
+          type: string
+        signalChannelName:
+          type: string
+        atLeast:
+          type: integer
+        atMost:
+          type: integer
+    InterStateChannelCommand:
+      type: object
+      required:
+        - channelName
+      properties:
+        commandId:
+          type: string
+        channelName:
+          type: string
+        atLeast:
+          type: integer
+        atMost:
+          type: integer
+    TimerResult:
+      type: object
+      required:
+        - timerStatus
+        - commandId # this is required for backward compatibility. Remove it when SDK is updated to support empty commandId.
+      properties:
+        commandId:
+          type: string
+        timerStatus:
+          $ref: '#/components/schemas/TimerStatus'
+    TimerStatus:
+      type: string
+      enum:
+        - SCHEDULED
+        - FIRED
+    SignalResult:
+      type: object
+      required:
+        - signalChannelName
+        - signalRequestStatus
+        - commandId # this is required for backward compatibility. Remove it when SDK is updated to support empty commandId.
+      properties:
+        commandId:
+          type: string
+        signalRequestStatus:
+          $ref: '#/components/schemas/ChannelRequestStatus'
+        signalChannelName:
+          type: string
+        signalValue:
+          $ref: '#/components/schemas/EncodedObject'
+    InterStateChannelResult:
+      type: object
+      required:
+        - channelName
+        - requestStatus
+        - commandId # this is required for backward compatibility. Remove it when SDK is updated to support empty commandId.
+      properties:
+        commandId:
+          type: string
+        requestStatus:
+          $ref: '#/components/schemas/ChannelRequestStatus'
+        channelName:
+          type: string
+        value:
+          $ref: '#/components/schemas/EncodedObject'
+    ChannelRequestStatus:
+      type: string
+      enum:
+        - WAITING
+        - RECEIVED
+    InterStateChannelPublishing:
+      type: object
+      required:
+        - channelName
+      properties:
+        channelName:
+          type: string
+        value:
+          $ref: '#/components/schemas/EncodedObject'
+    ExecutingStateIdMode:
+      type: string
+      enum:
+        - ENABLED_FOR_ALL
+        - ENABLED_FOR_STATES_WITH_WAIT_UNTIL
+        - DISABLED
+    WorkflowConfig:
+      type: object
+      properties:
+        disableSystemSearchAttribute: # deprecated in favor of executingStateIdMode
+          type: boolean
+        executingStateIdMode:
+          $ref: '#/components/schemas/ExecutingStateIdMode'
+        continueAsNewThreshold:
+          type: integer
+        continueAsNewPageSizeInBytes:
+          type: integer
+        optimizeActivity:
+          type: boolean
+        optimizeTimer:
+          type: boolean
+    Context:
+      type: object
+      required:
+        - workflowId
+        - workflowRunId
+        - workflowStartedTimestamp
+      properties:
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        workflowStartedTimestamp:
+          type: integer
+          format: int64
+        stateExecutionId:
+          type: string
+        firstAttemptTimestamp: # it's from ScheduledTimestamp of Cadence/Temporal activity.GetInfo
+          type: integer
+          format: int64
+        attempt: # it's from Attempt of Cadence/Temporal activity.GetInfo
+          type: integer
+    EventType:
+      type: string
+      enum:
+        - STATE_EXECUTE_ATTEMPT_FAIL_EVENT
+        - STATE_EXECUTE_ATTEMPT_SUCC_EVENT
+        - STATE_EXECUTE_EE_COMPLETE_EVENT
+        - STATE_EXECUTE_EE_FAIL_EVENT
+        - STATE_EXECUTE_EE_START_EVENT
+        - STATE_WAIT_UNTIL_ATTEMPT_FAIL_EVENT
+        - STATE_WAIT_UNTIL_ATTEMPT_SUCC_EVENT
+        - STATE_WAIT_UNTIL_EE_COMPLETE_EVENT
+        - STATE_WAIT_UNTIL_EE_FAIL_EVENT
+        - STATE_WAIT_UNTIL_EE_START_EVENT
+        - WORKFLOW_COMPLETE_EVENT
+        - WORKFLOW_FAIL_EVENT
+        - WORKFLOW_START_EVENT
+        - RPC_EXECUTION_EVENT
+    IwfEvent:
+      type: object
+      required:
+        - eventType
+        - workflowType
+        - workflowId
+        - workflowRunId
+      properties:
+        eventType:
+          $ref: '#/components/schemas/EventType'
+        workflowType:
+          type: string
+        workflowId:
+          type: string
+        workflowRunId:
+          type: string
+        stateId: # only applicable for certain events
+          type: string
+        stateExecutionId: # only applicable for certain events
+          type: string
+        rpcName:
+          type: string
+        startTimestampInMs: # only applicable for certain events
+          type: integer
+          format: int64
+        endTimestampInMs: # only applicable for certain events
+          type: integer
+          format: int64
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+            details:
+              type: string
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
