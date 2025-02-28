@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { WorkflowSearchResponse, WorkflowSearchResponseEntry, WorkflowStatus, SearchAttribute } from './ts-api/src/api-gen/api';
 
 // Popup component for displaying arrays
@@ -32,6 +32,14 @@ function Popup({ title, content, onClose }: PopupProps) {
   );
 }
 
+// Define table column configuration
+interface ColumnDef {
+  id: string;
+  label: string;
+  accessor: (workflow: WorkflowSearchResponseEntry) => React.ReactNode;
+  visible: boolean;
+}
+
 export default function WorkflowSearchPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<WorkflowSearchResponseEntry[]>([]);
@@ -46,6 +54,54 @@ export default function WorkflowSearchPage() {
     title: '',
     content: null,
   });
+
+  // Column management
+  const [columns, setColumns] = useState<ColumnDef[]>([
+    { id: 'workflowId', label: 'Workflow ID', accessor: (w) => w.workflowId, visible: true },
+    { id: 'workflowRunId', label: 'Run ID', accessor: (w) => w.workflowRunId, visible: true },
+    { id: 'workflowType', label: 'Type', accessor: (w) => w.workflowType || 'N/A', visible: true },
+    { id: 'workflowStatus', label: 'Status', accessor: (w) => getStatusBadge(w.workflowStatus), visible: true },
+    { id: 'startTime', label: 'Start Time', accessor: (w) => formatTimestamp(w.startTime), visible: true },
+    { id: 'closeTime', label: 'Close Time', accessor: (w) => formatTimestamp(w.closeTime), visible: true },
+    { id: 'taskQueue', label: 'Task Queue', accessor: (w) => w.taskQueue || 'N/A', visible: true },
+    { id: 'historySizeInBytes', label: 'History Size', accessor: (w) => formatBytes(w.historySizeInBytes), visible: true },
+    { id: 'historyLength', label: 'History Length', accessor: (w) => w.historyLength?.toString() || 'N/A', visible: true },
+    { 
+      id: 'customSearchAttributes', 
+      label: 'Search Attributes', 
+      accessor: (w) => (
+        <button
+          onClick={() => showSearchAttributes(w.customSearchAttributes)}
+          className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
+          style={{ backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.25rem' }}
+        >
+          {w.customSearchAttributes?.length || 0} attributes
+        </button>
+      ),
+      visible: true 
+    },
+    { 
+      id: 'customTags', 
+      label: 'Tags', 
+      accessor: (w) => (
+        <button
+          onClick={() => showCustomTags(w.customTags)}
+          className="bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded text-xs"
+          style={{ backgroundColor: '#22c55e', color: 'white', borderRadius: '0.25rem' }}
+        >
+          {w.customTags?.length || 0} tags
+        </button>
+      ),
+      visible: true
+    },
+  ]);
+
+  // Show column selector popup
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
+
+  // For drag and drop functionality
+  const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
+  const draggedOverColumnId = useRef<string | null>(null);
 
   // Function to fetch workflows
   const fetchWorkflows = async (searchQuery: string = '') => {
@@ -223,6 +279,102 @@ export default function WorkflowSearchPage() {
     });
   };
 
+  // Toggle column visibility
+  const toggleColumnVisibility = (columnId: string) => {
+    setColumns(columns.map(col => 
+      col.id === columnId ? { ...col, visible: !col.visible } : col
+    ));
+  };
+
+  // Reset column visibility (show all)
+  const resetColumnVisibility = () => {
+    setColumns(columns.map(col => ({ ...col, visible: true })));
+  };
+
+  // Handler for starting column drag
+  const handleDragStart = (columnId: string) => {
+    setDraggedColumnId(columnId);
+  };
+
+  // Handler for dragging over another column
+  const handleDragOver = (e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    draggedOverColumnId.current = columnId;
+  };
+
+  // Handler for ending column drag
+  const handleDragEnd = () => {
+    if (draggedColumnId && draggedOverColumnId.current) {
+      // Reorder columns
+      const draggedColIndex = columns.findIndex(col => col.id === draggedColumnId);
+      const dropColIndex = columns.findIndex(col => col.id === draggedOverColumnId.current);
+      
+      if (draggedColIndex !== -1 && dropColIndex !== -1) {
+        const newColumns = [...columns];
+        const [draggedCol] = newColumns.splice(draggedColIndex, 1);
+        newColumns.splice(dropColIndex, 0, draggedCol);
+        setColumns(newColumns);
+      }
+    }
+    
+    // Reset drag state
+    setDraggedColumnId(null);
+    draggedOverColumnId.current = null;
+  };
+
+  // Component for column selector popup
+  const ColumnSelector = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md" style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', width: '100%', maxWidth: '28rem' }}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">Customize Columns</h3>
+          <button 
+            onClick={() => setShowColumnSelector(false)}
+            className="text-gray-500 hover:text-gray-700 focus:outline-none"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="mb-4">
+          <p className="text-sm text-gray-500 mb-2">Select columns to display:</p>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {columns.map(column => (
+              <div key={column.id} className="flex items-center">
+                <input
+                  type="checkbox"
+                  id={`column-${column.id}`}
+                  checked={column.visible}
+                  onChange={() => toggleColumnVisibility(column.id)}
+                  className="mr-2"
+                />
+                <label htmlFor={`column-${column.id}`}>{column.label}</label>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="flex justify-between">
+          <button
+            onClick={resetColumnVisibility}
+            className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-sm"
+          >
+            Show All
+          </button>
+          <button
+            onClick={() => setShowColumnSelector(false)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm"
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Get visible columns
+  const visibleColumns = columns.filter(col => col.visible);
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-6">Workflow Search</h1>
@@ -258,57 +410,54 @@ export default function WorkflowSearchPage() {
           <div className="spinner animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       ) : results.length > 0 ? (
-        <div className="overflow-x-auto" style={{ overflowX: 'auto' }}>
-          <table className="min-w-full bg-white border" style={{ width: '100%', minWidth: '100%' }}>
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="py-2 px-4 border text-left">Workflow ID</th>
-                <th className="py-2 px-4 border text-left">Run ID</th>
-                <th className="py-2 px-4 border text-left">Type</th>
-                <th className="py-2 px-4 border text-left">Status</th>
-                <th className="py-2 px-4 border text-left">Start Time</th>
-                <th className="py-2 px-4 border text-left">Close Time</th>
-                <th className="py-2 px-4 border text-left">Task Queue</th>
-                <th className="py-2 px-4 border text-left">History Size</th>
-                <th className="py-2 px-4 border text-left">History Length</th>
-                <th className="py-2 px-4 border text-left">Search Attributes</th>
-                <th className="py-2 px-4 border text-left">Tags</th>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((workflow) => (
-                <tr key={`${workflow.workflowId}-${workflow.workflowRunId}`} className="hover:bg-gray-50">
-                  <td className="py-2 px-4 border">{workflow.workflowId}</td>
-                  <td className="py-2 px-4 border">{workflow.workflowRunId}</td>
-                  <td className="py-2 px-4 border">{workflow.workflowType || 'N/A'}</td>
-                  <td className="py-2 px-4 border">{getStatusBadge(workflow.workflowStatus)}</td>
-                  <td className="py-2 px-4 border">{formatTimestamp(workflow.startTime)}</td>
-                  <td className="py-2 px-4 border">{formatTimestamp(workflow.closeTime)}</td>
-                  <td className="py-2 px-4 border">{workflow.taskQueue || 'N/A'}</td>
-                  <td className="py-2 px-4 border">{formatBytes(workflow.historySizeInBytes)}</td>
-                  <td className="py-2 px-4 border">{workflow.historyLength || 'N/A'}</td>
-                  <td className="py-2 px-4 border">
-                    <button
-                      onClick={() => showSearchAttributes(workflow.customSearchAttributes)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
-                      style={{ backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.25rem' }}
+        <div className="relative">
+          <div className="mb-2 flex justify-end">
+            <button
+              onClick={() => setShowColumnSelector(true)}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded text-sm flex items-center"
+              style={{ backgroundColor: '#e5e7eb', borderRadius: '0.25rem' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              Customize
+            </button>
+          </div>
+          
+          <div className="overflow-x-auto" style={{ overflowX: 'auto' }}>
+            <table className="min-w-full bg-white border" style={{ width: '100%', minWidth: '100%' }}>
+              <thead>
+                <tr className="bg-gray-100">
+                  {visibleColumns.map(column => (
+                    <th 
+                      key={column.id}
+                      className="py-2 px-4 border text-left cursor-move"
+                      draggable
+                      onDragStart={() => handleDragStart(column.id)}
+                      onDragOver={(e) => handleDragOver(e, column.id)}
+                      onDragEnd={handleDragEnd}
+                      style={{ userSelect: 'none' }}
                     >
-                      {workflow.customSearchAttributes?.length || 0} attributes
-                    </button>
-                  </td>
-                  <td className="py-2 px-4 border">
-                    <button
-                      onClick={() => showCustomTags(workflow.customTags)}
-                      className="bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded text-xs"
-                      style={{ backgroundColor: '#22c55e', color: 'white', borderRadius: '0.25rem' }}
-                    >
-                      {workflow.customTags?.length || 0} tags
-                    </button>
-                  </td>
+                      <div className="flex items-center">
+                        <span className="mr-1">≡</span> {column.label}
+                      </div>
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {results.map((workflow) => (
+                  <tr key={`${workflow.workflowId}-${workflow.workflowRunId}`} className="hover:bg-gray-50">
+                    {visibleColumns.map(column => (
+                      <td key={column.id} className="py-2 px-4 border">
+                        {column.accessor(workflow)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="text-center py-8 text-gray-500" style={{ textAlign: 'center', padding: '2rem 0', color: '#6b7280' }}>
@@ -324,6 +473,9 @@ export default function WorkflowSearchPage() {
           onClose={() => setPopup({ ...popup, show: false })}
         />
       )}
+
+      {/* Popup for column selection */}
+      {showColumnSelector && <ColumnSelector />}
     </div>
   );
 }
