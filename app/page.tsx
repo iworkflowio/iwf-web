@@ -11,6 +11,10 @@ interface PopupProps {
 }
 
 function Popup({ title, content, onClose }: PopupProps) {
+  // ReferenceError: timezone is not defined
+  // The Popup component can't access timezone directly, we'll need to declare it differently
+  // For now, we'll just use the component without timezone tracking
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl" style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', width: '100%', maxWidth: '42rem' }}>
@@ -40,11 +44,78 @@ interface ColumnDef {
   visible: boolean;
 }
 
+// Type for timezone configuration
+interface TimezoneOption {
+  label: string;
+  value: string;
+  offset: number; // in minutes from UTC
+}
+
+// Define timezone options without runtime calculations
+const getTimezoneOptions = (): TimezoneOption[] => {
+  // Local timezone offset needs to be calculated at runtime to avoid hydration errors
+  const localOffset = typeof window !== 'undefined' ? new Date().getTimezoneOffset() * -1 : 0;
+  
+  return [
+    { label: 'Local Time', value: 'local', offset: localOffset },
+    { label: 'UTC', value: 'UTC', offset: 0 },
+    { label: 'Pacific Time (PT)', value: 'America/Los_Angeles', offset: -420 }, // UTC-7 or UTC-8 depending on DST
+    { label: 'Mountain Time (MT)', value: 'America/Denver', offset: -360 }, // UTC-6 or UTC-7 depending on DST
+    { label: 'Central Time (CT)', value: 'America/Chicago', offset: -300 }, // UTC-5 or UTC-6 depending on DST
+    { label: 'Eastern Time (ET)', value: 'America/New_York', offset: -240 }, // UTC-4 or UTC-5 depending on DST
+    { label: 'GMT', value: 'Europe/London', offset: 60 }, // UTC+1 or UTC+0 depending on DST
+    { label: 'Central European Time (CET)', value: 'Europe/Paris', offset: 120 }, // UTC+2 or UTC+1 depending on DST
+    { label: 'India (IST)', value: 'Asia/Kolkata', offset: 330 }, // UTC+5:30
+    { label: 'China (CST)', value: 'Asia/Shanghai', offset: 480 }, // UTC+8
+    { label: 'Japan (JST)', value: 'Asia/Tokyo', offset: 540 }, // UTC+9
+    { label: 'Australia Eastern (AEST)', value: 'Australia/Sydney', offset: 600 }, // UTC+10 or UTC+11 depending on DST
+  ];
+};
+
 export default function WorkflowSearchPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<WorkflowSearchResponseEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Initialize timezoneOptions in a client-safe way using useEffect
+  const [timezoneOptions, setTimezoneOptions] = useState<TimezoneOption[]>([]);
+  useEffect(() => {
+    // Only run on the client to avoid hydration mismatch
+    setTimezoneOptions(getTimezoneOptions());
+  }, []);
+  
+  // Default timezone for server rendering - will be replaced on client
+  const defaultTimezone: TimezoneOption = { label: 'Local Time', value: 'local', offset: 0 };
+  
+  // Initialize timezone state with a safe default
+  const [timezone, setTimezone] = useState<TimezoneOption>(defaultTimezone);
+  
+  // Load saved timezone from localStorage after component mounts
+  useEffect(() => {
+    // This only runs on the client after hydration
+    if (typeof window !== 'undefined') {
+      const tzOptions = getTimezoneOptions();
+      let selectedTz = tzOptions[0]; // Default to first option (Local Time)
+      
+      // Try to load from localStorage
+      const savedTimezone = localStorage.getItem('selectedTimezone');
+      if (savedTimezone) {
+        try {
+          const parsed = JSON.parse(savedTimezone);
+          // Find matching timezone in our options
+          const match = tzOptions.find(tz => tz.value === parsed.value);
+          if (match) selectedTz = match;
+        } catch (e) {
+          console.error('Error parsing saved timezone:', e);
+        }
+      }
+      
+      setTimezone(selectedTz);
+    }
+  }, []);
+  
+  const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
   const [popup, setPopup] = useState<{
     show: boolean;
     title: string;
@@ -54,33 +125,111 @@ export default function WorkflowSearchPage() {
     title: '',
     content: null,
   });
-
-  // Column management
-  const [columns, setColumns] = useState<ColumnDef[]>([
-    { id: 'workflowStatus', label: 'Status', accessor: (w) => getStatusBadge(w.workflowStatus), visible: true },
-    { id: 'workflowId', label: 'Workflow ID', accessor: (w) => w.workflowId, visible: true },
-    { id: 'workflowRunId', label: 'Run ID', accessor: (w) => w.workflowRunId, visible: true },
-    { id: 'workflowType', label: 'Type', accessor: (w) => w.workflowType || 'N/A', visible: true },
-    { id: 'startTime', label: 'Start Time', accessor: (w) => formatTimestamp(w.startTime), visible: true },
-    { id: 'closeTime', label: 'Close Time', accessor: (w) => formatTimestamp(w.closeTime), visible: true },
-    { id: 'taskQueue', label: 'Task Queue', accessor: (w) => w.taskQueue || 'N/A', visible: false },
-    { id: 'historySizeInBytes', label: 'History Size', accessor: (w) => formatBytes(w.historySizeInBytes), visible: false },
-    { id: 'historyLength', label: 'History Length', accessor: (w) => w.historyLength?.toString() || 'N/A', visible: false },
-    { 
-      id: 'customSearchAttributes', 
-      label: 'Search Attributes', 
-      accessor: (w) => (
-        <button
-          onClick={() => showSearchAttributes(w.customSearchAttributes)}
-          className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
-          style={{ backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.25rem' }}
-        >
-          {w.customSearchAttributes?.length || 0} attributes
-        </button>
-      ),
-      visible: true 
+  
+  // Save timezone to localStorage whenever it changes (except during initial load)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
     }
-  ]);
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedTimezone', JSON.stringify({
+        value: timezone.value,
+        label: timezone.label
+      }));
+    }
+  }, [timezone]);
+
+  // Function to generate time column accessor that respects timezone
+  const createTimeColumnAccessor = (timeGetter: (w: WorkflowSearchResponseEntry) => number | undefined) => {
+    // Return a function that will use the current timezone setting when called
+    return (w: WorkflowSearchResponseEntry) => formatTimestamp(timeGetter(w));
+  };
+  
+  // Initialize columns when component mounts and update when timezone changes
+  useEffect(() => {
+    // Update column accessors whenever timezone changes
+    setColumns(getColumnsWithAccessors());
+    
+    // Force re-render of timestamp columns when timezone changes
+    if (!isInitialMount.current) {
+      const newResults = [...results];
+      setResults(newResults);
+    }
+  }, [timezone]); // Re-run when timezone changes
+
+  // Define base column definitions without time-dependent accessors
+  const baseColumns: Omit<ColumnDef, 'accessor'>[] = [
+    { id: 'workflowStatus', label: 'Status', visible: true },
+    { id: 'workflowId', label: 'Workflow ID', visible: true },
+    { id: 'workflowRunId', label: 'Run ID', visible: true },
+    { id: 'workflowType', label: 'Type', visible: true },
+    { id: 'startTime', label: 'Start Time', visible: true },
+    { id: 'closeTime', label: 'Close Time', visible: true },
+    { id: 'taskQueue', label: 'Task Queue', visible: false },
+    { id: 'historySizeInBytes', label: 'History Size', visible: false },
+    { id: 'historyLength', label: 'History Length', visible: false },
+    { id: 'customSearchAttributes', label: 'Search Attributes', visible: true }
+  ];
+  
+  // Create columns with accessors that will re-evaluate when timezone changes
+  const getColumnsWithAccessors = (): ColumnDef[] => {
+    return baseColumns.map(col => {
+      let accessor;
+      
+      switch (col.id) {
+        case 'workflowStatus':
+          accessor = (w: WorkflowSearchResponseEntry) => getStatusBadge(w.workflowStatus);
+          break;
+        case 'workflowId':
+          accessor = (w: WorkflowSearchResponseEntry) => w.workflowId;
+          break;
+        case 'workflowRunId':
+          accessor = (w: WorkflowSearchResponseEntry) => w.workflowRunId;
+          break;
+        case 'workflowType':
+          accessor = (w: WorkflowSearchResponseEntry) => w.workflowType || 'N/A';
+          break;
+        case 'startTime':
+          // Create dynamic accessor that will use the current timezone setting
+          accessor = createTimeColumnAccessor(w => w.startTime);
+          break;
+        case 'closeTime':
+          // Create dynamic accessor that will use the current timezone setting
+          accessor = createTimeColumnAccessor(w => w.closeTime);
+          break;
+        case 'taskQueue':
+          accessor = (w: WorkflowSearchResponseEntry) => w.taskQueue || 'N/A';
+          break;
+        case 'historySizeInBytes':
+          accessor = (w: WorkflowSearchResponseEntry) => formatBytes(w.historySizeInBytes);
+          break;
+        case 'historyLength':
+          accessor = (w: WorkflowSearchResponseEntry) => w.historyLength?.toString() || 'N/A';
+          break;
+        case 'customSearchAttributes':
+          accessor = (w: WorkflowSearchResponseEntry) => (
+            <button
+              onClick={() => showSearchAttributes(w.customSearchAttributes)}
+              className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
+              style={{ backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.25rem' }}
+            >
+              {w.customSearchAttributes?.length || 0} attributes
+            </button>
+          );
+          break;
+        default:
+          accessor = () => 'N/A';
+      }
+      
+      return { ...col, accessor };
+    });
+  };
+  
+  // Generate columns including accessors
+  const [columns, setColumns] = useState<ColumnDef[]>([]);
 
   // Show column selector popup
   const [showColumnSelector, setShowColumnSelector] = useState(false);
@@ -126,11 +275,130 @@ export default function WorkflowSearchPage() {
     fetchWorkflows(query);
   };
 
-  // Function to format timestamp
+  // Function to format timestamp with selected timezone
   const formatTimestamp = (timestamp?: number) => {
     if (!timestamp) return 'N/A';
-    return new Date(timestamp).toLocaleString();
+    
+    const date = new Date(timestamp);
+    
+    if (timezone.value === 'local') {
+      // Use local timezone (browser default)
+      return date.toLocaleString();
+    } else if (timezone.value === 'UTC') {
+      // Format in UTC
+      return date.toLocaleString('en-US', { timeZone: 'UTC' });
+    } else {
+      // Use specified timezone
+      try {
+        // Try to use Intl API with timezone
+        return date.toLocaleString('en-US', { 
+          timeZone: timezone.value,
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          second: 'numeric',
+          hour12: true
+        });
+      } catch (err) {
+        // Fallback to manual offset calculation if timezone is not supported
+        const offsetMillis = timezone.offset * 60 * 1000;
+        const utcTime = date.getTime() + (date.getTimezoneOffset() * 60 * 1000);
+        const adjustedTime = new Date(utcTime + offsetMillis);
+        return `${adjustedTime.toLocaleString()} ${timezone.label.split('(')[1]?.split(')')[0] || ''}`;
+      }
+    }
   };
+  
+  // Timezone selector component
+  const TimezoneSelector = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md" style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', width: '100%', maxWidth: '28rem' }}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">Select Timezone</h3>
+          <button 
+            onClick={() => setShowTimezoneSelector(false)}
+            className="text-gray-500 hover:text-gray-700 focus:outline-none"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <p className="text-sm text-gray-600 mb-4">
+          Choose a timezone to display timestamp values:
+        </p>
+        
+        <div className="border rounded-lg overflow-hidden mb-4">
+          <div className="bg-gray-50 border-b py-2 px-3 grid grid-cols-12">
+            <div className="col-span-1"></div>
+            <div className="col-span-7 font-medium text-sm">Timezone</div>
+            <div className="col-span-4 font-medium text-sm">UTC Offset</div>
+          </div>
+          
+          <div className="max-h-60 overflow-y-auto">
+            {timezoneOptions.length > 0 ? (
+              timezoneOptions.map((tz) => (
+                <div 
+                  key={tz.value} 
+                  className={`grid grid-cols-12 items-center py-2 px-3 border-b last:border-b-0 hover:bg-gray-50 ${timezone.value === tz.value ? 'bg-blue-50' : ''}`}
+                  onClick={() => {
+                    // Update timezone and force UI update when clicking the row
+                    setTimezone(tz);
+                  }}
+                >
+                  <div className="col-span-1 flex justify-center">
+                    <input
+                      type="radio"
+                      id={`tz-${tz.value}`}
+                      name="timezone"
+                      checked={timezone.value === tz.value}
+                      onChange={() => {
+                        // Update timezone and force UI update
+                        setTimezone(tz);
+                        // Leave selector open to let user see the effect in real-time
+                      }}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                  </div>
+                  <label htmlFor={`tz-${tz.value}`} className="col-span-7 cursor-pointer text-sm">
+                    {tz.label}
+                  </label>
+                  <div className="col-span-4 text-gray-500 text-sm">
+                    {tz.value === 'local' ? (
+                      'Browser default'
+                    ) : (
+                      <span>
+                        UTC {tz.offset >= 0 ? '+' : ''}{Math.floor(tz.offset / 60)}:
+                        {Math.abs(tz.offset % 60).toString().padStart(2, '0')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-center text-gray-500">
+                Loading timezone options...
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex justify-between">
+          <div className="text-sm text-gray-500">
+            <span>Current time: {formatTimestamp(Date.now())}</span>
+          </div>
+          <button
+            onClick={() => setShowTimezoneSelector(false)}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-md text-sm"
+            style={{ backgroundColor: '#f3f4f6', color: '#1f2937', borderRadius: '0.375rem' }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   // Function to format size in bytes
   const formatBytes = (bytes?: number) => {
@@ -201,11 +469,14 @@ export default function WorkflowSearchPage() {
       return;
     }
 
+    // Force this component to update whenever timezone changes
+    const currentTimezone = timezone.value;
+
     setPopup({
       show: true,
       title: 'Custom Search Attributes',
       content: (
-        <div className="space-y-4">
+        <div className="space-y-4" key={`attrs-${currentTimezone}`}> {/* Add key to force re-render */}
           {attributes.map((attr, index) => {
             let value: string | number | boolean | string[] | null = null;
             if (attr.stringValue !== undefined) value = attr.stringValue;
@@ -213,6 +484,11 @@ export default function WorkflowSearchPage() {
             else if (attr.doubleValue !== undefined) value = attr.doubleValue;
             else if (attr.boolValue !== undefined) value = attr.boolValue ? 'true' : 'false';
             else if (attr.stringArrayValue) value = attr.stringArrayValue;
+
+            // Format timestamp values if this is a datetime field
+            if (attr.valueType === 'DATETIME' && typeof value === 'number') {
+              value = formatTimestamp(value);
+            }
 
             let displayValue: React.ReactNode;
             if (Array.isArray(value)) {
@@ -241,16 +517,38 @@ export default function WorkflowSearchPage() {
 
   // Function to show custom tags in a popup (removed)
 
+  // Store column visibility state separately to preserve across timezone changes
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
+    const initialVisibility: Record<string, boolean> = {};
+    baseColumns.forEach(col => {
+      initialVisibility[col.id] = col.visible;
+    });
+    return initialVisibility;
+  });
+
+  // Update column visibility when initializing or changing timezone
+  useEffect(() => {
+    setColumns(getColumnsWithAccessors().map(col => ({
+      ...col,
+      visible: columnVisibility[col.id] ?? col.visible
+    })));
+  }, [timezone, columnVisibility]);
+
   // Toggle column visibility
   const toggleColumnVisibility = (columnId: string) => {
-    setColumns(columns.map(col => 
-      col.id === columnId ? { ...col, visible: !col.visible } : col
-    ));
+    setColumnVisibility(prev => ({
+      ...prev,
+      [columnId]: !prev[columnId]
+    }));
   };
 
   // Reset column visibility (show all)
   const resetColumnVisibility = () => {
-    setColumns(columns.map(col => ({ ...col, visible: true })));
+    const resetVisibility: Record<string, boolean> = {};
+    baseColumns.forEach(col => {
+      resetVisibility[col.id] = true;
+    });
+    setColumnVisibility(resetVisibility);
   };
 
   // Handler for starting column drag
@@ -483,7 +781,20 @@ export default function WorkflowSearchPage() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Workflow Search</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Workflow Search</h1>
+        
+        <button
+          onClick={() => setShowTimezoneSelector(true)}
+          className="bg-gray-100 hover:bg-gray-200 text-gray-800 py-1 px-3 rounded text-sm flex items-center"
+          style={{ backgroundColor: '#f3f4f6', borderRadius: '0.375rem' }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {timezone.label}
+        </button>
+      </div>
       
       <div className="flex mb-4" style={{ display: 'flex' }}>
         <input
@@ -601,6 +912,9 @@ export default function WorkflowSearchPage() {
 
       {/* Popup for column selection */}
       {showColumnSelector && <ColumnSelector />}
+      
+      {/* Popup for timezone selection */}
+      {showTimezoneSelector && <TimezoneSelector />}
     </div>
   );
 }
