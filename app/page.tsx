@@ -57,15 +57,15 @@ export default function WorkflowSearchPage() {
 
   // Column management
   const [columns, setColumns] = useState<ColumnDef[]>([
+    { id: 'workflowStatus', label: 'Status', accessor: (w) => getStatusBadge(w.workflowStatus), visible: true },
     { id: 'workflowId', label: 'Workflow ID', accessor: (w) => w.workflowId, visible: true },
     { id: 'workflowRunId', label: 'Run ID', accessor: (w) => w.workflowRunId, visible: true },
     { id: 'workflowType', label: 'Type', accessor: (w) => w.workflowType || 'N/A', visible: true },
-    { id: 'workflowStatus', label: 'Status', accessor: (w) => getStatusBadge(w.workflowStatus), visible: true },
     { id: 'startTime', label: 'Start Time', accessor: (w) => formatTimestamp(w.startTime), visible: true },
     { id: 'closeTime', label: 'Close Time', accessor: (w) => formatTimestamp(w.closeTime), visible: true },
-    { id: 'taskQueue', label: 'Task Queue', accessor: (w) => w.taskQueue || 'N/A', visible: true },
-    { id: 'historySizeInBytes', label: 'History Size', accessor: (w) => formatBytes(w.historySizeInBytes), visible: true },
-    { id: 'historyLength', label: 'History Length', accessor: (w) => w.historyLength?.toString() || 'N/A', visible: true },
+    { id: 'taskQueue', label: 'Task Queue', accessor: (w) => w.taskQueue || 'N/A', visible: false },
+    { id: 'historySizeInBytes', label: 'History Size', accessor: (w) => formatBytes(w.historySizeInBytes), visible: false },
+    { id: 'historyLength', label: 'History Length', accessor: (w) => w.historyLength?.toString() || 'N/A', visible: false },
     { 
       id: 'customSearchAttributes', 
       label: 'Search Attributes', 
@@ -79,21 +79,7 @@ export default function WorkflowSearchPage() {
         </button>
       ),
       visible: true 
-    },
-    { 
-      id: 'customTags', 
-      label: 'Tags', 
-      accessor: (w) => (
-        <button
-          onClick={() => showCustomTags(w.customTags)}
-          className="bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded text-xs"
-          style={{ backgroundColor: '#22c55e', color: 'white', borderRadius: '0.25rem' }}
-        >
-          {w.customTags?.length || 0} tags
-        </button>
-      ),
-      visible: true
-    },
+    }
   ]);
 
   // Show column selector popup
@@ -253,31 +239,7 @@ export default function WorkflowSearchPage() {
     });
   };
 
-  // Function to show custom tags in a popup
-  const showCustomTags = (tags?: string[]) => {
-    if (!tags || tags.length === 0) {
-      setPopup({
-        show: true,
-        title: 'Custom Tags',
-        content: <p className="text-gray-500">No custom tags available</p>,
-      });
-      return;
-    }
-
-    setPopup({
-      show: true,
-      title: 'Custom Tags',
-      content: (
-        <div className="space-y-2">
-          {tags.map((tag, index) => (
-            <div key={index} className="bg-gray-100 p-2 rounded">
-              {tag}
-            </div>
-          ))}
-        </div>
-      ),
-    });
-  };
+  // Function to show custom tags in a popup (removed)
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnId: string) => {
@@ -323,54 +285,198 @@ export default function WorkflowSearchPage() {
   };
 
   // Component for column selector popup
-  const ColumnSelector = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md" style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', width: '100%', maxWidth: '28rem' }}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Customize Columns</h3>
-          <button 
-            onClick={() => setShowColumnSelector(false)}
-            className="text-gray-500 hover:text-gray-700 focus:outline-none"
-          >
-            ✕
-          </button>
-        </div>
-        
-        <div className="mb-4">
-          <p className="text-sm text-gray-500 mb-2">Select columns to display:</p>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {columns.map(column => (
-              <div key={column.id} className="flex items-center">
-                <input
-                  type="checkbox"
-                  id={`column-${column.id}`}
-                  checked={column.visible}
-                  onChange={() => toggleColumnVisibility(column.id)}
-                  className="mr-2"
-                />
-                <label htmlFor={`column-${column.id}`}>{column.label}</label>
+  const ColumnSelector = () => {
+    // States for search attribute columns management
+    const [attributeColumns, setAttributeColumns] = useState<Map<string, boolean>>(new Map());
+
+    // Find all unique search attribute keys in all workflows
+    useEffect(() => {
+      const attributeKeysMap = new Map<string, boolean>();
+      
+      results.forEach(workflow => {
+        if (workflow.customSearchAttributes) {
+          workflow.customSearchAttributes.forEach(attr => {
+            if (attr.key) {
+              // Check if this attribute key is already a column
+              const isAlreadyColumn = columns.some(col => col.id === `attr_${attr.key}`);
+              // If it's not already a column, add it to our map
+              if (!isAlreadyColumn) {
+                attributeKeysMap.set(attr.key, false);
+              }
+            }
+          });
+        }
+      });
+      
+      setAttributeColumns(attributeKeysMap);
+    }, [results]);
+
+    // Format search attribute value for display
+    const formatAttributeValue = (attr: SearchAttribute) => {
+      if (attr.stringValue !== undefined) return attr.stringValue;
+      if (attr.integerValue !== undefined) return attr.integerValue.toString();
+      if (attr.doubleValue !== undefined) return attr.doubleValue.toString();
+      if (attr.boolValue !== undefined) return attr.boolValue ? 'true' : 'false';
+      if (attr.stringArrayValue) {
+        if (attr.stringArrayValue.length === 0) return '[]';
+        if (attr.stringArrayValue.length === 1) return attr.stringArrayValue[0];
+        return attr.stringArrayValue.length <= 2 
+          ? attr.stringArrayValue.join(', ')
+          : `${attr.stringArrayValue[0]}, ${attr.stringArrayValue[1]}, ... (${attr.stringArrayValue.length})`;
+      }
+      return 'N/A';
+    };
+    
+    // Get value type label
+    const getValueTypeLabel = (attr?: SearchAttribute) => {
+      if (!attr?.valueType) return '';
+      
+      switch (attr.valueType) {
+        case 'KEYWORD': return 'K';
+        case 'TEXT': return 'T';
+        case 'DATETIME': return 'DT';
+        case 'INT': return 'I';
+        case 'DOUBLE': return 'D';
+        case 'BOOL': return 'B';
+        case 'KEYWORD_ARRAY': return 'K[]';
+        default: return '';
+      }
+    };
+    
+    // Add a search attribute as a column
+    const addAttributeColumn = (attributeKey: string) => {
+      // Find an example attribute to get its type
+      const exampleAttr = results.flatMap(w => w.customSearchAttributes || [])
+                            .find(a => a.key === attributeKey);
+      const valueTypeLabel = getValueTypeLabel(exampleAttr);
+            
+      // Create a new column for this attribute
+      const newColumn: ColumnDef = {
+        id: `attr_${attributeKey}`,
+        label: valueTypeLabel ? `${attributeKey} (${valueTypeLabel})` : attributeKey,
+        accessor: (workflow) => {
+          const attr = workflow.customSearchAttributes?.find(a => a.key === attributeKey);
+          if (!attr) return 'N/A';
+          
+          // Render different attribute types with appropriate formatting
+          return formatAttributeValue(attr);
+        },
+        visible: true
+      };
+      
+      // Add to columns
+      setColumns([...columns, newColumn]);
+      
+      // Update attribute map
+      const newMap = new Map(attributeColumns);
+      newMap.delete(attributeKey);
+      setAttributeColumns(newMap);
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+        <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-xl" style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', width: '100%', maxWidth: '36rem' }}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold">Customize Table Columns</h3>
+            <button 
+              onClick={() => setShowColumnSelector(false)}
+              className="text-gray-500 hover:text-gray-700 focus:outline-none"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-4 mb-6">
+            {/* Current columns section */}
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium text-gray-700 mb-2">Current Columns</h4>
+              <p className="text-sm text-gray-500 mb-3">Select which columns to display in the table:</p>
+              
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 max-h-60 overflow-y-auto p-2">
+                {columns.map(column => (
+                  <div key={column.id} className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={`column-${column.id}`}
+                        checked={column.visible}
+                        onChange={() => toggleColumnVisibility(column.id)}
+                        className="w-4 h-4 mr-2 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                      />
+                      <label htmlFor={`column-${column.id}`} className="text-sm">
+                        {column.label}
+                      </label>
+                    </div>
+                    
+                    {/* Show remove button for custom attribute columns */}
+                    {column.id.startsWith('attr_') && (
+                      <button
+                        onClick={() => {
+                          // Remove this column
+                          setColumns(columns.filter(c => c.id !== column.id));
+                          
+                          // Add the attribute back to the available list
+                          const attrKey = column.id.replace('attr_', '');
+                          const newMap = new Map(attributeColumns);
+                          newMap.set(attrKey, false);
+                          setAttributeColumns(newMap);
+                        }}
+                        className="text-red-500 hover:text-red-700 text-xs"
+                        title="Remove column"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            
+            {/* Add search attribute columns section */}
+            {attributeColumns.size > 0 && (
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium text-gray-700 mb-2">Add Search Attribute Columns</h4>
+                <p className="text-sm text-gray-500 mb-3">Add custom search attributes as columns:</p>
+                
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 max-h-40 overflow-y-auto p-2">
+                  {Array.from(attributeColumns.entries()).map(([key]) => (
+                    <div key={key} className="flex items-center">
+                      <button
+                        onClick={() => addAttributeColumn(key)}
+                        className="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 py-1 px-2 rounded-full flex items-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        {key}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-between">
+            <button
+              onClick={resetColumnVisibility}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-md text-sm"
+              style={{ backgroundColor: '#f3f4f6', borderRadius: '0.375rem' }}
+            >
+              Show All Columns
+            </button>
+            <button
+              onClick={() => setShowColumnSelector(false)}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md text-sm"
+              style={{ backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.375rem' }}
+            >
+              Apply Changes
+            </button>
           </div>
         </div>
-        
-        <div className="flex justify-between">
-          <button
-            onClick={resetColumnVisibility}
-            className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-sm"
-          >
-            Show All
-          </button>
-          <button
-            onClick={() => setShowColumnSelector(false)}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm"
-          >
-            Apply
-          </button>
-        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Get visible columns
   const visibleColumns = columns.filter(col => col.visible);
@@ -411,17 +517,36 @@ export default function WorkflowSearchPage() {
         </div>
       ) : results.length > 0 ? (
         <div className="relative">
-          <div className="mb-2 flex justify-end">
-            <button
-              onClick={() => setShowColumnSelector(true)}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-1 px-3 rounded text-sm flex items-center"
-              style={{ backgroundColor: '#e5e7eb', borderRadius: '0.25rem' }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
-              Customize
-            </button>
+          <div className="mb-2 flex justify-between items-center">
+            <p className="text-sm text-gray-500">
+              {visibleColumns.length} columns displayed 
+              {columns.some(c => c.id.startsWith('attr_')) && 
+                ` (${columns.filter(c => c.id.startsWith('attr_')).length} search attributes)`}
+            </p>
+            
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowColumnSelector(true)}
+                className="bg-blue-100 hover:bg-blue-200 text-blue-700 py-1 px-3 rounded text-sm flex items-center"
+                style={{ backgroundColor: '#dbeafe', color: '#1d4ed8', borderRadius: '0.25rem' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Add Custom Columns
+              </button>
+              
+              <button
+                onClick={() => setShowColumnSelector(true)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-3 rounded text-sm flex items-center"
+                style={{ backgroundColor: '#e5e7eb', color: '#374151', borderRadius: '0.25rem' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                </svg>
+                Customize Table
+              </button>
+            </div>
           </div>
           
           <div className="overflow-x-auto" style={{ overflowX: 'auto' }}>
