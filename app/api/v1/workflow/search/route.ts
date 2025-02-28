@@ -17,7 +17,22 @@ const mockWorkflowExecutions = [
         key: "customer_id",
         stringValue: "cust-123",
         valueType: "KEYWORD"
+      },
+      {
+        key: "priority",
+        integerValue: 1,
+        valueType: "INT"
+      },
+      {
+        key: "is_premium",
+        boolValue: true,
+        valueType: "BOOL"
       }
+    ],
+    customTags: [
+      "priority-high",
+      "region-west",
+      "customer-tier-1"
     ]
   },
   {
@@ -35,7 +50,16 @@ const mockWorkflowExecutions = [
         key: "payment_id",
         stringValue: "pay-456",
         valueType: "KEYWORD"
+      },
+      {
+        key: "amount",
+        doubleValue: 99.99,
+        valueType: "DOUBLE"
       }
+    ],
+    customTags: [
+      "payment-method-card",
+      "region-east"
     ]
   },
   {
@@ -53,7 +77,50 @@ const mockWorkflowExecutions = [
         key: "order_id",
         stringValue: "ord-789",
         valueType: "KEYWORD"
+      },
+      {
+        key: "shipping_dates",
+        stringArrayValue: ["2025-02-20", "2025-02-25"],
+        valueType: "KEYWORD_ARRAY"
       }
+    ],
+    customTags: [
+      "shipping-method-express",
+      "carrier-fedex",
+      "international"
+    ]
+  },
+  {
+    workflowId: "workflow-4",
+    workflowRunId: "run-4",
+    workflowType: "InventoryUpdate",
+    workflowStatus: "RUNNING",
+    historySizeInBytes: 4096,
+    historyLength: 20,
+    startTime: Date.now() - 43200000, // 12 hours ago
+    closeTime: 0, // Not closed yet
+    taskQueue: "inventory",
+    customSearchAttributes: [
+      {
+        key: "product_ids",
+        stringArrayValue: ["prod-123", "prod-456", "prod-789"],
+        valueType: "KEYWORD_ARRAY"
+      },
+      {
+        key: "warehouse_id",
+        stringValue: "wh-567",
+        valueType: "KEYWORD"
+      },
+      {
+        key: "last_update",
+        stringValue: new Date(Date.now() - 1800000).toISOString(), // 30 mins ago
+        valueType: "DATETIME"
+      }
+    ],
+    customTags: [
+      "batch-update",
+      "priority-low",
+      "scheduled-job"
     ]
   }
 ];
@@ -64,17 +131,42 @@ const filterWorkflows = (query: string) => {
     return mockWorkflowExecutions;
   }
   
+  const queryLower = query.toLowerCase();
+  
   return mockWorkflowExecutions.filter(workflow => {
     // Search in workflowId, workflowType, or workflowStatus
-    return (
-      workflow.workflowId.toLowerCase().includes(query.toLowerCase()) ||
-      workflow.workflowType.toLowerCase().includes(query.toLowerCase()) ||
-      workflow.workflowStatus.toLowerCase().includes(query.toLowerCase()) ||
-      // Also search in custom search attributes
-      workflow.customSearchAttributes.some(attr => 
-        attr.stringValue?.toLowerCase().includes(query.toLowerCase())
-      )
-    );
+    if (
+      workflow.workflowId.toLowerCase().includes(queryLower) ||
+      (workflow.workflowType && workflow.workflowType.toLowerCase().includes(queryLower)) ||
+      (workflow.workflowStatus && workflow.workflowStatus.toLowerCase().includes(queryLower)) ||
+      (workflow.taskQueue && workflow.taskQueue.toLowerCase().includes(queryLower))
+    ) {
+      return true;
+    }
+    
+    // Search in custom search attributes
+    if (workflow.customSearchAttributes && workflow.customSearchAttributes.some(attr => {
+      if (attr.key && attr.key.toLowerCase().includes(queryLower)) return true;
+      if (attr.stringValue && attr.stringValue.toLowerCase().includes(queryLower)) return true;
+      if (attr.stringArrayValue && attr.stringArrayValue.some(val => val.toLowerCase().includes(queryLower))) return true;
+      if (attr.valueType && attr.valueType.toLowerCase().includes(queryLower)) return true;
+      
+      // Convert numeric and boolean values to string for searching
+      if (attr.integerValue !== undefined && attr.integerValue.toString().includes(queryLower)) return true;
+      if (attr.doubleValue !== undefined && attr.doubleValue.toString().includes(queryLower)) return true;
+      if (attr.boolValue !== undefined && attr.boolValue.toString().toLowerCase().includes(queryLower)) return true;
+      
+      return false;
+    })) {
+      return true;
+    }
+    
+    // Search in custom tags
+    if (workflow.customTags && workflow.customTags.some(tag => tag.toLowerCase().includes(queryLower))) {
+      return true;
+    }
+    
+    return false;
   });
 };
 
