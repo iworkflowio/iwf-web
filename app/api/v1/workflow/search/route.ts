@@ -31,12 +31,59 @@ const mapTemporalStatus = (status: string): WorkflowStatus => {
   }
 };
 
+// Helper function to get a string value from a possible complex object
+function extractStringValue(value: any): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  
+  if (typeof value === 'string') {
+    return value;
+  }
+  
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  
+  if (typeof value === 'object') {
+    // Check for Buffer or PayloadData types
+    if (value.data && typeof value.data !== 'object') {
+      return String(value.data);
+    }
+    
+    // Try toString - if it's not the default Object toString result
+    const strValue = value.toString();
+    if (strValue !== '[object Object]') {
+      return strValue;
+    }
+    
+    // Last resort - convert to JSON
+    try {
+      return JSON.stringify(value);
+    } catch (e) {
+      return 'Complex Value';
+    }
+  }
+  
+  return 'Unknown Value';
+}
+
 // Convert Temporal workflow info to our API format
 const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
   // First find the iWF workflow type from search attributes if it exists
   let iwfWorkflowType = '';
   if (workflow.searchAttributes && workflow.searchAttributes['IwfWorkflowType']) {
-    iwfWorkflowType = workflow.searchAttributes['IwfWorkflowType'].toString();
+    iwfWorkflowType = extractStringValue(workflow.searchAttributes['IwfWorkflowType']);
+  }
+  
+  // Get the workflow type name from Temporal
+  let temporalWorkflowType = '';
+  if (workflow.workflowType) {
+    if (typeof workflow.workflowType === 'string') {
+      temporalWorkflowType = workflow.workflowType;
+    } else if (typeof workflow.workflowType === 'object' && workflow.workflowType !== null) {
+      temporalWorkflowType = workflow.workflowType.name || 'Unknown Type';
+    }
   }
   
   // Extract search attributes from Temporal workflow
@@ -50,7 +97,7 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
       let searchAttr: any = { key };
 
       if (Array.isArray(value)) {
-        searchAttr.stringArrayValue = value.map(v => v.toString());
+        searchAttr.stringArrayValue = value.map(v => extractStringValue(v));
         searchAttr.valueType = 'KEYWORD_ARRAY';
       } else if (typeof value === 'string') {
         // Check if it looks like a date (Temporal often returns dates as strings)
@@ -72,6 +119,13 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
       } else if (typeof value === 'boolean') {
         searchAttr.boolValue = value;
         searchAttr.valueType = 'BOOL';
+      } else if (value === null || value === undefined) {
+        searchAttr.stringValue = '';
+        searchAttr.valueType = 'KEYWORD';
+      } else if (typeof value === 'object') {
+        // Complex object - try to extract meaningful value
+        searchAttr.stringValue = extractStringValue(value);
+        searchAttr.valueType = 'KEYWORD';
       }
 
       return searchAttr;
@@ -81,7 +135,7 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
     workflowId: workflow.workflowId,
     workflowRunId: workflow.runId,
     // Prefer the IwfWorkflowType from search attributes if available, otherwise fall back to Temporal's type
-    workflowType: iwfWorkflowType || workflow.type,
+    workflowType: iwfWorkflowType || temporalWorkflowType,
     workflowStatus: mapTemporalStatus(workflow.status.name),
     historySizeInBytes: workflow.historySize || 0,
     historyLength: workflow.historyLength || 0,
@@ -89,7 +143,6 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
     closeTime: workflow.closeTime ? workflow.closeTime.getTime() : undefined,
     taskQueue: workflow.taskQueue,
     customSearchAttributes: searchAttributes,
-    // Temporal doesn't have a direct equivalent to tags, so we're not setting customTags
   };
 };
 
@@ -248,17 +301,53 @@ export async function POST(request: NextRequest) {
 
       // Convert the Temporal workflows to our API format
       const mappedWorkflows = (listResponse.executions || []).map(execution => {
+        // Extract search attributes
+        const searchAttributes: Record<string, any> = {};
+        
+        try {
+          // Try to convert indexed fields to a usable format
+          if (execution.searchAttributes?.indexedFields) {
+            Object.entries(execution.searchAttributes.indexedFields).forEach(([key, value]) => {
+              if (value) {
+                // Try to convert Buffer/data to string
+                if (value.data) {
+                  try {
+                    const dataStr = value.data.toString();
+                    try {
+                      // Try to parse as JSON
+                      searchAttributes[key] = JSON.parse(dataStr);
+                    } catch (e) {
+                      // If not valid JSON, use as string
+                      searchAttributes[key] = dataStr;
+                    }
+                  } catch (e) {
+                    // If can't convert to string, store as-is
+                    searchAttributes[key] = value;
+                  }
+                } else {
+                  // No data field, store as-is
+                  searchAttributes[key] = value;
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.error("Error processing search attributes:", e);
+        }
+        
         // Convert the protobuf workflow to a client WorkflowExecutionInfo
+        const workflowTypeStr = execution.type?.name || 'Unknown';
+        
         const clientWorkflow = {
           workflowId: execution.execution?.workflowId || '',
           runId: execution.execution?.runId || '',
-          workflowType: {name: execution.type?.name || ''},
-          status: {name: execution.status?.toString() || 'RUNNING'},
+          workflowType: { name: workflowTypeStr },
+          status: { name: execution.status?.toString() || 'RUNNING' },
           historyLength: execution.historyLength?.toString() ? parseInt(execution.historyLength.toString()) : 0,
           historySize: execution.historySizeBytes?.toString() ? parseInt(execution.historySizeBytes.toString()) : 0,
           startTime: execution.startTime ? new Date(Number(execution.startTime.seconds) * 1000) : new Date(),
           closeTime: execution.closeTime ? new Date(Number(execution.closeTime.seconds) * 1000) : undefined,
-          searchAttributes: execution.searchAttributes?.indexedFields || {},
+          searchAttributes: searchAttributes,
           taskQueue: execution?.taskQueue || ''
         } as unknown as WorkflowExecutionInfo;
         
