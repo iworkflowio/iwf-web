@@ -73,7 +73,11 @@ const getTimezoneOptions = (): TimezoneOption[] => {
 };
 
 export default function WorkflowSearchPage() {
-  const [query, setQuery] = useState('');
+  // Read initial query from URL if present
+  const initialQuery = typeof window !== 'undefined' ? 
+    new URLSearchParams(window.location.search).get('q') || '' : '';
+  
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<WorkflowSearchResponseEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -260,11 +264,27 @@ export default function WorkflowSearchPage() {
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
   const draggedOverColumnId = useRef<string | null>(null);
 
+  // Function to update URL with search query
+  const updateUrlWithQuery = (searchQuery: string) => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (searchQuery) {
+        url.searchParams.set('q', searchQuery);
+      } else {
+        url.searchParams.delete('q');
+      }
+      window.history.pushState({}, '', url.toString());
+    }
+  };
+
   // Function to fetch workflows
   const fetchWorkflows = async (searchQuery: string = '') => {
     try {
       setLoading(true);
       setError('');
+      
+      // Update URL with the current search query for shareability
+      updateUrlWithQuery(searchQuery);
       
       const response = await fetch('/api/v1/workflow/search', {
         method: 'POST',
@@ -295,9 +315,9 @@ export default function WorkflowSearchPage() {
     }
   };
 
-  // Load all workflows on initial page load
+  // Load initial workflows based on the URL query parameter if present
   useEffect(() => {
-    fetchWorkflows();
+    fetchWorkflows(initialQuery);
   }, []);
 
   const handleSearch = () => {
