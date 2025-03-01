@@ -11,7 +11,18 @@ const temporalConfig = {
 
 // Mapping Temporal workflow status to our API status
 const mapTemporalStatus = (status: string): WorkflowStatus => {
-  switch (status) {
+  // Debug logging
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Mapping status:', status);
+  }
+  
+  // Normalize the status by converting to uppercase and removing any prefixes
+  const normalizedStatus = (status || '').toString().toUpperCase().trim();
+  
+  // Sometimes status comes with 'WORKFLOW_EXECUTION_STATUS_' prefix
+  const statusWithoutPrefix = normalizedStatus.replace('WORKFLOW_EXECUTION_STATUS_', '');
+  
+  switch (statusWithoutPrefix) {
     case 'RUNNING':
       return 'RUNNING';
     case 'COMPLETED':
@@ -26,7 +37,24 @@ const mapTemporalStatus = (status: string): WorkflowStatus => {
       return 'CONTINUED_AS_NEW';
     case 'TIMED_OUT':
       return 'TIMEOUT';
+    case '1': // Sometimes Temporal returns numeric status codes
+      return 'RUNNING';
+    case '2':
+      return 'COMPLETED';
+    case '3':
+      return 'FAILED';
+    case '4':
+      return 'CANCELED';
+    case '5':
+      return 'TERMINATED';
+    case '6':
+      return 'CONTINUED_AS_NEW';
+    case '7':
+      return 'TIMEOUT';
     default:
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Unknown status value:', status, 'normalized to:', statusWithoutPrefix);
+      }
       return 'RUNNING';
   }
 };
@@ -349,7 +377,7 @@ export async function POST(request: NextRequest) {
           workflowId: execution.execution?.workflowId || '',
           runId: execution.execution?.runId || '',
           workflowType: { name: workflowTypeStr },
-          status: { name: execution.status?.toString() || 'RUNNING' },
+          status: { name: String(execution.status || 1) }, // Use numeric status if available
           historyLength: execution.historyLength?.toString() ? parseInt(execution.historyLength.toString()) : 0,
           historySize: execution.historySizeBytes?.toString() ? parseInt(execution.historySizeBytes.toString()) : 0,
           startTime: execution.startTime ? new Date(Number(execution.startTime.seconds) * 1000) : new Date(),
