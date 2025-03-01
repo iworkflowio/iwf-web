@@ -3,6 +3,27 @@
 import { useState, useEffect, useRef } from 'react';
 import { WorkflowSearchResponse, WorkflowSearchResponseEntry, WorkflowStatus, SearchAttribute } from './ts-api/src/api-gen/api';
 
+// Client-side only component for the clear button
+const ClearButton = ({ query, onClear }: { query: string, onClear: () => void }) => {
+  const [isMounted, setIsMounted] = useState(false);
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+  
+  if (!isMounted || !query) return null;
+  
+  return (
+    <button
+      onClick={onClear}
+      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-transparent border-0"
+      title="Clear search"
+    >
+      ✕
+    </button>
+  );
+};
+
 // Popup component for displaying arrays
 interface PopupProps {
   title: string;
@@ -935,8 +956,8 @@ export default function WorkflowSearchPage() {
     // Determine if we need to append with AND
     let updatedQuery = '';
     if (currentQuery) {
-      // If there's already a query, wrap it in parentheses and add AND
-      updatedQuery = `(${currentQuery}) AND ${newFilterTerm}`;
+      // If there's already a query, just add AND without parentheses
+      updatedQuery = `${currentQuery} AND ${newFilterTerm}`;
     } else {
       // Otherwise just use the new filter term
       updatedQuery = newFilterTerm;
@@ -1306,15 +1327,24 @@ export default function WorkflowSearchPage() {
       
       <div className="mb-4">
         <div className="flex" style={{ display: 'flex' }}>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Enter search query"
-            className="flex-grow border rounded-l px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            style={{ flexGrow: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-          />
+          <div className="relative flex-grow">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Enter search query"
+              className="w-full h-full border rounded-l px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+            />
+            <ClearButton 
+              query={query} 
+              onClear={() => {
+                setQuery('');
+                setAppliedFilters({});
+              }} 
+            />
+          </div>
           <button
             onClick={handleSearch}
             disabled={loading}
@@ -1476,8 +1506,100 @@ export default function WorkflowSearchPage() {
           </div>
         </div>
       ) : (
-        <div className="text-center py-8 text-gray-500" style={{ textAlign: 'center', padding: '2rem 0', color: '#6b7280' }}>
-          No workflows found. Try a different search query.
+        <div>
+          <div className="mb-2 flex justify-between items-center">
+            <div className="flex items-center">
+              <p className="text-sm text-gray-500 mr-4">
+                {visibleColumns.length} columns displayed 
+                {columns.some(c => c.id.startsWith('attr_')) && 
+                  ` (${columns.filter(c => c.id.startsWith('attr_')).length} search attributes)`}
+              </p>
+              
+              {Object.keys(appliedFilters).length > 0 && (
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">Filters applied: {Object.keys(appliedFilters).length}</span>
+                  <button 
+                    onClick={clearAllFilters}
+                    className="text-red-600 text-xs hover:text-red-800 underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowColumnSelector(true)}
+                className="bg-blue-100 hover:bg-blue-200 text-blue-700 py-1 px-3 rounded text-sm flex items-center"
+                style={{ backgroundColor: '#dbeafe', color: '#1d4ed8', borderRadius: '0.25rem' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Add Custom Columns
+              </button>
+              
+              <button
+                onClick={() => setShowColumnSelector(true)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-3 rounded text-sm flex items-center"
+                style={{ backgroundColor: '#e5e7eb', color: '#374151', borderRadius: '0.25rem' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                </svg>
+                Customize Table
+              </button>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto" style={{ overflowX: 'auto' }}>
+            <table className="min-w-full bg-white border" style={{ width: '100%', minWidth: '100%' }}>
+              <thead>
+                <tr className="bg-gray-100">
+                  {visibleColumns.map(column => (
+                    <th 
+                      key={column.id}
+                      className="py-2 px-4 border text-left cursor-move"
+                      draggable
+                      onDragStart={() => handleDragStart(column.id)}
+                      onDragOver={(e) => handleDragOver(e, column.id)}
+                      onDragEnd={handleDragEnd}
+                      style={{ userSelect: 'none', position: 'relative' }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <span className="mr-1">≡</span> {column.label}
+                        </div>
+                        
+                        {column.id !== 'customSearchAttributes' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openFilterForColumn(column.id);
+                            }}
+                            className={`ml-2 p-1 rounded-full ${appliedFilters[column.id] ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'}`}
+                            title={`Filter by ${column.label}`}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colSpan={visibleColumns.length} className="text-center py-12 text-gray-500">
+                    No workflows found. Try a different search query.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -1635,7 +1757,76 @@ export default function WorkflowSearchPage() {
             <div className="flex justify-between">
               <button
                 onClick={() => {
-                  // Simply clear the current filter input and close the popup
+                  if (activeFilterColumn && appliedFilters[activeFilterColumn]) {
+                    // Remove this filter from the query
+                    let currentQuery = query.trim();
+                    
+                    // Get the filter details
+                    const filterDetails = appliedFilters[activeFilterColumn];
+                    if (filterDetails) {
+                      // Construct the filter term to be removed
+                      let queryField = '';
+                      switch (activeFilterColumn) {
+                        case 'workflowStatus':
+                          queryField = 'ExecutionStatus';
+                          break;
+                        case 'workflowType':
+                          queryField = 'WorkflowType';
+                          break;
+                        case 'workflowId':
+                          queryField = 'WorkflowId';
+                          break;
+                        case 'workflowRunId':
+                          queryField = 'RunId';
+                          break;
+                        case 'startTime':
+                          queryField = 'StartTime';
+                          break;
+                        case 'closeTime':
+                          queryField = 'CloseTime';
+                          break;
+                        case 'taskQueue':
+                          queryField = 'TaskQueue';
+                          break;
+                      }
+                      
+                      if (queryField) {
+                        const formattedValue = formatFilterForQuery(activeFilterColumn, filterDetails.value);
+                        const filterTerm = `${queryField} ${filterDetails.operator} ${formattedValue}`;
+                        
+                        // Remove the filter term from the query
+                        // Handle different cases - filter at beginning, middle, or end
+                        if (currentQuery === filterTerm) {
+                          // It's the only filter
+                          currentQuery = '';
+                        } else if (currentQuery.startsWith(filterTerm + ' AND ')) {
+                          // It's at the beginning
+                          currentQuery = currentQuery.replace(filterTerm + ' AND ', '');
+                        } else if (currentQuery.endsWith(' AND ' + filterTerm)) {
+                          // It's at the end
+                          currentQuery = currentQuery.replace(' AND ' + filterTerm, '');
+                        } else {
+                          // It's in the middle
+                          currentQuery = currentQuery.replace(filterTerm + ' AND ', '').replace(' AND ' + filterTerm, '');
+                        }
+                        
+                        // Update the query
+                        setQuery(currentQuery);
+                        
+                        // Remove from applied filters
+                        const newFilters = { ...appliedFilters };
+                        delete newFilters[activeFilterColumn];
+                        setAppliedFilters(newFilters);
+                        
+                        // Execute the search with updated query
+                        setTimeout(() => {
+                          fetchWorkflows(currentQuery);
+                        }, 50);
+                      }
+                    }
+                  }
+                  
+                  // Clear the input and close the popup
                   setFilterValue('');
                   setShowFilterPopup(false);
                 }}
