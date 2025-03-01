@@ -81,6 +81,13 @@ export default function WorkflowSearchPage() {
   const [results, setResults] = useState<WorkflowSearchResponseEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [config, setConfig] = useState<{
+    temporalHostPort: string;
+    temporalNamespace: string;
+  }>({
+    temporalHostPort: '',
+    temporalNamespace: ''
+  });
   
   // Initialize timezoneOptions in a client-safe way using useEffect
   const [timezoneOptions, setTimezoneOptions] = useState<TimezoneOption[]>([]);
@@ -127,6 +134,7 @@ export default function WorkflowSearchPage() {
   }
 
   const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
+  const [showConfigPopup, setShowConfigPopup] = useState(false);
   const [showAllSearchesPopup, setShowAllSearchesPopup] = useState(false);
   const [editingQueryIndex, setEditingQueryIndex] = useState<number | null>(null);
   const [recentSearches, setRecentSearches] = useState<SavedQuery[]>([]);
@@ -471,8 +479,30 @@ export default function WorkflowSearchPage() {
     }
   };
 
-  // Load initial workflows based on the URL query parameter if present
+  // Fetch configuration and initial workflows
   useEffect(() => {
+    // Fetch configuration
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch('/api/v1/config');
+        if (response.ok) {
+          const configData = await response.json();
+          setConfig({
+            temporalHostPort: configData.temporalHostPort || 'localhost:7233',
+            temporalNamespace: configData.temporalNamespace || 'default'
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching config:', err);
+        // Use defaults if we can't fetch
+        setConfig({
+          temporalHostPort: 'localhost:7233',
+          temporalNamespace: 'default'
+        });
+      }
+    };
+
+    fetchConfig();
     fetchWorkflows(initialQuery);
   }, []);
 
@@ -1060,15 +1090,28 @@ export default function WorkflowSearchPage() {
             </div>
           </div>
           
-          <button
-            onClick={() => setShowTimezoneSelector(true)}
-            className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white py-1 px-3 rounded text-sm flex items-center transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {timezone.label}
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setShowConfigPopup(true)}
+              className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white py-1 px-3 rounded text-sm flex items-center transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Config
+            </button>
+            
+            <button
+              onClick={() => setShowTimezoneSelector(true)}
+              className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white py-1 px-3 rounded text-sm flex items-center transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {timezone.label}
+            </button>
+          </div>
         </div>
       </div>
       
@@ -1232,6 +1275,53 @@ export default function WorkflowSearchPage() {
       
       {/* Popup for timezone selection */}
       {showTimezoneSelector && <TimezoneSelector />}
+      
+      {/* Popup for configuration */}
+      {showConfigPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md" style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', width: '100%', maxWidth: '28rem' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Temporal Configuration</h3>
+              <button 
+                onClick={() => setShowConfigPopup(false)}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-1">Temporal Host/Port</h4>
+                <div className="bg-gray-50 p-2 rounded border text-sm font-mono">
+                  {config.temporalHostPort}
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-1">Temporal Namespace</h4>
+                <div className="bg-gray-50 p-2 rounded border text-sm font-mono">
+                  {config.temporalNamespace}
+                </div>
+              </div>
+              
+              <div className="pt-2 text-xs text-gray-500">
+                <p>These settings can be changed by updating the .env.local file.</p>
+                <p className="mt-1">See README.md for more information.</p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowConfigPopup(false)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-md text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Popup for all searches */}
       {showAllSearchesPopup && (
