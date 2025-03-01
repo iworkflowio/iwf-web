@@ -94,14 +94,39 @@ const getTimezoneOptions = (): TimezoneOption[] => {
 };
 
 export default function WorkflowSearchPage() {
-  // Read initial query from URL if present
-  const initialQuery = typeof window !== 'undefined' ? 
-    new URLSearchParams(window.location.search).get('q') || '' : '';
+  // Read initial query and pagination params from URL if present
+  const initialQueryParams = typeof window !== 'undefined' ? {
+    query: new URLSearchParams(window.location.search).get('q') || '',
+    size: parseInt(new URLSearchParams(window.location.search).get('size') || '20', 10),
+    token: new URLSearchParams(window.location.search).get('token') || '',
+    // If no token is provided but page > 1, reset to page 1
+    page: !new URLSearchParams(window.location.search).get('token') && 
+          parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10) > 1 
+          ? 1 
+          : parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10)
+  } : {
+    query: '',
+    page: 1,
+    size: 20,
+    token: ''
+  };
   
-  const [query, setQuery] = useState(initialQuery);
+  const [query, setQuery] = useState(initialQueryParams.query);
   const [results, setResults] = useState<WorkflowSearchResponseEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [pageSize, setPageSize] = useState<number>(initialQueryParams.size);
+  const [currentPage, setCurrentPage] = useState<number>(initialQueryParams.page);
+  const [nextPageToken, setNextPageToken] = useState<string>(initialQueryParams.token);
+  const [hasMoreResults, setHasMoreResults] = useState<boolean>(false);
+  const [pageHistory, setPageHistory] = useState<string[]>(() => {
+    // Initialize page history array with the correct token in place
+    const history = Array(initialQueryParams.page).fill('');
+    if (initialQueryParams.page > 1 && initialQueryParams.token) {
+      history[initialQueryParams.page - 1] = initialQueryParams.token;
+    }
+    return history;
+  });
   const [config, setConfig] = useState<{
     temporalHostPort: string;
     temporalNamespace: string;
@@ -309,15 +334,29 @@ export default function WorkflowSearchPage() {
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
   const draggedOverColumnId = useRef<string | null>(null);
 
-  // Function to update URL with search query
-  const updateUrlWithQuery = (searchQuery: string) => {
+  // Function to update URL with search query and pagination params
+  const updateUrlWithParams = (searchQuery: string, page: number = 1, size: number = 20, token: string = '') => {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
+      
+      // Update search query parameter
       if (searchQuery) {
         url.searchParams.set('q', searchQuery);
       } else {
         url.searchParams.delete('q');
       }
+      
+      // Update pagination parameters
+      url.searchParams.set('page', page.toString());
+      url.searchParams.set('size', size.toString());
+      
+      // Add nextPageToken to URL if it exists
+      if (token) {
+        url.searchParams.set('token', token);
+      } else {
+        url.searchParams.delete('token');
+      }
+      
       window.history.pushState({}, '', url.toString());
     }
   };
@@ -470,7 +509,7 @@ export default function WorkflowSearchPage() {
 
   // Function to fetch workflows
   // Execute a search with either query string or SavedQuery
-  const fetchWorkflows = async (searchInput: string | SavedQuery = '') => {
+  const fetchWorkflows = async (searchInput: string | SavedQuery = '', pageToken: string = '', newPageSize?: number) => {
     try {
       setLoading(true);
       setError('');
@@ -485,12 +524,22 @@ export default function WorkflowSearchPage() {
         setQuery(searchInput.query);
       }
       
-      // Update URL with the current search query for shareability
-      updateUrlWithQuery(searchQuery);
+      // Use specified page size or current page size with fallback
+      const currentPageSize = newPageSize || pageSize || 20;
+      const pageNum = currentPage || 1;
       
-      // Save to recent searches
-      if (searchQuery) {
+      // Update URL with the current search query and pagination params
+      updateUrlWithParams(searchQuery, pageNum, currentPageSize, pageToken);
+      
+      // Save to recent searches only when starting a new search
+      if (searchQuery && !pageToken) {
         saveRecentSearch(searchQuery);
+      }
+      
+      // If page token is empty and it's not the first page, reset to first page
+      if (!pageToken && pageNum !== 1) {
+        setCurrentPage(1);
+        setPageHistory(['']);
       }
       
       const response = await fetch('/api/v1/workflow/search', {
@@ -498,7 +547,11 @@ export default function WorkflowSearchPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query: searchQuery }),
+        body: JSON.stringify({ 
+          query: searchQuery,
+          pageSize: currentPageSize,
+          nextPageToken: pageToken || '' // Always ensure we send empty string not undefined/null
+        }),
       });
       
       const data = await response.json();
@@ -513,13 +566,84 @@ export default function WorkflowSearchPage() {
       }
       
       setResults(data.workflowExecutions || []);
+      
+      // Update pagination state
+      setNextPageToken(data.nextPageToken || '');
+      setHasMoreResults(!!data.nextPageToken);
+      
+      // If page size changed, update it
+      if (newPageSize && newPageSize !== pageSize) {
+        setPageSize(newPageSize);
+      }
     } catch (err) {
       console.error('Search error:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
       setResults([]); // Clear results on error
+      
+      // Reset pagination on error
+      setNextPageToken('');
+      setHasMoreResults(false);
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Navigate to the next page of results
+  const goToNextPage = () => {
+    if (!hasMoreResults || !nextPageToken) return;
+    
+    // Add the current token to history before moving to the next page
+    const newHistory = [...pageHistory];
+    if (currentPage >= newHistory.length) {
+      newHistory.push(nextPageToken);
+    } else {
+      newHistory[currentPage] = nextPageToken;
+    }
+    
+    const nextPage = currentPage + 1;
+    setPageHistory(newHistory);
+    setCurrentPage(nextPage);
+    // Update URL with new page number and token
+    updateUrlWithParams(query, nextPage, pageSize, nextPageToken);
+    // Use an empty string as the token for safety with JSON serialization
+    fetchWorkflows(query, nextPageToken || '');
+  };
+  
+  // Navigate to the previous page of results
+  const goToPrevPage = () => {
+    if (currentPage <= 1) return;
+    
+    const prevPageIndex = currentPage - 2;
+    const prevToken = pageHistory[prevPageIndex] || '';
+    const prevPage = currentPage - 1;
+    
+    setCurrentPage(prevPage);
+    // Update URL with new page number and token
+    updateUrlWithParams(query, prevPage, pageSize, prevToken);
+    // Use an empty string as the token for safety with JSON serialization
+    fetchWorkflows(query, prevToken || '');
+  };
+  
+  // Go to the first page of results
+  const goToFirstPage = () => {
+    if (currentPage === 1) return;
+    
+    setCurrentPage(1);
+    // Update URL with new page number and empty token
+    updateUrlWithParams(query, 1, pageSize, '');
+    fetchWorkflows(query, '');
+  };
+  
+  // Change page size and reset to first page
+  const changePageSize = (newSize: number) => {
+    if (newSize === pageSize) return;
+    
+    setPageSize(newSize);
+    setCurrentPage(1);
+    setPageHistory(['']);
+    // Update URL with new page size and empty token
+    updateUrlWithParams(query, 1, newSize, '');
+    fetchWorkflows(query, '', newSize);
   };
 
   // Fetch configuration and initial workflows
@@ -546,7 +670,21 @@ export default function WorkflowSearchPage() {
     };
 
     fetchConfig();
-    fetchWorkflows(initialQuery);
+    // Initialize with URL parameters
+    if (initialQueryParams.token) {
+      // If we have a token in URL, use it directly
+      fetchWorkflows(initialQueryParams.query, initialQueryParams.token, initialQueryParams.size);
+    } else {
+      // For any page without a token, start from page 1
+      // This will handle cases where page parameter is set but no token exists
+      fetchWorkflows(initialQueryParams.query, '', initialQueryParams.size);
+      
+      // If URL had page > 1 but no token, update URL to show page 1
+      if (typeof window !== 'undefined' && 
+          parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10) > 1) {
+        updateUrlWithParams(initialQueryParams.query, 1, initialQueryParams.size, '');
+      }
+    }
   }, []);
 
   // Sync applied filters with the current query before searching
@@ -1553,6 +1691,56 @@ export default function WorkflowSearchPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+          
+          {/* Pagination controls */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500">Page Size:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => changePageSize(Number(e.target.value))}
+                className="border rounded px-2 py-1 text-sm bg-white"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={500}>500</option>
+              </select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500">
+                Showing {results.length > 0 ? ((currentPage - 1) * pageSize) + 1 : 0}-
+                {((currentPage - 1) * pageSize) + results.length} results
+              </span>
+              <div className="flex space-x-1">
+                <button
+                  onClick={goToFirstPage}
+                  disabled={currentPage === 1}
+                  className={`px-2 py-1 rounded text-sm ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                >
+                  First
+                </button>
+                <button
+                  onClick={goToPrevPage}
+                  disabled={currentPage === 1}
+                  className={`px-2 py-1 rounded text-sm ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                >
+                  Previous
+                </button>
+                <span className="px-2 py-1 rounded bg-blue-500 text-white text-sm">
+                  {currentPage}
+                </span>
+                <button
+                  onClick={goToNextPage}
+                  disabled={!hasMoreResults}
+                  className={`px-2 py-1 rounded text-sm ${!hasMoreResults ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : (

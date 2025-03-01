@@ -168,7 +168,15 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { query, pageSize = 10, nextPageToken = "" } = body;
+    // Extract parameters with safe defaults
+    const { 
+      query, 
+      pageSize = 10, 
+      nextPageToken = "" 
+    } = body;
+    
+    // Debug log to help diagnose token issues
+    console.log("Next page token type:", typeof nextPageToken, "value:", nextPageToken);
 
     try {
       // Create connection to Temporal
@@ -203,11 +211,28 @@ export async function POST(request: NextRequest) {
         }
       }
       
+      // Handle next page token with extra care to avoid deserialization issues
+      let tokenBuffer = undefined;
+      if (nextPageToken && typeof nextPageToken === 'string' && nextPageToken.trim() !== '') {
+        try {
+          // Only try to use the token if it's a non-empty string that looks like proper base64
+          if (/^[A-Za-z0-9+/=]+$/.test(nextPageToken)) {
+            tokenBuffer = Buffer.from(nextPageToken, 'base64');
+            console.log("Successfully converted token to buffer");
+          } else {
+            console.log("Token is not valid base64, skipping");
+          }
+        } catch (err) {
+          console.error("Error converting token to buffer:", err);
+          // Ignore invalid tokens - just use undefined
+        }
+      }
+      
       // Use the ListWorkflowExecutions method from service client
       const listResponse = await service.listWorkflowExecutions({
         namespace: temporalConfig.namespace,
-        pageSize: Number(pageSize),
-        nextPageToken: nextPageToken ? Buffer.from(nextPageToken, 'base64') : undefined,
+        pageSize: Number(pageSize) || 20,
+        nextPageToken: tokenBuffer,
         query: transformedQuery || undefined,
       });
 
@@ -266,10 +291,23 @@ export async function POST(request: NextRequest) {
         return convertTemporalWorkflow(clientWorkflow);
       });
 
+      // Safely convert the next page token to a string
+      let nextPageTokenString = '';
+      if (listResponse.nextPageToken && listResponse.nextPageToken.length > 0) {
+        try {
+          // Convert the Buffer to a Base64 string
+          nextPageTokenString = Buffer.from(listResponse.nextPageToken).toString('base64');
+          console.log("Generated next page token:", nextPageTokenString.substring(0, 20) + "...");
+        } catch (err) {
+          console.error("Error encoding next page token:", err);
+          // Just return empty string if encoding fails
+        }
+      }
+      
       // Build and return response
       return NextResponse.json({
         workflowExecutions: mappedWorkflows,
-        nextPageToken: listResponse.nextPageToken?.toString() || '',
+        nextPageToken: nextPageTokenString,
       }, { status: 200 });
       
     } catch (temporalError) {
