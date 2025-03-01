@@ -120,6 +120,9 @@ export default function WorkflowSearchPage() {
   }, []);
   
   const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
+  const [showAllSearchesPopup, setShowAllSearchesPopup] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [allSearches, setAllSearches] = useState<string[]>([]);
   const [popup, setPopup] = useState<{
     show: boolean;
     title: string;
@@ -277,6 +280,55 @@ export default function WorkflowSearchPage() {
     }
   };
 
+  // Function to format query for display
+  const formatQueryForDisplay = (query: string) => {
+    if (query.length <= 25) return query;
+    return `${query.substring(0, 10)}...${query.substring(query.length - 10)}`;
+  };
+
+  // Load recent searches from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedSearches = localStorage.getItem('allSearches');
+      if (savedSearches) {
+        try {
+          const searches = JSON.parse(savedSearches);
+          setAllSearches(searches);
+          setRecentSearches(searches.slice(0, 5)); // Show only 5 most recent
+        } catch (e) {
+          console.error('Error parsing saved searches:', e);
+        }
+      }
+    }
+  }, []);
+
+  // Save recent searches to localStorage
+  const saveRecentSearch = (searchQuery: string) => {
+    if (!searchQuery) return;
+    
+    // Update all searches
+    setAllSearches(prevSearches => {
+      // Remove duplicate if exists and add to beginning
+      const filteredSearches = prevSearches.filter(s => s !== searchQuery);
+      const newSearches = [searchQuery, ...filteredSearches].slice(0, 100); // Keep up to 100 searches
+      
+      // Save all searches to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('allSearches', JSON.stringify(newSearches));
+      }
+      
+      // Update recent searches (top 5)
+      setRecentSearches(newSearches.slice(0, 5));
+      
+      return newSearches;
+    });
+  };
+  
+  // Open popup to show all searches
+  const showAllSearches = () => {
+    setShowAllSearchesPopup(true);
+  };
+
   // Function to fetch workflows
   const fetchWorkflows = async (searchQuery: string = '') => {
     try {
@@ -285,6 +337,11 @@ export default function WorkflowSearchPage() {
       
       // Update URL with the current search query for shareability
       updateUrlWithQuery(searchQuery);
+      
+      // Save to recent searches
+      if (searchQuery) {
+        saveRecentSearch(searchQuery);
+      }
       
       const response = await fetch('/api/v1/workflow/search', {
         method: 'POST',
@@ -916,24 +973,57 @@ export default function WorkflowSearchPage() {
         </div>
       </div>
       
-      <div className="flex mb-4" style={{ display: 'flex' }}>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter search query"
-          className="flex-grow border rounded-l px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          style={{ flexGrow: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-        />
-        <button
-          onClick={handleSearch}
-          disabled={loading}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-r focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
-        >
-          {loading ? 'Searching...' : 'Search'}
-        </button>
+      <div className="mb-4">
+        <div className="flex" style={{ display: 'flex' }}>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Enter search query"
+            className="flex-grow border rounded-l px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            style={{ flexGrow: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+          />
+          <button
+            onClick={handleSearch}
+            disabled={loading}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-r focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+          >
+            {loading ? 'Searching...' : 'Search'}
+          </button>
+        </div>
+        
+        {recentSearches.length > 0 && (
+          <div className="mt-2">
+            <div className="flex justify-between items-center mb-1">
+              <div className="text-sm text-gray-500">Recent:</div>
+              {allSearches.length > 5 && (
+                <button 
+                  onClick={showAllSearches}
+                  className="text-xs text-blue-600 font-medium hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1"
+                >
+                  Show all ({allSearches.length})
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {recentSearches.map((recentQuery, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setQuery(recentQuery);
+                    fetchWorkflows(recentQuery);
+                  }}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1 px-2 rounded"
+                  title={recentQuery}
+                >
+                  {formatQueryForDisplay(recentQuery)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       
       {error && (
@@ -1041,6 +1131,111 @@ export default function WorkflowSearchPage() {
       
       {/* Popup for timezone selection */}
       {showTimezoneSelector && <TimezoneSelector />}
+      
+      {/* Popup for all searches */}
+      {showAllSearchesPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl" style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', width: '100%', maxWidth: '42rem' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Search History</h3>
+              <button 
+                onClick={() => setShowAllSearchesPopup(false)}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Filter history..."
+                className="w-full border rounded px-3 py-2 text-sm"
+                onChange={(e) => {
+                  const filter = e.target.value.toLowerCase();
+                  if (filter) {
+                    const filtered = allSearches.filter(s => 
+                      s.toLowerCase().includes(filter)
+                    );
+                    setRecentSearches(filtered.slice(0, 5));
+                  } else {
+                    setRecentSearches(allSearches.slice(0, 5));
+                  }
+                }}
+              />
+            </div>
+            
+            <div className="max-h-96 overflow-y-auto" style={{ maxHeight: '24rem', overflowY: 'auto' }}>
+              {allSearches.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2">
+                  {allSearches.map((searchQuery, index) => (
+                    <div 
+                      key={index}
+                      className="flex justify-between items-center p-2 hover:bg-gray-50 rounded border-b"
+                    >
+                      <span className="text-sm truncate" style={{ maxWidth: 'calc(100% - 8rem)' }}>
+                        {searchQuery}
+                      </span>
+                      <div>
+                        <button
+                          onClick={() => {
+                            setQuery(searchQuery);
+                            fetchWorkflows(searchQuery);
+                            setShowAllSearchesPopup(false);
+                          }}
+                          className="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs py-1 px-2 rounded mr-2"
+                        >
+                          Search
+                        </button>
+                        <button
+                          onClick={() => {
+                            const newSearches = allSearches.filter(s => s !== searchQuery);
+                            setAllSearches(newSearches);
+                            setRecentSearches(newSearches.slice(0, 5));
+                            if (typeof window !== 'undefined') {
+                              localStorage.setItem('allSearches', JSON.stringify(newSearches));
+                            }
+                          }}
+                          className="text-gray-500 hover:text-red-600 bg-gray-100 hover:bg-red-50 text-xs py-1 px-2 rounded"
+                          title="Delete from history"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No search history found.
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-between mt-4">
+              <button
+                onClick={() => {
+                  setAllSearches([]);
+                  setRecentSearches([]);
+                  if (typeof window !== 'undefined') {
+                    localStorage.removeItem('allSearches');
+                  }
+                }}
+                className="bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 font-medium text-sm py-1 px-3 rounded-md"
+              >
+                Clear History
+              </button>
+              
+              <button
+                onClick={() => setShowAllSearchesPopup(false)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-md text-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
