@@ -194,12 +194,35 @@ export async function POST(request: NextRequest) {
       // Get the service client to access more advanced APIs
       const service = client.workflowService
       
+      // Transform query if it contains WorkflowType search to replace with IwfWorkflowType search
+      let transformedQuery = query;
+      
+      // Special case: If query contains WorkflowType="X", replace with IwfWorkflowType="X"
+      if (query && query.includes('WorkflowType=')) {
+        // Match patterns like WorkflowType="value" or WorkflowType='value'
+        const matches = query.match(/WorkflowType\s*=\s*['"]([^'"]+)['"]/);
+        if (matches && matches[1]) {
+          const workflowTypeValue = matches[1];
+          // Replace WorkflowType with IwfWorkflowType - the direct replacement using the whole match
+          transformedQuery = query.replace(/WorkflowType\s*=\s*['"][^'"]+['"]/, `IwfWorkflowType='${workflowTypeValue}'`);
+          console.log(`Replaced query: Original [${query}] → Transformed [${transformedQuery}]`);
+        }
+      }
+      
+      // Also handle simple queries without explicit field
+      // If the query doesn't have any operators like = or AND/OR, assume it's a type search
+      else if (query && !query.includes('=') && !query.includes(' AND ') && !query.includes(' OR ')) {
+        // It's a simple search term - use IwfWorkflowType directly
+        transformedQuery = `IwfWorkflowType='${query}'`;
+        console.log(`Enhanced simple query: Original [${query}] → Transformed [${transformedQuery}]`);
+      }
+      
       // Use the ListWorkflowExecutions method from service client
       const listResponse = await service.listWorkflowExecutions({
         namespace: temporalConfig.namespace,
         pageSize: Number(pageSize),
         nextPageToken: nextPageToken ? Buffer.from(nextPageToken, 'base64') : undefined,
-        query: query || undefined,
+        query: transformedQuery || undefined,
       });
 
       // Convert the Temporal workflows to our API format
