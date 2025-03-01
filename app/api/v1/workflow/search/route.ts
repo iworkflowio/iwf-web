@@ -11,7 +11,6 @@ const temporalConfig = {
 
 // Mapping Temporal workflow status to our API status
 const mapTemporalStatus = (status: string): WorkflowStatus => {
-  
   // Normalize the status by converting to uppercase and removing any prefixes
   const normalizedStatus = (status || '').toString().toUpperCase().trim();
   
@@ -33,7 +32,7 @@ const mapTemporalStatus = (status: string): WorkflowStatus => {
       return 'CONTINUED_AS_NEW';
     case 'TIMED_OUT':
       return 'TIMEOUT';
-    case '1': // Sometimes Temporal returns numeric status codes TODO: why?
+    case '1': // Sometimes Temporal returns numeric status codes
       return 'RUNNING';
     case '2':
       return 'COMPLETED';
@@ -48,7 +47,7 @@ const mapTemporalStatus = (status: string): WorkflowStatus => {
     case '7':
       return 'TIMEOUT';
     default:
-        throw new Error(`Unknown status value: ${status} normalized to ${statusWithoutPrefix}`)
+      throw new Error(`Unknown workflow status: ${status} (normalized: ${statusWithoutPrefix})`);
   }
 };
 
@@ -95,6 +94,16 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
   let iwfWorkflowType = '';
   if (workflow.searchAttributes && workflow.searchAttributes['IwfWorkflowType']) {
     iwfWorkflowType = extractStringValue(workflow.searchAttributes['IwfWorkflowType']);
+  }
+  
+  // Get the workflow type name from Temporal
+  let temporalWorkflowType = '';
+  if (workflow.workflowType) {
+    if (typeof workflow.workflowType === 'string') {
+      temporalWorkflowType = workflow.workflowType;
+    } else if (typeof workflow.workflowType === 'object' && workflow.workflowType !== null) {
+      temporalWorkflowType = workflow.workflowType.name || 'Unknown Type';
+    }
   }
   
   // Extract search attributes from Temporal workflow
@@ -152,8 +161,9 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
   return {
     workflowId: workflow.workflowId,
     workflowRunId: workflow.runId,
-    // Prefer the IwfWorkflowType from search attributes if available, otherwise fall back to N/A
-    workflowType: iwfWorkflowType || "N/A",
+    // Prefer the IwfWorkflowType from search attributes if available, 
+    // otherwise fall back to Temporal's type, or "N/A" if both are empty
+    workflowType: iwfWorkflowType || temporalWorkflowType || 'N/A',
     workflowStatus: mapTemporalStatus(workflow.status.name),
     historySizeInBytes: workflow.historySize || 0,
     historyLength: workflow.historyLength || 0,
@@ -162,124 +172,6 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
     taskQueue: workflow.taskQueue,
     customSearchAttributes: searchAttributes,
   };
-};
-
-// Mock data for fallback when Temporal connection fails
-const mockWorkflowExecutions = [
-  {
-    workflowId: "workflow-1",
-    workflowRunId: "run-1",
-    workflowType: "ProcessOrder",
-    workflowStatus: "RUNNING",
-    historySizeInBytes: 1024,
-    historyLength: 10,
-    startTime: Date.now() - 3600000, // 1 hour ago
-    closeTime: 0, // Not closed yet
-    taskQueue: "default",
-    customSearchAttributes: [
-      {
-        key: "customer_id",
-        stringValue: "cust-123",
-        valueType: "KEYWORD"
-      },
-      {
-        key: "priority",
-        integerValue: 1,
-        valueType: "INT"
-      },
-      {
-        key: "is_premium",
-        boolValue: true,
-        valueType: "BOOL"
-      }
-    ]
-  },
-  {
-    workflowId: "workflow-2",
-    workflowRunId: "run-2",
-    workflowType: "ProcessPayment",
-    workflowStatus: "COMPLETED",
-    historySizeInBytes: 2048,
-    historyLength: 15,
-    startTime: Date.now() - 7200000, // 2 hours ago
-    closeTime: Date.now() - 3600000, // 1 hour ago
-    taskQueue: "payment",
-    customSearchAttributes: [
-      {
-        key: "payment_id",
-        stringValue: "pay-456",
-        valueType: "KEYWORD"
-      },
-      {
-        key: "amount",
-        doubleValue: 99.99,
-        valueType: "DOUBLE"
-      }
-    ]
-  },
-  {
-    workflowId: "workflow-3",
-    workflowRunId: "run-3",
-    workflowType: "ShipOrder",
-    workflowStatus: "FAILED",
-    historySizeInBytes: 512,
-    historyLength: 5,
-    startTime: Date.now() - 10800000, // 3 hours ago
-    closeTime: Date.now() - 9000000, // 2.5 hours ago
-    taskQueue: "shipping",
-    customSearchAttributes: [
-      {
-        key: "order_id",
-        stringValue: "ord-789",
-        valueType: "KEYWORD"
-      },
-      {
-        key: "shipping_dates",
-        stringArrayValue: ["2025-02-20", "2025-02-25"],
-        valueType: "KEYWORD_ARRAY"
-      }
-    ]
-  }
-];
-
-// Filter mock data based on the query
-const filterMockWorkflows = (query: string) => {
-  if (!query) {
-    return mockWorkflowExecutions;
-  }
-  
-  const queryLower = query.toLowerCase();
-  
-  return mockWorkflowExecutions.filter(workflow => {
-    // Search in workflowId, workflowType, or workflowStatus
-    if (
-      workflow.workflowId.toLowerCase().includes(queryLower) ||
-      (workflow.workflowType && workflow.workflowType.toLowerCase().includes(queryLower)) ||
-      (workflow.workflowStatus && workflow.workflowStatus.toLowerCase().includes(queryLower)) ||
-      (workflow.taskQueue && workflow.taskQueue.toLowerCase().includes(queryLower))
-    ) {
-      return true;
-    }
-    
-    // Search in custom search attributes
-    if (workflow.customSearchAttributes && workflow.customSearchAttributes.some(attr => {
-      if (attr.key && attr.key.toLowerCase().includes(queryLower)) return true;
-      if (attr.stringValue && attr.stringValue.toLowerCase().includes(queryLower)) return true;
-      if (attr.stringArrayValue && attr.stringArrayValue.some(val => val.toLowerCase().includes(queryLower))) return true;
-      if (attr.valueType && attr.valueType.toLowerCase().includes(queryLower)) return true;
-      
-      // Convert numeric and boolean values to string for searching
-      if (attr.integerValue !== undefined && attr.integerValue.toString().includes(queryLower)) return true;
-      if (attr.doubleValue !== undefined && attr.doubleValue.toString().includes(queryLower)) return true;
-      if (attr.boolValue !== undefined && attr.boolValue.toString().toLowerCase().includes(queryLower)) return true;
-      
-      return false;
-    })) {
-      return true;
-    }
-    
-    return false;
-  });
 };
 
 export async function POST(request: NextRequest) {
@@ -379,16 +271,19 @@ export async function POST(request: NextRequest) {
       }, { status: 200 });
       
     } catch (temporalError) {
-      // If Temporal connection fails, fall back to mock data
-      console.warn('Failed to connect to Temporal, using mock data:', temporalError);
+      // Propagate Temporal errors to the frontend
+      console.error('Temporal API error:', temporalError);
       
-      const filteredWorkflows = filterMockWorkflows(query);
+      // Create a user-friendly error message
+      const errorMessage = temporalError instanceof Error 
+        ? temporalError.message 
+        : "Unknown Temporal error occurred";
       
       return NextResponse.json({
-        workflowExecutions: filteredWorkflows,
-        nextPageToken: '',
-        _mockData: true, // Flag to indicate mock data is being used
-      }, { status: 200 });
+        detail: "Error processing Temporal request",
+        error: errorMessage,
+        errorType: "TEMPORAL_API_ERROR"
+      }, { status: 400 });
     }
   } catch (error) {
     console.error("Error processing workflow search request:", error);

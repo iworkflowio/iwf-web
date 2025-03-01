@@ -274,15 +274,22 @@ export default function WorkflowSearchPage() {
         body: JSON.stringify({ query: searchQuery }),
       });
       
+      const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        // Handle API error from Temporal or other backend errors
+        let errorMessage = data.detail || 'Error processing request';
+        if (data.error) {
+          errorMessage += `: ${data.error}`;
+        }
+        throw new Error(errorMessage);
       }
       
-      const data: WorkflowSearchResponse = await response.json();
       setResults(data.workflowExecutions || []);
     } catch (err) {
       console.error('Search error:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setResults([]); // Clear results on error
     } finally {
       setLoading(false);
     }
@@ -911,7 +918,13 @@ export default function WorkflowSearchPage() {
       
       {error && (
         <div className="alert alert-error bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert">
-          <p>{error}</p>
+          <div className="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <p className="font-medium">Error</p>
+          </div>
+          <p className="mt-2">{error}</p>
         </div>
       )}
       
