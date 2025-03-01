@@ -2,7 +2,7 @@
 
 ## Overview
 
-iWF Web is a web-based user interface for [iWF (Indeed Workflow Framework)](https://github.com/indeedeng/iwf), an open-source framework that simplifies building highly reliable applications with Temporal. This UI allows users to search, view, and monitor workflow executions from the iWF API.
+iWF Web is a web-based user interface for [iWF (Indeed Workflow Framework)](https://github.com/indeedeng/iwf), an open-source framework that simplifies building highly reliable applications with Temporal. This UI allows users to search, view, and monitor workflow executions by connecting directly to a Temporal server.
 
 ## About iWF
 
@@ -13,7 +13,7 @@ iWF Web is a web-based user interface for [iWF (Indeed Workflow Framework)](http
 - **Flexibility**: Support for various programming models and custom extensions.
 - **Reliability**: Leverages Temporal's durability and fault-tolerance capabilities.
 
-The iWF Web UI connects to the iWF API to provide a user-friendly interface for searching, viewing, and monitoring workflow executions.
+While iWF Web serves as a companion UI to the iWF framework, it connects directly to a Temporal server to search and display workflow executions.
 
 ## Features
 
@@ -29,13 +29,13 @@ The iWF Web UI connects to the iWF API to provide a user-friendly interface for 
 
 - Node.js (v16 or later)
 - npm or yarn
-- [iWF API](https://github.com/indeedeng/iwf) server (for production use)
+- Access to a Temporal server
 
 ## Project Structure
 
 - `/app` - Frontend React application (Next.js)
   - `/app/page.tsx` - Main application component
-  - `/app/api/v1/workflow/search` - Mock API endpoint for workflow search
+  - `/app/api/v1/workflow/search` - API endpoint for workflow search
 - `/api-schema` - API schema definitions
 - `/ts-api` - TypeScript API client generated from OpenAPI specs
 
@@ -86,50 +86,69 @@ npm start
 
 ## Configuration
 
-By default, the application uses a mock API endpoint for demonstration purposes. To connect to a real iWF API instance, you'll need to modify the API endpoint configuration in `/app/page.tsx`. Look for the `fetchWorkflows` function and update the API URL.
+The application is designed to connect directly to a Temporal server. By default, it will attempt to connect to a Temporal server at `localhost:7233` with the `default` namespace. If the connection fails, it falls back to using mock data.
 
-```typescript
-// Find this section in page.tsx
-const fetchWorkflows = async (searchQuery: string = '') => {
-  try {
-    setLoading(true);
-    setError('');
-    
-    // Replace this URL with your iWF API endpoint
-    const response = await fetch('/api/v1/workflow/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query: searchQuery }),
-    });
-    
-    // ...rest of the function
-  }
-};
-```
+You can configure the Temporal connection by:
 
-## Connecting to iWF
-
-This UI is designed to work with [iWF (Indeed Workflow Framework)](https://github.com/indeedeng/iwf).
-
-To connect this UI to your iWF instance:
-
-1. Ensure your iWF API server is running
-2. Update the API endpoint in the application configuration as described above
-3. Make sure your iWF server has CORS configured correctly to accept requests from the UI's domain
-
-### Setting up iWF
-
-If you don't have an iWF server running yet, follow these steps:
-
-1. Set up a Temporal server (follow instructions at [Temporal documentation](https://docs.temporal.io/))
-2. Clone the iWF repository:
+1. Creating or editing `.env.local` in the project root:
    ```
-   git clone https://github.com/indeedeng/iwf.git
+   # Temporal Configuration
+   TEMPORAL_HOST_PORT=localhost:7233
+   TEMPORAL_NAMESPACE=default
    ```
-3. Follow the setup instructions in the iWF repository's README to get the server running
-4. Connect this web UI to your iWF instance using the configuration instructions above
+
+2. Or by modifying the configuration directly in `/app/api/v1/workflow/search/route.ts`:
+   ```typescript
+   // Configuration for Temporal connection
+   const temporalConfig = {
+     // Default connection parameters, can be overridden with environment variables
+     hostPort: process.env.TEMPORAL_HOST_PORT || 'localhost:7233',
+     namespace: process.env.TEMPORAL_NAMESPACE || 'default',
+   };
+   ```
+
+## Connecting to Temporal
+
+This UI is designed to connect directly to a Temporal server to search and display workflow executions.
+
+To connect to your Temporal instance:
+
+1. Ensure your Temporal server is running
+2. Update the Temporal connection parameters in `.env.local` or directly in the code
+3. Restart the application to apply the changes
+
+### Setting up Temporal Server
+
+If you don't have a Temporal server running yet, follow these steps:
+
+1. Set up a Temporal server using the official Docker Compose setup:
+   ```
+   git clone https://github.com/temporalio/docker-compose.git
+   cd docker-compose
+   docker-compose up
+   ```
+
+2. Or install the Temporal CLI and run a local server:
+   ```
+   # Install Temporal CLI
+   curl -sSf https://temporal.download/cli.sh | sh
+   
+   # Start a local server
+   temporal server start-dev
+   ```
+
+3. Once your Temporal server is running, update the connection parameters in this application if needed
+4. Start the application to begin querying workflow executions from your Temporal server
+
+### Using with iWF
+
+This UI is optimized for workflows created using [iWF (Indeed Workflow Framework)](https://github.com/indeedeng/iwf). It specifically looks for the `IwfWorkflowType` search attribute that iWF automatically adds to workflows.
+
+When displaying workflow executions:
+1. For iWF workflows, it uses the `IwfWorkflowType` search attribute value to display the workflow type
+2. For non-iWF workflows, it falls back to using Temporal's native workflow type
+
+The search functionality also includes the `IwfWorkflowType` attribute in queries, making it easier to find workflows by their iWF workflow type name.
 
 ## Development Tasks
 
@@ -139,7 +158,7 @@ The UI is built with React and uses Tailwind CSS for styling. You can customize 
 
 ### Updating API Definitions
 
-If the iWF API changes, you'll need to update the API schema and regenerate the TypeScript client:
+If you need to update the API schema:
 
 1. Update the API schema in `/api-schema/api.yaml`
 2. Run `make gen` to regenerate the TypeScript client
