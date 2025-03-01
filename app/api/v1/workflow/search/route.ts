@@ -96,15 +96,7 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
     iwfWorkflowType = extractStringValue(workflow.searchAttributes['IwfWorkflowType']);
   }
   
-  // Get the workflow type name from Temporal
-  let temporalWorkflowType = '';
-  if (workflow.workflowType) {
-    if (typeof workflow.workflowType === 'string') {
-      temporalWorkflowType = workflow.workflowType;
-    } else if (typeof workflow.workflowType === 'object' && workflow.workflowType !== null) {
-      temporalWorkflowType = workflow.workflowType.name || 'Unknown Type';
-    }
-  }
+  // We don't use Temporal's workflow type, only iWF's
   
   // Extract search attributes from Temporal workflow
   const searchAttributes = Object.entries(workflow.searchAttributes || {})
@@ -161,9 +153,8 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
   return {
     workflowId: workflow.workflowId,
     workflowRunId: workflow.runId,
-    // Prefer the IwfWorkflowType from search attributes if available, 
-    // otherwise fall back to Temporal's type, or "N/A" if both are empty
-    workflowType: iwfWorkflowType || temporalWorkflowType || 'N/A',
+    // Only use IwfWorkflowType from search attributes, fallback to "N/A" if empty
+    workflowType: iwfWorkflowType || 'N/A',
     workflowStatus: mapTemporalStatus(workflow.status.name),
     historySizeInBytes: workflow.historySize || 0,
     historyLength: workflow.historyLength || 0,
@@ -207,14 +198,6 @@ export async function POST(request: NextRequest) {
           transformedQuery = query.replace(/WorkflowType\s*=\s*['"][^'"]+['"]/, `IwfWorkflowType='${workflowTypeValue}'`);
           console.log(`Replaced query: Original [${query}] → Transformed [${transformedQuery}]`);
         }
-      }
-      
-      // Also handle simple queries without explicit field
-      // If the query doesn't have any operators like = or AND/OR, assume it's a type search
-      else if (query && !query.includes('=') && !query.includes(' AND ') && !query.includes(' OR ')) {
-        // It's a simple search term - use IwfWorkflowType directly
-        transformedQuery = `IwfWorkflowType='${query}'`;
-        console.log(`Enhanced simple query: Original [${query}] → Transformed [${transformedQuery}]`);
       }
       
       // Use the ListWorkflowExecutions method from service client

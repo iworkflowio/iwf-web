@@ -107,46 +107,40 @@ You can configure the Temporal connection by:
    };
    ```
 
-## Connecting to Temporal
+## Connecting to iWF-Temporal
 
-This UI is designed to connect directly to a Temporal server to search and display workflow executions.
+This UI is specifically designed for iWF workflows running on Temporal. It connects to the Temporal server used by iWF to search and display workflow executions.
 
-To connect to your Temporal instance:
+To connect to your iWF-Temporal instance:
 
-1. Ensure your Temporal server is running
+1. Ensure your iWF server with Temporal is running
 2. Update the Temporal connection parameters in `.env.local` or directly in the code
 3. Restart the application to apply the changes
 
-### Setting up Temporal Server
+### Setting up iWF with Temporal
 
-If you don't have a Temporal server running yet, follow these steps:
+If you don't have an iWF server with Temporal running yet, follow these steps:
 
-1. Set up a Temporal server using the official Docker Compose setup:
+1. Set up iWF and Temporal using the all-in-one Docker image by following the instructions in the [iWF documentation](https://github.com/indeedeng/iwf?tab=readme-ov-file#using-all-in-one-docker-image):
    ```
-   git clone https://github.com/temporalio/docker-compose.git
-   cd docker-compose
-   docker-compose up
+   docker run -p 8801:8801 -p 7233:7233 -p 8233:8233 indeedeng/iwf-all-in-one:latest
    ```
 
-2. Or install the Temporal CLI and run a local server:
-   ```
-   # Install Temporal CLI
-   curl -sSf https://temporal.download/cli.sh | sh
-   
-   # Start a local server
-   temporal server start-dev
-   ```
+2. This will start:
+   - An iWF server on port 8801
+   - The Temporal frontend service on port 7233
+   - The Temporal web UI on port 8233
 
-3. Once your Temporal server is running, update the connection parameters in this application if needed
-4. Start the application to begin querying workflow executions from your Temporal server
+3. Configure this application to connect to your Temporal server (default: localhost:7233)
+4. Start the application to begin querying your iWF workflow executions
 
-### Using with iWF
+### Working with iWF Workflows
 
 This UI is optimized for workflows created using [iWF (Indeed Workflow Framework)](https://github.com/indeedeng/iwf). It specifically looks for the `IwfWorkflowType` search attribute that iWF automatically adds to workflows.
 
 When displaying workflow executions:
-1. For iWF workflows, it uses the `IwfWorkflowType` search attribute value to display the workflow type
-2. For non-iWF workflows, it falls back to using Temporal's native workflow type
+- It uses the `IwfWorkflowType` search attribute value to display the workflow type
+- If the search attribute is not present, it will display "N/A" as the workflow type
 
 The search functionality also includes the `IwfWorkflowType` attribute in queries, making it easier to find workflows by their iWF workflow type name.
 
