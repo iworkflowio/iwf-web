@@ -163,9 +163,9 @@ export default function WorkflowSearchPage() {
   // Define base column definitions without time-dependent accessors
   const baseColumns: Omit<ColumnDef, 'accessor'>[] = [
     { id: 'workflowStatus', label: 'Status', visible: true },
+    { id: 'workflowType', label: 'Type', visible: true },
     { id: 'workflowId', label: 'Workflow ID', visible: true },
     { id: 'workflowRunId', label: 'Run ID', visible: true },
-    { id: 'workflowType', label: 'Type', visible: true },
     { id: 'startTime', label: 'Start Time', visible: true },
     { id: 'closeTime', label: 'Close Time', visible: true },
     { id: 'taskQueue', label: 'Task Queue', visible: false },

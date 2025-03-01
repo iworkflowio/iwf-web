@@ -89,8 +89,15 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
   // Extract search attributes from Temporal workflow
   const searchAttributes = Object.entries(workflow.searchAttributes || {})
     .filter(([key]) => {
-      // Filter out Temporal system attributes and IwfWorkflowType (since we use it separately)
-      return !['TemporalScheduledStartTime', 'TemporalScheduledById', 'IwfWorkflowType'].includes(key);
+      // Filter out Temporal system attributes, IwfWorkflowType (since we use it separately),
+      // and specified hidden attributes
+      return ![
+        'TemporalScheduledStartTime',
+        'TemporalScheduledById', 
+        'IwfWorkflowType',
+        'TemporalChangeVersion',
+        'BuildIds'
+      ].includes(key);
     })
     .map(([key, value]) => {
       // Determine the type of value and create appropriate search attribute
