@@ -497,7 +497,47 @@ export default function WorkflowSearchPage() {
       return value; // Value is already in the correct format from the datepicker
     }
     
-    // For string fields, add quotes if not already present
+    // Handle search attribute columns
+    if (columnId.startsWith('attr_')) {
+      const attributeName = columnId.substring(5);
+      
+      // Try to find an example of this attribute to determine its type
+      const exampleAttr = results.flatMap(w => w.customSearchAttributes || [])
+                        .find(a => a.key === attributeName);
+      
+      if (exampleAttr) {
+        // Format based on value type
+        switch(exampleAttr.valueType) {
+          case 'INT':
+            // For numeric types, don't add quotes
+            return value.replace(/"/g, '');
+          case 'DOUBLE':
+            // For numeric types, don't add quotes
+            return value.replace(/"/g, '');
+          case 'BOOL':
+            // For boolean values, don't add quotes and ensure lowercase
+            return value.toLowerCase().replace(/"/g, '');
+          case 'DATETIME':
+            // Keep datetime formatting as is (already handles in the UI)
+            return value;
+          case 'KEYWORD_ARRAY':
+            // Array values need special formatting, but just use quotes for now
+            // If not already quoted
+            if (!value.startsWith('"') && !value.endsWith('"')) {
+              return `"${value}"`;
+            }
+            return value;
+          default:
+            // Default to quoted string for TEXT, KEYWORD, etc.
+            if (!value.startsWith('"') && !value.endsWith('"')) {
+              return `"${value}"`;
+            }
+            return value;
+        }
+      }
+    }
+    
+    // For regular string fields, add quotes if not already present
     if (!value.startsWith('"') && !value.endsWith('"')) {
       return `"${value}"`;
     }
@@ -1050,15 +1090,43 @@ export default function WorkflowSearchPage() {
   
   // Define operators based on column type
   const getOperatorsForColumn = (columnId: string): string[] => {
+    // Time-based columns support all comparison operators
     if (columnId === 'startTime' || columnId === 'closeTime') {
       return ['=', '!=', '>', '<', '>=', '<='];
     }
+    
+    // For custom search attribute columns, determine operators based on the attribute type
+    if (columnId.startsWith('attr_')) {
+      const attributeName = columnId.substring(5);
+      
+      // Find an example of this attribute to determine its type
+      const exampleAttr = results.flatMap(w => w.customSearchAttributes || [])
+                          .find(a => a.key === attributeName);
+      
+      if (exampleAttr) {
+        // Based on attribute type, provide appropriate operators
+        switch(exampleAttr.valueType) {
+          case 'INT':
+          case 'DOUBLE':
+          case 'DATETIME':
+            return ['=', '!=', '>', '<', '>=', '<='];
+          case 'BOOL':
+            return ['=', '!='];
+          case 'KEYWORD_ARRAY':
+            return ['=', '!='];
+          default:
+            return ['=', '!='];
+        }
+      }
+    }
+    
+    // Default to equality operators for string fields
     return ['=', '!='];
   };
   
   // Open filter popup for a column
   const openFilterForColumn = (columnId: string) => {
-    // Don't allow filtering on search attributes column
+    // Don't allow filtering on search attributes collection column
     if (columnId === 'customSearchAttributes') {
       return;
     }
@@ -1099,33 +1167,44 @@ export default function WorkflowSearchPage() {
     
     // Map the column to appropriate search field
     let queryField: string;
-    switch (activeFilterColumn) {
-      case 'workflowStatus':
-        queryField = 'ExecutionStatus';
-        break;
-      case 'workflowType':
-        queryField = 'WorkflowType';
-        break;
-      case 'workflowId':
-        queryField = 'WorkflowId';
-        break;
-      case 'workflowRunId':
-        queryField = 'RunId';
-        break;
-      case 'startTime':
-        queryField = 'StartTime';
-        break;
-      case 'closeTime':
-        queryField = 'CloseTime';
-        break;
-      case 'taskQueue':
-        queryField = 'TaskQueue';
-        break;
-      default:
-        queryField = '';
+    
+    // Handle custom attribute columns (those starting with 'attr_')
+    if (activeFilterColumn.startsWith('attr_')) {
+      // Extract the attribute name from the column ID (remove 'attr_' prefix)
+      const attributeName = activeFilterColumn.substring(5);
+      // Use just the attribute name without "SearchAttributes." prefix
+      queryField = attributeName;
+    } else {
+      // Handle standard columns
+      switch (activeFilterColumn) {
+        case 'workflowStatus':
+          queryField = 'ExecutionStatus';
+          break;
+        case 'workflowType':
+          queryField = 'WorkflowType';
+          break;
+        case 'workflowId':
+          queryField = 'WorkflowId';
+          break;
+        case 'workflowRunId':
+          queryField = 'RunId';
+          break;
+        case 'startTime':
+          queryField = 'StartTime';
+          break;
+        case 'closeTime':
+          queryField = 'CloseTime';
+          break;
+        case 'taskQueue':
+          queryField = 'TaskQueue';
+          break;
+        default:
+          queryField = '';
+      }
     }
     
     if (!queryField) {
+      console.error('Failed to map column to query field:', activeFilterColumn);
       setShowFilterPopup(false);
       return;
     }
