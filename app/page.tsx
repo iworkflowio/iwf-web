@@ -549,8 +549,58 @@ export default function WorkflowSearchPage() {
     fetchWorkflows(initialQuery);
   }, []);
 
+  // Sync applied filters with the current query before searching
   const handleSearch = () => {
+    // Before searching, parse the current query to update applied filters
+    syncFiltersWithQuery(query);
+    
+    // Then execute the search
     fetchWorkflows(query);
+  };
+  
+  // Parse the query to update applied filters state
+  const syncFiltersWithQuery = (currentQuery: string) => {
+    // Start with empty filters
+    const updatedFilters: Record<string, {value: string, operator: string}> = {};
+    
+    // If there's no query, just clear all filters
+    if (!currentQuery.trim()) {
+      setAppliedFilters({});
+      return;
+    }
+    
+    // Map field names to column IDs
+    const fieldToColumnMap: Record<string, string> = {
+      'ExecutionStatus': 'workflowStatus',
+      'WorkflowType': 'workflowType',
+      'WorkflowId': 'workflowId',
+      'RunId': 'workflowRunId',
+      'StartTime': 'startTime',
+      'CloseTime': 'closeTime',
+      'TaskQueue': 'taskQueue'
+    };
+    
+    // Define regular expressions for different filter patterns
+    // This handles: Field = "value", Field = 'value', Field != "value", etc.
+    const filterRegex = /(ExecutionStatus|WorkflowType|WorkflowId|RunId|StartTime|CloseTime|TaskQueue)\s*(=|!=|>|<|>=|<=)\s*['"](.*?)['"]|['"](.*?)['"]/g;
+    
+    let match;
+    while ((match = filterRegex.exec(currentQuery)) !== null) {
+      const field = match[1];
+      const operator = match[2] || '=';
+      const value = match[3] || match[4];
+      
+      if (field && value && fieldToColumnMap[field]) {
+        const columnId = fieldToColumnMap[field];
+        updatedFilters[columnId] = {
+          value,
+          operator
+        };
+      }
+    }
+    
+    // Update the applied filters state
+    setAppliedFilters(updatedFilters);
   };
 
   // Function to format timestamp with selected timezone
