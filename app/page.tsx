@@ -119,10 +119,18 @@ export default function WorkflowSearchPage() {
     }
   }, []);
   
+  // Interface for search query with optional name
+  interface SavedQuery {
+    query: string;
+    name?: string;
+    timestamp: number; // For sorting by recency
+  }
+
   const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
   const [showAllSearchesPopup, setShowAllSearchesPopup] = useState(false);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [allSearches, setAllSearches] = useState<string[]>([]);
+  const [editingQueryIndex, setEditingQueryIndex] = useState<number | null>(null);
+  const [recentSearches, setRecentSearches] = useState<SavedQuery[]>([]);
+  const [allSearches, setAllSearches] = useState<SavedQuery[]>([]);
   const [popup, setPopup] = useState<{
     show: boolean;
     title: string;
@@ -281,9 +289,29 @@ export default function WorkflowSearchPage() {
   };
 
   // Function to format query for display
-  const formatQueryForDisplay = (query: string) => {
+  const formatQueryForDisplay = (savedQuery: SavedQuery) => {
+    // If query has a name, show that instead
+    if (savedQuery.name) return savedQuery.name;
+    
+    // Otherwise format the query string
+    const query = savedQuery.query;
     if (query.length <= 25) return query;
     return `${query.substring(0, 10)}...${query.substring(query.length - 10)}`;
+  };
+
+  // Sort saved queries by priority (named first, then by recency)
+  const sortQueriesByPriority = (queries: SavedQuery[]): SavedQuery[] => {
+    return [...queries].sort((a, b) => {
+      // Named queries have higher priority
+      if (a.name && !b.name) return -1;
+      if (!a.name && b.name) return 1;
+      
+      // Among named queries, sort alphabetically
+      if (a.name && b.name) return a.name.localeCompare(b.name);
+      
+      // Among unnamed queries, sort by timestamp (most recent first)
+      return b.timestamp - a.timestamp;
+    });
   };
 
   // Load recent searches from localStorage
@@ -292,9 +320,19 @@ export default function WorkflowSearchPage() {
       const savedSearches = localStorage.getItem('allSearches');
       if (savedSearches) {
         try {
-          const searches = JSON.parse(savedSearches);
-          setAllSearches(searches);
-          setRecentSearches(searches.slice(0, 5)); // Show only 5 most recent
+          const searches: SavedQuery[] = JSON.parse(savedSearches);
+          // Ensure all saved queries have timestamp field (backward compatibility)
+          const validSearches = searches.map(s => {
+            if (typeof s === 'string') {
+              // Convert old format to new format
+              return { query: s, timestamp: Date.now() };
+            }
+            return { ...s, timestamp: s.timestamp || Date.now() };
+          });
+          
+          const sortedSearches = sortQueriesByPriority(validSearches);
+          setAllSearches(sortedSearches);
+          setRecentSearches(sortedSearches.slice(0, 5)); // Show only 5 highest priority
         } catch (e) {
           console.error('Error parsing saved searches:', e);
         }
@@ -308,19 +346,69 @@ export default function WorkflowSearchPage() {
     
     // Update all searches
     setAllSearches(prevSearches => {
-      // Remove duplicate if exists and add to beginning
-      const filteredSearches = prevSearches.filter(s => s !== searchQuery);
-      const newSearches = [searchQuery, ...filteredSearches].slice(0, 100); // Keep up to 100 searches
+      // Check if this query already exists
+      const existingIndex = prevSearches.findIndex(s => s.query === searchQuery);
+      let newSearches = [...prevSearches];
+      
+      if (existingIndex >= 0) {
+        // If it exists, update the timestamp and keep its name
+        const existing = newSearches[existingIndex];
+        newSearches.splice(existingIndex, 1);
+        newSearches.unshift({
+          ...existing,
+          query: searchQuery,
+          timestamp: Date.now()
+        });
+      } else {
+        // Add new query
+        newSearches.unshift({
+          query: searchQuery,
+          timestamp: Date.now()
+        });
+      }
+      
+      // Keep up to 100 searches, removing low priority ones first
+      if (newSearches.length > 100) {
+        // Sort by priority to decide which ones to remove
+        const sorted = sortQueriesByPriority(newSearches);
+        newSearches = sorted.slice(0, 100);
+      }
       
       // Save all searches to localStorage
       if (typeof window !== 'undefined') {
         localStorage.setItem('allSearches', JSON.stringify(newSearches));
       }
       
-      // Update recent searches (top 5)
-      setRecentSearches(newSearches.slice(0, 5));
+      // Update recent searches with the highest priority ones
+      const sortedSearches = sortQueriesByPriority(newSearches);
+      setRecentSearches(sortedSearches.slice(0, 5));
       
-      return newSearches;
+      return sortedSearches;
+    });
+  };
+  
+  // Update the name of a saved query
+  const updateQueryName = (index: number, name: string) => {
+    setAllSearches(prevSearches => {
+      const newSearches = [...prevSearches];
+      if (newSearches[index]) {
+        newSearches[index] = {
+          ...newSearches[index],
+          name: name.trim() || undefined // Remove empty names
+        };
+        
+        // Save to localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('allSearches', JSON.stringify(newSearches));
+        }
+        
+        // Update recent searches
+        const sortedSearches = sortQueriesByPriority(newSearches);
+        setRecentSearches(sortedSearches.slice(0, 5));
+        
+        return sortedSearches;
+      }
+      return prevSearches;
     });
   };
   
@@ -330,10 +418,21 @@ export default function WorkflowSearchPage() {
   };
 
   // Function to fetch workflows
-  const fetchWorkflows = async (searchQuery: string = '') => {
+  // Execute a search with either query string or SavedQuery
+  const fetchWorkflows = async (searchInput: string | SavedQuery = '') => {
     try {
       setLoading(true);
       setError('');
+      
+      // Extract the actual query string whether input is a string or SavedQuery
+      let searchQuery: string;
+      if (typeof searchInput === 'string') {
+        searchQuery = searchInput;
+      } else {
+        searchQuery = searchInput.query;
+        // Set the input field value to match the selected query
+        setQuery(searchInput.query);
+      }
       
       // Update URL with the current search query for shareability
       updateUrlWithQuery(searchQuery);
@@ -1008,17 +1107,19 @@ export default function WorkflowSearchPage() {
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {recentSearches.map((recentQuery, index) => (
+              {recentSearches.map((savedQuery, index) => (
                 <button
                   key={index}
                   onClick={() => {
-                    setQuery(recentQuery);
-                    fetchWorkflows(recentQuery);
+                    fetchWorkflows(savedQuery);
                   }}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1 px-2 rounded"
-                  title={recentQuery}
+                  className={`${savedQuery.name ? 'bg-blue-50 hover:bg-blue-100 text-blue-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} text-xs py-1 px-2 rounded flex items-center`}
+                  title={savedQuery.query}
                 >
-                  {formatQueryForDisplay(recentQuery)}
+                  {savedQuery.name && (
+                    <span className="mr-1 text-xs">📌</span>
+                  )}
+                  {formatQueryForDisplay(savedQuery)}
                 </button>
               ))}
             </div>
@@ -1139,7 +1240,10 @@ export default function WorkflowSearchPage() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold">Search History</h3>
               <button 
-                onClick={() => setShowAllSearchesPopup(false)}
+                onClick={() => {
+                  setShowAllSearchesPopup(false);
+                  setEditingQueryIndex(null);
+                }}
                 className="text-gray-500 hover:text-gray-700 focus:outline-none"
               >
                 ✕
@@ -1155,11 +1259,12 @@ export default function WorkflowSearchPage() {
                   const filter = e.target.value.toLowerCase();
                   if (filter) {
                     const filtered = allSearches.filter(s => 
-                      s.toLowerCase().includes(filter)
+                      s.query.toLowerCase().includes(filter) || 
+                      (s.name && s.name.toLowerCase().includes(filter))
                     );
                     setRecentSearches(filtered.slice(0, 5));
                   } else {
-                    setRecentSearches(allSearches.slice(0, 5));
+                    setRecentSearches(sortQueriesByPriority(allSearches).slice(0, 5));
                   }
                 }}
               />
@@ -1168,39 +1273,79 @@ export default function WorkflowSearchPage() {
             <div className="max-h-96 overflow-y-auto" style={{ maxHeight: '24rem', overflowY: 'auto' }}>
               {allSearches.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
-                  {allSearches.map((searchQuery, index) => (
+                  {allSearches.map((savedQuery, index) => (
                     <div 
                       key={index}
-                      className="flex justify-between items-center p-2 hover:bg-gray-50 rounded border-b"
+                      className={`flex justify-between items-center p-2 hover:bg-gray-50 rounded border-b ${savedQuery.name ? 'bg-blue-50' : ''}`}
                     >
-                      <span className="text-sm truncate" style={{ maxWidth: 'calc(100% - 8rem)' }}>
-                        {searchQuery}
-                      </span>
-                      <div>
-                        <button
-                          onClick={() => {
-                            setQuery(searchQuery);
-                            fetchWorkflows(searchQuery);
-                            setShowAllSearchesPopup(false);
+                      {editingQueryIndex === index ? (
+                        <input
+                          type="text"
+                          defaultValue={savedQuery.name || ''}
+                          placeholder="Enter a name for this query"
+                          className="flex-grow mr-2 border rounded px-2 py-1 text-sm"
+                          autoFocus
+                          onBlur={(e) => {
+                            updateQueryName(index, e.target.value);
+                            setEditingQueryIndex(null);
                           }}
-                          className="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs py-1 px-2 rounded mr-2"
-                        >
-                          Search
-                        </button>
-                        <button
-                          onClick={() => {
-                            const newSearches = allSearches.filter(s => s !== searchQuery);
-                            setAllSearches(newSearches);
-                            setRecentSearches(newSearches.slice(0, 5));
-                            if (typeof window !== 'undefined') {
-                              localStorage.setItem('allSearches', JSON.stringify(newSearches));
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              updateQueryName(index, e.currentTarget.value);
+                              setEditingQueryIndex(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingQueryIndex(null);
                             }
                           }}
-                          className="text-gray-500 hover:text-red-600 bg-gray-100 hover:bg-red-50 text-xs py-1 px-2 rounded"
-                          title="Delete from history"
-                        >
-                          ✕
-                        </button>
+                        />
+                      ) : (
+                        <div className="flex-grow mr-2">
+                          {savedQuery.name && (
+                            <div className="flex items-center text-blue-700 font-medium text-sm mb-1">
+                              <span className="text-xs mr-1">📌</span> {savedQuery.name}
+                            </div>
+                          )}
+                          <div className="text-sm text-gray-600 truncate" style={{ maxWidth: 'calc(100% - 2rem)' }}>
+                            {savedQuery.query}
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center">
+                        {editingQueryIndex !== index && (
+                          <>
+                            <button
+                              onClick={() => setEditingQueryIndex(index)}
+                              className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-1 px-2 rounded mr-1"
+                              title="Name this query"
+                            >
+                              {savedQuery.name ? 'Rename' : 'Name'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                fetchWorkflows(savedQuery);
+                                setShowAllSearchesPopup(false);
+                              }}
+                              className="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs py-1 px-2 rounded mr-1"
+                            >
+                              Search
+                            </button>
+                            <button
+                              onClick={() => {
+                                const newSearches = allSearches.filter((_, i) => i !== index);
+                                const sortedSearches = sortQueriesByPriority(newSearches);
+                                setAllSearches(sortedSearches);
+                                setRecentSearches(sortedSearches.slice(0, 5));
+                                if (typeof window !== 'undefined') {
+                                  localStorage.setItem('allSearches', JSON.stringify(newSearches));
+                                }
+                              }}
+                              className="text-gray-500 hover:text-red-600 bg-gray-100 hover:bg-red-50 text-xs py-1 px-2 rounded"
+                              title="Delete from history"
+                            >
+                              ✕
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
