@@ -121,10 +121,7 @@ To connect to your iWF-Temporal instance:
 
 If you don't have an iWF server with Temporal running yet, follow these steps:
 
-1. Set up iWF and Temporal using the all-in-one Docker image by following the instructions in the [iWF documentation](https://github.com/indeedeng/iwf?tab=readme-ov-file#using-all-in-one-docker-image):
-   ```
-   docker run -p 8801:8801 -p 7233:7233 -p 8233:8233 indeedeng/iwf-all-in-one:latest
-   ```
+1. Set up iWF and Temporal using the all-in-one Docker image by following the instructions in the [iWF documentation](https://github.com/indeedeng/iwf?tab=readme-ov-file#using-all-in-one-docker-image)
 
 2. This will start:
    - An iWF server on port 8801
