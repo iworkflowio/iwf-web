@@ -11,10 +11,6 @@ const temporalConfig = {
 
 // Mapping Temporal workflow status to our API status
 const mapTemporalStatus = (status: string): WorkflowStatus => {
-  // Debug logging
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('Mapping status:', status);
-  }
   
   // Normalize the status by converting to uppercase and removing any prefixes
   const normalizedStatus = (status || '').toString().toUpperCase().trim();
@@ -37,7 +33,7 @@ const mapTemporalStatus = (status: string): WorkflowStatus => {
       return 'CONTINUED_AS_NEW';
     case 'TIMED_OUT':
       return 'TIMEOUT';
-    case '1': // Sometimes Temporal returns numeric status codes
+    case '1': // Sometimes Temporal returns numeric status codes TODO: why?
       return 'RUNNING';
     case '2':
       return 'COMPLETED';
@@ -52,10 +48,7 @@ const mapTemporalStatus = (status: string): WorkflowStatus => {
     case '7':
       return 'TIMEOUT';
     default:
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('Unknown status value:', status, 'normalized to:', statusWithoutPrefix);
-      }
-      return 'RUNNING';
+        throw new Error(`Unknown status value: ${status} normalized to ${statusWithoutPrefix}`)
   }
 };
 
@@ -102,16 +95,6 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
   let iwfWorkflowType = '';
   if (workflow.searchAttributes && workflow.searchAttributes['IwfWorkflowType']) {
     iwfWorkflowType = extractStringValue(workflow.searchAttributes['IwfWorkflowType']);
-  }
-  
-  // Get the workflow type name from Temporal
-  let temporalWorkflowType = '';
-  if (workflow.workflowType) {
-    if (typeof workflow.workflowType === 'string') {
-      temporalWorkflowType = workflow.workflowType;
-    } else if (typeof workflow.workflowType === 'object' && workflow.workflowType !== null) {
-      temporalWorkflowType = workflow.workflowType.name || 'Unknown Type';
-    }
   }
   
   // Extract search attributes from Temporal workflow
@@ -169,8 +152,8 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
   return {
     workflowId: workflow.workflowId,
     workflowRunId: workflow.runId,
-    // Prefer the IwfWorkflowType from search attributes if available, otherwise fall back to Temporal's type
-    workflowType: iwfWorkflowType || temporalWorkflowType,
+    // Prefer the IwfWorkflowType from search attributes if available, otherwise fall back to N/A
+    workflowType: iwfWorkflowType || "N/A",
     workflowStatus: mapTemporalStatus(workflow.status.name),
     historySizeInBytes: workflow.historySize || 0,
     historyLength: workflow.historyLength || 0,
