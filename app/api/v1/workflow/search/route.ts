@@ -194,19 +194,12 @@ export async function POST(request: NextRequest) {
       // Get the service client to access more advanced APIs
       const service = client.workflowService
       
-      // Build query for Temporal - correct format based on examples
-      let queryString = '';
-      if (query) {
-        // Include search within the iWF-specific workflow type attribute
-        queryString = `WorkflowId = '${query}' OR WorkflowType = '${query}' OR TaskQueue = '${query}' OR IwfWorkflowType = '${query}'`;
-      }
-
       // Use the ListWorkflowExecutions method from service client
       const listResponse = await service.listWorkflowExecutions({
         namespace: temporalConfig.namespace,
         pageSize: Number(pageSize),
         nextPageToken: nextPageToken ? Buffer.from(nextPageToken, 'base64') : undefined,
-        query: queryString || undefined,
+        query: query || undefined,
       });
 
       // Convert the Temporal workflows to our API format
