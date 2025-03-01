@@ -2,8 +2,8 @@ import './globals.css';
 import './styles.css';
 
 export const metadata = {
-  title: 'iWF Workflow Search',
-  description: 'Search and view workflow executions',
+  title: 'iWF Workflows',
+  description: 'Search and view iWF workflow executions',
 };
 
 export default function RootLayout({
@@ -19,11 +19,6 @@ export default function RootLayout({
       </head>
       <body>
         <div className="min-h-screen bg-gray-50">
-          <header className="bg-blue-600 text-white py-4">
-            <div className="container mx-auto px-4">
-              <h1 className="text-xl font-bold">iWF Web</h1>
-            </div>
-          </header>
           <main>
             {children}
           </main>
