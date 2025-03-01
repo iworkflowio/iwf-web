@@ -136,6 +136,10 @@ export default function WorkflowSearchPage() {
   const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
   const [showConfigPopup, setShowConfigPopup] = useState(false);
   const [showAllSearchesPopup, setShowAllSearchesPopup] = useState(false);
+  const [showFilterPopup, setShowFilterPopup] = useState(false);
+  const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
+  const [filterValue, setFilterValue] = useState<string>('');
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({});
   const [editingQueryIndex, setEditingQueryIndex] = useState<number | null>(null);
   const [recentSearches, setRecentSearches] = useState<SavedQuery[]>([]);
   const [allSearches, setAllSearches] = useState<SavedQuery[]>([]);
@@ -424,6 +428,23 @@ export default function WorkflowSearchPage() {
   const showAllSearches = () => {
     setShowAllSearchesPopup(true);
   };
+
+  // Helper to format filter value for query
+  const formatFilterForQuery = (columnId: string, value: string): string => {
+    // Format based on column type
+    if (columnId === 'startTime' || columnId === 'closeTime') {
+      return value; // Value is already in the correct format from the datepicker
+    }
+    
+    // For string fields, add quotes if not already present
+    if (!value.startsWith('"') && !value.endsWith('"')) {
+      return `"${value}"`;
+    }
+    
+    return value;
+  };
+  
+  // We don't need the buildSearchQuery function anymore since we're directly updating the query field
 
   // Function to fetch workflows
   // Execute a search with either query string or SavedQuery
@@ -804,6 +825,112 @@ export default function WorkflowSearchPage() {
       resetVisibility[col.id] = true;
     });
     setColumnVisibility(resetVisibility);
+  };
+
+  // Open filter popup for a column
+  const openFilterForColumn = (columnId: string) => {
+    // Don't allow filtering on search attributes column
+    if (columnId === 'customSearchAttributes') {
+      return;
+    }
+    
+    setActiveFilterColumn(columnId);
+    setFilterValue(appliedFilters[columnId] || '');
+    setShowFilterPopup(true);
+  };
+  
+  // Apply filter to search query
+  const applyFilter = () => {
+    if (!activeFilterColumn) return;
+    
+    let newFilters = { ...appliedFilters };
+    
+    // Update applied filters
+    if (filterValue) {
+      newFilters[activeFilterColumn] = filterValue;
+    } else {
+      // If filter value is empty, remove the filter
+      delete newFilters[activeFilterColumn];
+    }
+    
+    setAppliedFilters(newFilters);
+    setShowFilterPopup(false);
+    
+    // Construct the search query string from filters
+    const filterQueryTerms = Object.entries(newFilters).map(([columnId, value]) => {
+      // Map the column to appropriate search field
+      let queryField: string;
+      switch (columnId) {
+        case 'workflowStatus':
+          queryField = 'ExecutionStatus';
+          break;
+        case 'workflowType':
+          queryField = 'WorkflowType';
+          break;
+        case 'workflowId':
+          queryField = 'WorkflowId';
+          break;
+        case 'workflowRunId':
+          queryField = 'RunId';
+          break;
+        case 'startTime':
+          // Handle date range for startTime
+          return `StartTime > "${value}"`;
+        case 'closeTime':
+          // Handle date range for closeTime 
+          return `CloseTime > "${value}"`;
+        case 'taskQueue':
+          queryField = 'TaskQueue';
+          break;
+        default:
+          return '';
+      }
+      
+      // Format the value properly
+      const formattedValue = formatFilterForQuery(columnId, value);
+      return `${queryField} = ${formattedValue}`;
+    }).filter(term => term !== ''); // Remove any empty terms
+    
+    // Combine filters with AND logic
+    const filtersQuery = filterQueryTerms.join(' AND ');
+    
+    // Set the query input field content
+    setQuery(filtersQuery);
+    
+    // Automatically execute the search
+    setTimeout(() => {
+      handleSearch();
+    }, 0);
+  };
+  
+  // Format date for ISO string for filter
+  const formatDateForFilter = (date: Date): string => {
+    // Format as ISO string with timezone offset
+    const tzOffset = date.getTimezoneOffset() * -1;
+    const absOffset = Math.abs(tzOffset);
+    const offsetHours = Math.floor(absOffset / 60).toString().padStart(2, '0');
+    const offsetMinutes = (absOffset % 60).toString().padStart(2, '0');
+    const offsetSign = tzOffset >= 0 ? '+' : '-';
+    
+    return date.getFullYear() + '-' + 
+      String(date.getMonth() + 1).padStart(2, '0') + '-' +
+      String(date.getDate()).padStart(2, '0') + 'T' +
+      String(date.getHours()).padStart(2, '0') + ':' +
+      String(date.getMinutes()).padStart(2, '0') + ':' +
+      String(date.getSeconds()).padStart(2, '0') + '.' +
+      String(date.getMilliseconds()).padStart(3, '0') +
+      offsetSign + offsetHours + ':' + offsetMinutes;
+  };
+  
+  // Clear all filters
+  const clearAllFilters = () => {
+    setAppliedFilters({});
+    setQuery('');
+    
+    // Automatically execute the search with empty query
+    setTimeout(() => {
+      handleSearch();
+    }, 0);
   };
 
   // Handler for starting column drag
@@ -1189,11 +1316,25 @@ export default function WorkflowSearchPage() {
       ) : results.length > 0 ? (
         <div className="relative">
           <div className="mb-2 flex justify-between items-center">
-            <p className="text-sm text-gray-500">
-              {visibleColumns.length} columns displayed 
-              {columns.some(c => c.id.startsWith('attr_')) && 
-                ` (${columns.filter(c => c.id.startsWith('attr_')).length} search attributes)`}
-            </p>
+            <div className="flex items-center">
+              <p className="text-sm text-gray-500 mr-4">
+                {visibleColumns.length} columns displayed 
+                {columns.some(c => c.id.startsWith('attr_')) && 
+                  ` (${columns.filter(c => c.id.startsWith('attr_')).length} search attributes)`}
+              </p>
+              
+              {Object.keys(appliedFilters).length > 0 && (
+                <div className="flex items-center">
+                  <span className="text-sm text-gray-500 mr-2">Filters applied: {Object.keys(appliedFilters).length}</span>
+                  <button 
+                    onClick={clearAllFilters}
+                    className="text-red-600 text-xs hover:text-red-800 underline"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
+            </div>
             
             <div className="flex space-x-2">
               <button
@@ -1232,10 +1373,27 @@ export default function WorkflowSearchPage() {
                       onDragStart={() => handleDragStart(column.id)}
                       onDragOver={(e) => handleDragOver(e, column.id)}
                       onDragEnd={handleDragEnd}
-                      style={{ userSelect: 'none' }}
+                      style={{ userSelect: 'none', position: 'relative' }}
                     >
-                      <div className="flex items-center">
-                        <span className="mr-1">≡</span> {column.label}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <span className="mr-1">≡</span> {column.label}
+                        </div>
+                        
+                        {column.id !== 'customSearchAttributes' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openFilterForColumn(column.id);
+                            }}
+                            className={`ml-2 p-1 rounded-full ${appliedFilters[column.id] ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'}`}
+                            title={`Filter by ${column.label}`}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </th>
                   ))}
@@ -1318,6 +1476,136 @@ export default function WorkflowSearchPage() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Filter popup */}
+      {showFilterPopup && activeFilterColumn && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md" style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', width: '100%', maxWidth: '28rem' }}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Filter by {baseColumns.find(col => col.id === activeFilterColumn)?.label}</h3>
+              <button 
+                onClick={() => setShowFilterPopup(false)}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              {(activeFilterColumn === 'startTime' || activeFilterColumn === 'closeTime') ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Select Date and Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      className="w-full border rounded px-3 py-2"
+                      value={filterValue ? new Date(filterValue).toISOString().substring(0, 16) : ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const selectedDate = new Date(e.target.value);
+                          setFilterValue(formatDateForFilter(selectedDate));
+                        } else {
+                          setFilterValue('');
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Filters {activeFilterColumn === 'startTime' ? 'workflows started' : 'workflows completed'} after the selected time.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Enter Value
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border rounded px-3 py-2"
+                    value={filterValue}
+                    onChange={(e) => setFilterValue(e.target.value)}
+                    placeholder={`Enter ${baseColumns.find(col => col.id === activeFilterColumn)?.label} value`}
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-between">
+              <button
+                onClick={() => {
+                  setFilterValue('');
+                  if (appliedFilters[activeFilterColumn]) {
+                    const newFilters = { ...appliedFilters };
+                    delete newFilters[activeFilterColumn];
+                    setAppliedFilters(newFilters);
+                    
+                    // Update query field by reconstructing it from remaining filters
+                    const filterQueryTerms = Object.entries(newFilters).map(([columnId, value]) => {
+                      // Map the column to appropriate search field
+                      let queryField: string;
+                      switch (columnId) {
+                        case 'workflowStatus':
+                          queryField = 'ExecutionStatus';
+                          break;
+                        case 'workflowType':
+                          queryField = 'WorkflowType';
+                          break;
+                        case 'workflowId':
+                          queryField = 'WorkflowId';
+                          break;
+                        case 'workflowRunId':
+                          queryField = 'RunId';
+                          break;
+                        case 'startTime':
+                          return `StartTime > "${value}"`;
+                        case 'closeTime':
+                          return `CloseTime > "${value}"`;
+                        case 'taskQueue':
+                          queryField = 'TaskQueue';
+                          break;
+                        default:
+                          return '';
+                      }
+                      
+                      const formattedValue = formatFilterForQuery(columnId, value);
+                      return `${queryField} = ${formattedValue}`;
+                    }).filter(term => term !== '');
+                    
+                    const query = filterQueryTerms.join(' AND ');
+                    setQuery(query);
+                    setShowFilterPopup(false);
+                    
+                    // Automatically execute the search
+                    setTimeout(() => {
+                      handleSearch();
+                    }, 0);
+                  }
+                }}
+                className="text-red-600 hover:text-red-800 text-sm font-medium"
+              >
+                Clear Filter
+              </button>
+              
+              <div className="space-x-2">
+                <button
+                  onClick={() => setShowFilterPopup(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-md text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={applyFilter}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md text-sm"
+                >
+                  Apply Filter
+                </button>
+              </div>
             </div>
           </div>
         </div>

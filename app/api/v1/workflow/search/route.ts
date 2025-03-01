@@ -188,14 +188,17 @@ export async function POST(request: NextRequest) {
       // Transform query if it contains WorkflowType search to replace with IwfWorkflowType search
       let transformedQuery = query;
       
-      // Special case: If query contains WorkflowType="X", replace with IwfWorkflowType="X"
-      if (query && query.includes('WorkflowType=')) {
-        // Match patterns like WorkflowType="value" or WorkflowType='value'
-        const matches = query.match(/WorkflowType\s*=\s*['"]([^'"]+)['"]/);
-        if (matches && matches[1]) {
-          const workflowTypeValue = matches[1];
-          // Replace WorkflowType with IwfWorkflowType - the direct replacement using the whole match
-          transformedQuery = query.replace(/WorkflowType\s*=\s*['"][^'"]+['"]/, `IwfWorkflowType='${workflowTypeValue}'`);
+      // Special case: If query contains WorkflowType="X" or WorkflowType='X', replace with IwfWorkflowType="X"
+      if (query && query.includes('WorkflowType')) {
+        // Use simple string replacement approach for more reliability
+        transformedQuery = query
+          // Replace double-quoted WorkflowType
+          .replace(/WorkflowType\s*=\s*"([^"]*)"/g, 'IwfWorkflowType="$1"')
+          // Replace single-quoted WorkflowType  
+          .replace(/WorkflowType\s*=\s*'([^']*)'/g, "IwfWorkflowType='$1'");
+        
+        // Log the transformation if it changed
+        if (transformedQuery !== query) {
           console.log(`Replaced query: Original [${query}] → Transformed [${transformedQuery}]`);
         }
       }
