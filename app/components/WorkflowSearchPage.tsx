@@ -1127,7 +1127,6 @@ export default function WorkflowSearchPage() {
           workflowStatuses={workflowStatuses}
           getOperatorsForColumn={getOperatorsForColumn}
           formatDateForFilter={formatDateForFilter}
-          customAttributes={results.flatMap(w => w.customSearchAttributes || [])}
         />
       )}
     </div>
