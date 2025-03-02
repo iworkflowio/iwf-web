@@ -53,21 +53,22 @@ import Popup from './Popup';
  */
 export default function WorkflowSearchPage() {
   // Initialize query state from URL if present (for sharing/bookmarking)
-  const initialQueryParams = typeof window !== 'undefined' ? {
-    query: new URLSearchParams(window.location.search).get('q') || '',
-    size: parseInt(new URLSearchParams(window.location.search).get('size') || '20', 10),
-    token: new URLSearchParams(window.location.search).get('token') || '',
-    // If no token is provided but page > 1, reset to page 1
-    page: !new URLSearchParams(window.location.search).get('token') && 
-          parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10) > 1 
-          ? 1 
-          : parseInt(new URLSearchParams(window.location.search).get('page') || '1', 10)
-  } : {
-    query: '',
-    page: 1,
-    size: 20,
-    token: ''
-  };
+  const initialQueryParams = (() => {
+    if (typeof window === 'undefined') {
+      return { query: '', page: 1, size: 20, token: '' };
+    }
+    
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q') || '';
+    const size = parseInt(params.get('size') || '20', 10);
+    const token = params.get('token') || '';
+    const rawPage = parseInt(params.get('page') || '1', 10);
+    
+    // Reset to page 1 if page > 1 but no token is provided
+    const page = (!token && rawPage > 1) ? 1 : rawPage;
+    
+    return { query, size, token, page };
+  })();
   
   // Search query and results state
   const [query, setQuery] = useState(initialQueryParams.query);
@@ -128,32 +129,42 @@ export default function WorkflowSearchPage() {
   // Track if this is the initial mount to avoid unnecessary localStorage updates
   const isInitialMount = useRef(true);
   
+  // Helper function to safely load from localStorage
+  const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
+    if (typeof window === 'undefined') return defaultValue;
+    
+    try {
+      const saved = localStorage.getItem(key);
+      return saved ? JSON.parse(saved) : defaultValue;
+    } catch (e) {
+      console.error(`Error loading ${key} from localStorage:`, e);
+      return defaultValue;
+    }
+  };
+  
   // Initialize timezone options and saved timezone on client side
   useEffect(() => {
-    // Only run on the client to avoid hydration mismatch
-    setTimezoneOptions(getTimezoneOptions());
+    const tzOptions = getTimezoneOptions();
+    setTimezoneOptions(tzOptions);
     
-    // This only runs on the client after hydration
     if (typeof window !== 'undefined') {
-      const tzOptions = getTimezoneOptions();
-      let selectedTz = tzOptions[0]; // Default to first option (Local Time)
-      
-      // Try to load from localStorage
-      const savedTimezone = localStorage.getItem('selectedTimezone');
-      if (savedTimezone) {
-        try {
-          const parsed = JSON.parse(savedTimezone);
-          // Find matching timezone in our options
-          const match = tzOptions.find(tz => tz.value === parsed.value);
-          if (match) selectedTz = match;
-        } catch (e) {
-          console.error('Error parsing saved timezone:', e);
-        }
+      const savedTzData = loadFromLocalStorage<{value: string, label: string}>('selectedTimezone', null);
+      if (savedTzData) {
+        const match = tzOptions.find(tz => tz.value === savedTzData.value);
+        if (match) setTimezone(match);
       }
-      
-      setTimezone(selectedTz);
     }
   }, []);
+  
+  // Helper function to safely save to localStorage
+  const saveToLocalStorage = (key: string, value: any): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.error(`Error saving ${key} to localStorage:`, e);
+    }
+  };
   
   // Save timezone to localStorage whenever it changes
   useEffect(() => {
@@ -162,38 +173,29 @@ export default function WorkflowSearchPage() {
       return;
     }
     
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selectedTimezone', JSON.stringify({
-        value: timezone.value,
-        label: timezone.label
-      }));
-    }
+    saveToLocalStorage('selectedTimezone', {
+      value: timezone.value,
+      label: timezone.label
+    });
   }, [timezone]);
   
   // Load saved searches from localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedSearches = localStorage.getItem('allSearches');
-      if (savedSearches) {
-        try {
-          const searches: SavedQuery[] = JSON.parse(savedSearches);
-          // Ensure all saved queries have timestamp field (backward compatibility)
-          const validSearches = searches.map(s => {
-            if (typeof s === 'string') {
-              // Convert old format to new format
-              return { query: s, timestamp: Date.now() };
-            }
-            return { ...s, timestamp: s.timestamp || Date.now() };
-          });
-          
-          const sortedSearches = sortQueriesByPriority(validSearches);
-          setAllSearches(sortedSearches);
-          setRecentSearches(sortedSearches.slice(0, 5)); // Show only 5 highest priority
-        } catch (e) {
-          console.error('Error parsing saved searches:', e);
-        }
+    const savedSearches = loadFromLocalStorage<any[]>('allSearches', []);
+    if (!savedSearches.length) return;
+    
+    // Ensure all saved queries have timestamp field (backward compatibility)
+    const validSearches = savedSearches.map(s => {
+      if (typeof s === 'string') {
+        // Convert old format to new format
+        return { query: s, timestamp: Date.now() };
       }
-    }
+      return { ...s, timestamp: s.timestamp || Date.now() };
+    });
+    
+    const sortedSearches = sortQueriesByPriority(validSearches);
+    setAllSearches(sortedSearches);
+    setRecentSearches(sortedSearches.slice(0, 5)); // Show only 5 highest priority
   }, []);
   
   // Define base column definitions
@@ -263,8 +265,7 @@ export default function WorkflowSearchPage() {
             <button
               onClick={() => showSearchAttributes(w.customSearchAttributes)}
               className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
-              style={{ backgroundColor: '#3b82f6', color: 'white', borderRadius: '0.25rem' }}
-            >
+              >
               {w.customSearchAttributes?.length || 0} attributes
             </button>
           );
@@ -280,49 +281,31 @@ export default function WorkflowSearchPage() {
   // Generate columns including accessors
   const [columns, setColumns] = useState<ColumnDef[]>([]);
   
-  // Store column visibility state
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
-    // Try to load saved column visibility from localStorage
-    if (typeof window !== 'undefined') {
-      const savedVisibility = localStorage.getItem('columnVisibility');
-      if (savedVisibility) {
-        try {
-          return JSON.parse(savedVisibility);
-        } catch (e) {
-          console.error('Error parsing saved column visibility:', e);
-        }
-      }
-    }
-    
-    // Default visibility if nothing is saved
-    const initialVisibility: Record<string, boolean> = {};
+  // Create default column visibility
+  const getDefaultColumnVisibility = (): Record<string, boolean> => {
+    const defaults: Record<string, boolean> = {};
     baseColumns.forEach(col => {
-      initialVisibility[col.id] = col.visible;
+      defaults[col.id] = col.visible;
     });
-    return initialVisibility;
-  });
+    return defaults;
+  };
   
   // Forward declaration to fix initialization order issue
   const columnsOrderRef = useRef<string[]>(baseColumns.map(col => col.id));
   
+  // Store column visibility state
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => 
+    loadFromLocalStorage<Record<string, boolean>>('columnVisibility', getDefaultColumnVisibility())
+  );
+  
   // Store columns order - initialize after ref is created
   const [columnsOrder, setColumnsOrder] = useState<string[]>(() => {
-    // Try to load saved column order from localStorage
-    if (typeof window !== 'undefined') {
-      const savedOrder = localStorage.getItem('columnsOrder');
-      if (savedOrder) {
-        try {
-          const parsed = JSON.parse(savedOrder);
-          columnsOrderRef.current = parsed; // Update ref with parsed value
-          return parsed;
-        } catch (e) {
-          console.error('Error parsing saved column order:', e);
-        }
-      }
+    const savedOrder = loadFromLocalStorage<string[]>('columnsOrder', null);
+    if (savedOrder) {
+      columnsOrderRef.current = savedOrder; // Update ref with saved value
+      return savedOrder;
     }
-    
-    // Default to base column order if nothing is saved
-    return columnsOrderRef.current;
+    return columnsOrderRef.current; // Default to base column order
   });
   
   // Update column visibility when initializing or changing timezone
@@ -335,37 +318,39 @@ export default function WorkflowSearchPage() {
   
   // Save column visibility to localStorage whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isInitialMount.current) {
-      localStorage.setItem('columnVisibility', JSON.stringify(columnVisibility));
+    if (!isInitialMount.current) {
+      saveToLocalStorage('columnVisibility', columnVisibility);
     }
   }, [columnVisibility]);
   
   // Apply saved column order when initializing columns
   useEffect(() => {
-    if (columns.length > 0 && columnsOrderRef.current.length > 0) {
-      // Create a new array with columns in the saved order
-      const orderedColumns = [...columns].sort((a, b) => {
-        const aIndex = columnsOrderRef.current.indexOf(a.id);
-        const bIndex = columnsOrderRef.current.indexOf(b.id);
-        
-        // Handle columns that aren't in the saved order (new columns)
-        if (aIndex === -1) return 1; // Put at the end
-        if (bIndex === -1) return -1; // Put at the end
-        
-        return aIndex - bIndex;
-      });
+    if (columns.length === 0 || columnsOrderRef.current.length === 0) return;
+    
+    // Create a new array with columns in the saved order
+    const orderedColumns = [...columns].sort((a, b) => {
+      const aIndex = columnsOrderRef.current.indexOf(a.id);
+      const bIndex = columnsOrderRef.current.indexOf(b.id);
       
-      // Only update if order is different
-      if (JSON.stringify(orderedColumns.map(c => c.id)) !== JSON.stringify(columns.map(c => c.id))) {
-        setColumns(orderedColumns);
-      }
+      // Handle columns that aren't in the saved order (new columns)
+      if (aIndex === -1) return 1; // Put at the end
+      if (bIndex === -1) return -1; // Put at the end
+      
+      return aIndex - bIndex;
+    });
+    
+    // Only update if order is different
+    const currentIds = columns.map(c => c.id).join(',');
+    const newIds = orderedColumns.map(c => c.id).join(',');
+    if (currentIds !== newIds) {
+      setColumns(orderedColumns);
     }
   }, [columns]);
   
   // Save column order to localStorage whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isInitialMount.current) {
-      localStorage.setItem('columnsOrder', JSON.stringify(columnsOrder));
+    if (!isInitialMount.current) {
+      saveToLocalStorage('columnsOrder', columnsOrder);
     }
   }, [columnsOrder]);
   
@@ -428,29 +413,21 @@ export default function WorkflowSearchPage() {
   
   // Function to update URL with search query and pagination params
   const updateUrlWithParams = (searchQuery: string, page: number = 1, size: number = 20, token: string = '') => {
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      
-      // Update search query parameter
-      if (searchQuery) {
-        url.searchParams.set('q', searchQuery);
-      } else {
-        url.searchParams.delete('q');
-      }
-      
-      // Update pagination parameters
-      url.searchParams.set('page', page.toString());
-      url.searchParams.set('size', size.toString());
-      
-      // Add nextPageToken to URL if it exists
-      if (token) {
-        url.searchParams.set('token', token);
-      } else {
-        url.searchParams.delete('token');
-      }
-      
-      window.history.pushState({}, '', url.toString());
-    }
+    if (typeof window === 'undefined') return;
+    
+    const url = new URL(window.location.href);
+    
+    // Update search query parameter
+    searchQuery ? url.searchParams.set('q', searchQuery) : url.searchParams.delete('q');
+    
+    // Update pagination parameters
+    url.searchParams.set('page', page.toString());
+    url.searchParams.set('size', size.toString());
+    
+    // Add nextPageToken to URL if it exists
+    token ? url.searchParams.set('token', token) : url.searchParams.delete('token');
+    
+    window.history.pushState({}, '', url.toString());
   };
   
   // Save recent search to localStorage
@@ -488,9 +465,7 @@ export default function WorkflowSearchPage() {
       }
       
       // Save all searches to localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('allSearches', JSON.stringify(newSearches));
-      }
+      saveToLocalStorage('allSearches', newSearches);
       
       // Update recent searches with the highest priority ones
       const sortedSearches = sortQueriesByPriority(newSearches);
@@ -511,9 +486,7 @@ export default function WorkflowSearchPage() {
         };
         
         // Save to localStorage
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('allSearches', JSON.stringify(newSearches));
-        }
+        saveToLocalStorage('allSearches', newSearches);
         
         // Update recent searches
         const sortedSearches = sortQueriesByPriority(newSearches);
@@ -842,7 +815,7 @@ export default function WorkflowSearchPage() {
     }, 50);
   };
   
-  // Format date for ISO string for filter
+  // Format date for ISO string for filter - exported to utils.ts if needed by multiple components
   const formatDateForFilter = (date: Date): string => {
     // Format as ISO string with timezone offset
     const tzOffset = date.getTimezoneOffset() * -1;
@@ -1088,12 +1061,12 @@ export default function WorkflowSearchPage() {
         />
       )}
       
-      {/* Popup for displaying workflow details */}
+      {/* Popup for displaying search attributes */}
       {popup.show && (
         <Popup
           title={popup.title}
           content={popup.content}
-          onClose={() => setPopup({ ...popup, show: false })}
+          onClose={() => setPopup({ title: popup.title, content: popup.content, show: false })}
         />
       )}
 

@@ -118,9 +118,8 @@ const SearchBox = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Enter search query"
-            className="w-full h-full border rounded-l px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full h-full border rounded-l px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-r-none"
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
           />
           {/* Clear button - only shows when there's text */}
           <ClearButton 
@@ -136,8 +135,7 @@ const SearchBox = ({
         <button
           onClick={handleSearch}
           disabled={loading}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-r focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-          style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
+          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-r focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 rounded-l-none"
         >
           {loading ? 'Searching...' : 'Search'}
         </button>

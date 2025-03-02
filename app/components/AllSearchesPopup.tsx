@@ -57,29 +57,10 @@ const AllSearchesPopup = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
-      style={{ 
-        position: 'fixed', 
-        top: 0, 
-        right: 0, 
-        bottom: 0, 
-        left: 0, 
-        backgroundColor: 'rgba(0,0,0,0.5)', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        zIndex: 50 
-      }}
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
     >
       <div 
-        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl" 
-        style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '0.5rem', 
-          padding: '1.5rem', 
-          width: '100%', 
-          maxWidth: '42rem' 
-        }}
+        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl"
       >
         {/* Header with title and close button */}
         <div className="flex justify-between items-center mb-4">

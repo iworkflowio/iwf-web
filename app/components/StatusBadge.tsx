@@ -69,8 +69,8 @@ const StatusBadge = ({ status }: StatusBadgeProps) => {
   // Get the appropriate CSS classes for this status
   const colors = getStatusColors(status);
   
-  // If no status or colors, don't render anything
-  if (!status || !colors) return null;
+  // If no colors (which means status is also missing), don't render anything
+  if (!colors) return null;
   
   return (
     <span className={`${colors.badgeClass} ${colors.bgColor} text-white px-2 py-1 rounded-full text-xs font-medium`}>

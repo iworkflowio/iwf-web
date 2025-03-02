@@ -1,7 +1,6 @@
 'use client';
 
 import { FilterSpec } from './types';
-import { formatFilterForQuery } from './utils';
 import { SearchAttribute } from '../ts-api/src/api-gen/api';
 
 /**
@@ -108,7 +107,7 @@ interface FilterPopupProps {
   workflowStatuses: string[];
   getOperatorsForColumn: (columnId: string) => string[];
   formatDateForFilter: (date: Date) => string;
-  customAttributes?: SearchAttribute[];
+  // Removed unused customAttributes prop
 }
 
 const FilterPopup = ({
@@ -123,8 +122,7 @@ const FilterPopup = ({
   applyFilter,
   workflowStatuses,
   getOperatorsForColumn,
-  formatDateForFilter,
-  customAttributes
+  formatDateForFilter
 }: FilterPopupProps) => {
   /**
    * Helper function to clear the filter for this column and close the popup

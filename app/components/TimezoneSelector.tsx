@@ -47,29 +47,10 @@ const TimezoneSelector = ({
 }: TimezoneSelectorProps) => {
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
-      style={{ 
-        position: 'fixed', 
-        top: 0, 
-        right: 0, 
-        bottom: 0, 
-        left: 0, 
-        backgroundColor: 'rgba(0,0,0,0.5)', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        zIndex: 50 
-      }}
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
     >
       <div 
-        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md" 
-        style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '0.5rem', 
-          padding: '1.5rem', 
-          width: '100%', 
-          maxWidth: '28rem' 
-        }}
+        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md"
       >
         {/* Header with title and close button */}
         <div className="flex justify-between items-center mb-4">
@@ -161,7 +142,6 @@ const TimezoneSelector = ({
           <button
             onClick={onClose}
             className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-md text-sm"
-            style={{ backgroundColor: '#f3f4f6', color: '#1f2937', borderRadius: '0.375rem' }}
           >
             Close
           </button>

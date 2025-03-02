@@ -179,7 +179,6 @@ const WorkflowList = ({
           <button
             onClick={() => setShowColumnSelector(true)}
             className="bg-blue-100 hover:bg-blue-200 text-blue-700 py-1 px-3 rounded text-sm flex items-center"
-            style={{ backgroundColor: '#dbeafe', color: '#1d4ed8', borderRadius: '0.25rem' }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -190,7 +189,6 @@ const WorkflowList = ({
           <button
             onClick={() => setShowColumnSelector(true)}
             className="bg-gray-200 hover:bg-gray-300 text-gray-700 py-1 px-3 rounded text-sm flex items-center"
-            style={{ backgroundColor: '#e5e7eb', color: '#374151', borderRadius: '0.25rem' }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
@@ -201,8 +199,8 @@ const WorkflowList = ({
       </div>
       
       {/* Workflow data table */}
-      <div className="overflow-x-auto" style={{ overflowX: 'auto' }}>
-        <table className="min-w-full bg-white border" style={{ width: '100%', minWidth: '100%' }}>
+      <div className="overflow-x-auto">
+        <table className="min-w-full bg-white border">
           {/* Table header with column titles */}
           <thead>
             <tr className="bg-gray-100">
