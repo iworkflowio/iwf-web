@@ -25,8 +25,31 @@ import Popup from './Popup';
 /**
  * WorkflowSearchPage Component - Main application component
  * 
- * This component is the main page that ties together all the other components.
+ * REACT CONCEPTS DEMONSTRATED:
+ * - useState: Manages multiple pieces of application state
+ * - useEffect: Handles side effects like data fetching, localStorage, and UI updates
+ * - useRef: Stores mutable values that persist across renders
+ * - Component composition: Assembles many smaller components into a complete app
+ * - Props drilling: Passes state and handlers down to child components
+ * - Conditional rendering: Shows different UI based on loading/error states
+ * - Event handling: Complex event handlers for search, filtering, and pagination
+ * - API integration: Fetches data from backend APIs
+ * - Form handling: Search input, filters, and other user inputs
+ * - localStorage: Persists user preferences across sessions
+ * - URL state management: Syncs application state with URL parameters
+ * 
+ * ADVANCED REACT PATTERNS:
+ * - State lifting: Manages state at the top level and passes it down
+ * - React hooks: Uses multiple hooks for state, effects, and refs
+ * - URL synchronization: Keeps app state in sync with browser URL
+ * - Derived state: Calculates values from existing state (e.g., visibleColumns)
+ * - Debounced operations: Uses setTimeout for delayed operations
+ * - Hydration-safe code: Handles server/client rendering differences
+ * - Compound components: Creates a cohesive UI from smaller parts
+ * 
+ * This component is the main container that ties together all the other components.
  * It manages the application state, API calls, and coordinates between components.
+ * It serves as an excellent example of a complex React application structure.
  */
 export default function WorkflowSearchPage() {
   // Initialize query state from URL if present (for sharing/bookmarking)

@@ -7,14 +7,32 @@ import { SearchAttribute } from '../ts-api/src/api-gen/api';
 /**
  * ColumnSelector Component - Modal for customizing table columns
  * 
- * This component allows users to:
- * - Toggle visibility of existing columns
- * - Add new columns for search attributes
- * - Remove custom search attribute columns
- * - Reset column visibility to show all
+ * REACT CONCEPTS DEMONSTRATED:
+ * - useState: Manages local state for attribute columns
+ * - useEffect: Detects available search attributes from results
+ * - Component state: Local component state that doesn't need to be lifted up
+ * - Side effects: Processes workflow results to find available attributes
+ * - Props usage: Receives both data and functions from parent
+ * - Event handling: Checkbox changes, button clicks
+ * - Conditional rendering: Search attribute section only shows when attributes available
+ * - Lists & keys: Maps over arrays with unique keys
+ * - Form elements: Checkboxes for toggling column visibility
+ * 
+ * ADVANCED REACT PATTERNS:
+ * - Derived data: Creates new data structures from props
+ * - Complex state management: Uses both local state and parent state
+ * - Dynamic UI generation: Creates UI elements based on available data
+ * - Utility functions: Uses helper functions within the component for formatting
+ * 
+ * COMPONENT BEHAVIOR:
+ * This component allows users to customize the table columns displayed in the workflow list:
+ * - Toggle visibility of existing columns with checkboxes
+ * - Add new columns for search attributes found in workflow data
+ * - Remove custom search attribute columns that are no longer needed
+ * - Reset column visibility to show all columns at once
  * 
  * @param props.columns - Current column definitions
- * @param props.setColumns - Function to update columns
+ * @param props.setColumns - Function to update columns (state setter from parent)
  * @param props.onClose - Function to close the modal
  * @param props.results - Current workflow results (used to find available search attributes)
  * @param props.toggleColumnVisibility - Function to toggle a column's visibility

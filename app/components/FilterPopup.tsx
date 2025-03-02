@@ -7,14 +7,79 @@ import { SearchAttribute } from '../ts-api/src/api-gen/api';
 /**
  * FilterPopup Component - Modal for adding/editing column filters
  * 
+ * 🔰 BEGINNER'S GUIDE TO REACT CONCEPTS:
+ * 
+ * 1. Form Handling in React:
+ *    React handles HTML forms differently than traditional web forms:
+ *    - Form elements maintain their own internal state in vanilla HTML/JS
+ *    - In React, we use "controlled components" where React state is the source of truth
+ *    - Every input change updates React state, which then updates the input display
+ *    Example: <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} />
+ * 
+ * 2. Form Input Types & Event Handling:
+ *    Different input types require slightly different handling:
+ *    - Text inputs: onChange captures each keystroke via e.target.value
+ *    - Select dropdowns: onChange fires when an option is selected
+ *    - Date inputs: Special handling may be needed to format dates properly
+ *    - onBlur events: Triggered when input loses focus (useful for validation)
+ *    Example: onBlur={(e) => setFilterValue(e.target.value.trim())}
+ * 
+ * 3. Conditional Rendering with Ternary Operators:
+ *    Complex rendering logic using nested ternary expressions:
+ *    Example: {condition1 ? (<ComponentA />) : condition2 ? (<ComponentB />) : (<ComponentC />)}
+ *    - First evaluates condition1, then condition2 if needed
+ *    - Each branch can contain complete JSX elements
+ *    - This creates different UI based on dynamic conditions
+ * 
+ * 4. Complex Component Props:
+ *    Components with many props can use TypeScript interfaces for clarity:
+ *    - Props are documented and type-checked
+ *    - Optional props (marked with ?) can be omitted
+ *    - Record<string, FilterSpec> represents an object with string keys and FilterSpec values
+ *    - Callback props (functions) have their signatures defined
+ * 
+ * 5. Component Helpers/Methods:
+ *    You can define helper functions inside component functions:
+ *    Example: const clearFilter = () => { ... }
+ *    - These can access props and state directly
+ *    - Help organize complex logic into smaller functions
+ *    - Keep component code clean and maintainable
+ * 
+ * 6. Handling Special Input Types:
+ *    Date inputs require special handling:
+ *    Example: <input type="datetime-local" value={...} onChange={(e) => {...}} />
+ *    - Converting between different date formats (ISO, locale, etc.)
+ *    - Using utility functions like formatDateForFilter
+ *    - Handling empty states and validations
+ * 
+ * 7. Form Layout Patterns:
+ *    This component follows common form layout practices:
+ *    - Labels associated with inputs
+ *    - Consistent spacing between form groups
+ *    - Help text for complex inputs
+ *    - Action buttons clearly grouped
+ *    - Cancel and primary actions visually distinguished
+ * 
+ * COMPONENT BEHAVIOR:
  * This component displays a popup dialog allowing users to set
  * filter conditions for specific columns. It supports different
- * filter types based on the data type of the column.
+ * filter types based on the data type of the column (text, date, dropdown).
  * 
  * Features:
- * - Different input types based on column (text, date, dropdown)
- * - Selection of comparison operators (=, !=, >, <, etc.)
+ * - Different input types based on column data type:
+ *   - Select dropdown for workflow status
+ *   - Datetime picker for timestamp columns
+ *   - Text input for string columns
+ * - Selection of comparison operators (=, !=, >, <, etc.) appropriate for data type
  * - Ability to clear existing filters
+ * - Error prevention with validation and trimming
+ * 
+ * FORMS & INPUTS:
+ * This demonstrates three different form input types and how to properly
+ * handle their changes and values in React:
+ * 1. Text input with onChange and onBlur
+ * 2. Select dropdown with onChange for both values and operators
+ * 3. Datetime-local input with special conversion handling
  * 
  * @param props.activeFilterColumn - ID of the column being filtered
  * @param props.columnLabel - Display name of the column

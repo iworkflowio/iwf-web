@@ -9,14 +9,82 @@ import { getStatusBadge } from './utils';
 /**
  * WorkflowList Component - Displays the workflows in a table format
  * 
- * This component is responsible for displaying the workflow data in a table,
+ * 🔰 BEGINNER'S GUIDE TO REACT CONCEPTS:
+ * 
+ * 1. Complex State Management:
+ *    useState with object structure for complex component state:
+ *    Example: const [popup, setPopup] = useState<{ show: boolean; title: string; content: React.ReactNode; }>({...})
+ *    - Creates a state object with multiple properties
+ *    - React.ReactNode type allows storing any valid JSX content
+ *    - When updating object state, must spread existing properties: setPopup({ ...popup, show: false })
+ * 
+ * 2. Advanced Prop Patterns:
+ *    This component demonstrates handling a large set of props:
+ *    - TypeScript interface defines exactly what props the component expects
+ *    - Destructuring in function signature unpacks all needed values
+ *    - Props represent a mixture of data, callbacks, and UI state
+ *    - Illustrates "prop drilling" pattern (many props passed through component tree)
+ * 
+ * 3. HTML5 Drag and Drop API:
+ *    React wrapper around the native HTML5 drag/drop functionality:
+ *    - draggable attribute enables element dragging
+ *    - onDragStart, onDragOver, onDragEnd handlers manage the drag lifecycle
+ *    - Events call props.handleDragX functions defined in parent component
+ *    - State data transferred via drag events enables column reordering
+ * 
+ * 4. Nested Conditional Rendering:
+ *    Multiple layers of conditional logic in JSX:
+ *    Example 1: {results.length > 0 ? (...) : (...)} - Ternary for rows vs. empty state
+ *    Example 2: {popup.show && (...)} - Logical AND for conditional popup
+ *    Example 3: {visibleColumns.map(...)} - Array mapping only happens if array exists
+ *    In React, mastering conditional rendering is essential for dynamic UIs.
+ * 
+ * 5. Compound Components Pattern:
+ *    This component combines multiple UI sections that work together:
+ *    - Table header with controls and filter indicators
+ *    - Data table with dynamic columns and rows
+ *    - Pagination controls that respond to data state
+ *    - Popup component for additional information display
+ *    Each section could be its own component, but they're combined for cohesion.
+ * 
+ * 6. Pagination Implementation:
+ *    Client-side pagination controls:
+ *    - Page size selection (controlled via state)
+ *    - Navigation buttons (First, Previous, Current, Next)
+ *    - Dynamic disabling of buttons based on current state
+ *    - Result count display showing the current range
+ * 
+ * 7. Dynamic Styling with Tailwind and Inline Styles:
+ *    Multiple approaches to styling based on state:
+ *    - Template literals with conditional classes: `${currentPage === 1 ? 'bg-gray-100' : 'bg-blue-50'}`
+ *    - Direct inline styles: style={{ backgroundColor: '#dbeafe' }}
+ *    - Fixed Tailwind classes: className="mt-4 flex items-center justify-between"
+ * 
+ * 8. Accessor Pattern for Data Display:
+ *    Using functions to extract and format data from objects:
+ *    Example: {column.accessor(workflow)} in the table cell
+ *    - Accessor functions handle formatting logic separately from UI code
+ *    - Makes data display consistent across the application
+ *    - Allows custom rendering for different data types (dates, status, etc.)
+ * 
+ * COMPONENT BEHAVIOR:
+ * This component is responsible for displaying workflow data in a table,
  * handling column visibility, sorting, filtering, and showing workflow details.
+ * It's the main data visualization component of the application.
  * 
  * Features:
  * - Sortable and reorderable columns (drag & drop)
  * - Toggleable column visibility
  * - Filter interface for each column
- * - Pagination controls
+ * - Pagination controls with page size options
+ * - Empty state handling
+ * - Applied filters indication
+ * 
+ * ADVANCED PATTERNS:
+ * - Drag and drop: Uses HTML5 drag and drop API for column reordering
+ * - Dynamic tables: Columns can be added, removed, and reordered
+ * - Accessor pattern: Uses functions to access and format data for display
+ * - Compound component: Combines many small UI elements into a cohesive unit
  * 
  * @param props.results - Array of workflow objects to display
  * @param props.columns - Column definitions for the table

@@ -6,19 +6,31 @@ import { SavedQuery } from './types';
 /**
  * AllSearchesPopup Component - Modal for viewing and managing all saved searches
  * 
+ * REACT CONCEPTS DEMONSTRATED:
+ * - useState: Manages local component state for editing and filtering
+ * - Controlled components: Input fields controlled by React state
+ * - Event handling: onBlur, onChange, onClick, onKeyDown events
+ * - Conditional rendering: Different UI based on editingQueryIndex state
+ * - Lists & keys: Maps over arrays with unique keys
+ * - Forms & inputs: Text inputs with focus handling and keyboard events
+ * - State lifting: Uses setState functions passed from parent component
+ * - Side effects: Updates localStorage when modifying searches
+ * 
+ * COMPONENT BEHAVIOR:
  * This component displays a modal with all saved search queries, allowing users to:
- * - Filter/search through saved queries
- * - Run saved queries
- * - Name/rename saved queries
- * - Delete saved queries
- * - Clear all search history
+ * - Filter/search through saved queries with real-time filtering
+ * - Run saved queries directly from history
+ * - Name/rename saved queries with inline editing
+ * - Delete individual search queries
+ * - Clear all search history at once
+ * - Keyboard navigation (Enter to save, Escape to cancel)
  * 
  * @param props.allSearches - Array of all saved search objects
  * @param props.onClose - Function to close the popup
  * @param props.updateQueryName - Function to update the name of a saved query
  * @param props.fetchWorkflows - Function to execute a saved query
- * @param props.setAllSearches - Function to update the full search list
- * @param props.setRecentSearches - Function to update the recent searches list
+ * @param props.setAllSearches - Function to update the full search list (setState from parent)
+ * @param props.setRecentSearches - Function to update the recent searches list (setState from parent)
  */
 interface AllSearchesPopupProps {
   allSearches: SavedQuery[];

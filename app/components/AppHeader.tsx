@@ -5,14 +5,55 @@ import { AppConfig } from './types';
 /**
  * AppHeader Component - Application header with title and controls
  * 
- * This component displays the application header bar with the title,
- * GitHub link, and action buttons for configuration and timezone selection.
+ * 🔰 BEGINNER'S GUIDE TO REACT CONCEPTS:
  * 
- * Features:
- * - Application title with gradient background
- * - GitHub repository link
- * - Configuration button
+ * 1. Stateless Functional Component:
+ *    This component doesn't track any internal state - it simply renders based on
+ *    props it receives. React calls these "presentational components" because they
+ *    just present UI without managing data themselves.
+ *    Example: const AppHeader = (props) => { ... }
+ * 
+ * 2. Props (Properties):
+ *    Props are how React components receive data from their parents. They're read-only!
+ *    Here we use props destructuring to pull out specific properties we need:
+ *    Example: const AppHeader = ({ config, timezone }) => { ... }
+ *    This is cleaner than writing props.config, props.timezone everywhere.
+ * 
+ * 3. Event Handling:
+ *    React uses camelCase naming for events (onClick instead of onclick).
+ *    Example: onClick={() => setShowConfigPopup(true)}
+ *    We use an arrow function to call our state setter with the value we want.
+ * 
+ * 4. JSX:
+ *    JSX is React's syntax extension to write HTML-like elements in JavaScript.
+ *    - HTML attributes become camelCase in JSX (className instead of class)
+ *    - Component tags must start with capital letters (distinguishes from HTML)
+ *    - All JSX elements must be closed (even <img /> needs the closing slash)
+ *    - You use curly braces {} to embed JavaScript expressions in JSX
+ * 
+ * 5. Fragments:
+ *    React components must return a single element, but you can use fragments
+ *    to group elements without adding extra DOM nodes. Here we use a div as
+ *    our container but could have used <></> (fragment shorthand).
+ * 
+ * 6. Props as Function Callbacks:
+ *    React components often receive functions as props to communicate with parents.
+ *    Example: setShowConfigPopup is a function from the parent that we call
+ *    when the button is clicked. This "lifts state up" to manage it in the parent.
+ * 
+ * COMPONENT BEHAVIOR:
+ * This component displays the application header bar at the top of the page with:
+ * - Application title with attractive gradient background
+ * - GitHub repository link for the project
+ * - Configuration button to display app settings
  * - Timezone selector button showing current timezone
+ * 
+ * UI DESIGN PATTERNS:
+ * - Action buttons in the header for global app settings
+ * - Visual hierarchy with title prominence
+ * - Consistent button styling with hover effects
+ * - Semi-transparent background for buttons to layer on the gradient
+ * - Icon + text pattern for better usability
  * 
  * @param props.config - Application configuration settings
  * @param props.timezone - Current timezone selection

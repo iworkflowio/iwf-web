@@ -6,14 +6,26 @@ import { formatTimestamp } from './utils';
 /**
  * TimezoneSelector Component - Modal for selecting timezone settings
  * 
+ * REACT CONCEPTS DEMONSTRATED:
+ * - Props: Receives data and callbacks from parent
+ * - Event handling: onClick, onChange for user interactions
+ * - Controlled components: Radio inputs controlled by state from parent
+ * - Conditional rendering: Different content based on data availability
+ * - Lists & keys: Maps over arrays with unique keys for each timezone
+ * - Real-time UI updates: Preview changes timezone when selection changes
+ * - State lifting: Uses setState passed from parent component
+ * - Derived state: Calculates current time display from selected timezone
+ * 
+ * COMPONENT BEHAVIOR:
  * This component displays a popup dialog allowing users to choose their
  * preferred timezone for displaying dates throughout the application.
  * 
  * Features:
- * - Lists common timezones with their UTC offsets
- * - Shows the currently selected timezone
- * - Allows selection via radio buttons
- * - Displays current time in the selected timezone for preview
+ * - Lists common timezones with their UTC offsets in a scrollable list
+ * - Shows the currently selected timezone with visual highlighting
+ * - Allows selection via radio buttons or clicking on rows
+ * - Displays current time in the selected timezone for real-time preview
+ * - Changes take effect immediately as user selects different options
  * 
  * @param props.timezoneOptions - Array of available timezone options
  * @param props.timezone - Currently selected timezone option
