@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import { WorkflowSearchResponseEntry } from '../ts-api/src/api-gen/api';
 import { ColumnDef, FilterSpec } from './types';
 import Popup from './Popup';
-import { getStatusBadge } from './utils';
 
 /**
  * WorkflowList Component - Displays the workflows in a table format
@@ -148,16 +147,7 @@ const WorkflowList = ({
   goToNextPage,
   clearAllFilters
 }: WorkflowListProps) => {
-  // State to track if a popup is shown (for search attributes, etc.)
-  const [popup, setPopup] = useState<{
-    show: boolean;
-    title: string;
-    content: React.ReactNode;
-  }>({
-    show: false,
-    title: '',
-    content: null,
-  });
+  // No local popup state needed - using parent component's popup instead
 
   return (
     <div className="relative">
@@ -335,14 +325,7 @@ const WorkflowList = ({
         </div>
       )}
       
-      {/* Popup for displaying search attributes or other details */}
-      {popup.show && (
-        <Popup
-          title={popup.title}
-          content={popup.content}
-          onClose={() => setPopup({ ...popup, show: false })}
-        />
-      )}
+      {/* Popup handled by parent component (WorkflowSearchPage) */}
     </div>
   );
 };
