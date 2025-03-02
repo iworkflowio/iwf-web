@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
 import { WorkflowSearchResponseEntry } from '../ts-api/src/api-gen/api';
 import { ColumnDef, FilterSpec } from './types';
-import Popup from './Popup';
 
 /**
  * WorkflowList Component - Displays the workflows in a table format

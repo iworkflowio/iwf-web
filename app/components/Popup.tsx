@@ -81,45 +81,19 @@ interface PopupProps {
 function Popup({ title, content, onClose }: PopupProps) {
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" 
-      style={{ 
-        position: 'fixed', 
-        top: 0, 
-        right: 0, 
-        bottom: 0, 
-        left: 0, 
-        backgroundColor: 'rgba(0,0,0,0.5)', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        zIndex: 50 
-      }}
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
     >
       <div 
-        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl" 
-        style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '0.5rem', 
-          padding: '1.5rem', 
-          width: '100%', 
-          maxWidth: '42rem' 
-        }}
+        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl"
       >
         {/* Header with title and close button */}
         <div 
-          className="flex justify-between items-center mb-4" 
-          style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            marginBottom: '1rem' 
-          }}
+          className="flex justify-between items-center mb-4"
         >
           <h3 className="text-lg font-bold">{title}</h3>
           <button 
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 focus:outline-none"
-            style={{ color: '#6b7280' }}
           >
             ✕
           </button>
@@ -127,8 +101,7 @@ function Popup({ title, content, onClose }: PopupProps) {
         
         {/* Content area with scroll if needed */}
         <div 
-          className="max-h-96 overflow-y-auto" 
-          style={{ maxHeight: '24rem', overflowY: 'auto' }}
+          className="max-h-96 overflow-y-auto"
         >
           {content}
         </div>

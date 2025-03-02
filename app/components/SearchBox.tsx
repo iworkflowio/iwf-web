@@ -110,7 +110,7 @@ const SearchBox = ({
   return (
     <div className="mb-4">
       {/* Search input and button */}
-      <div className="flex" style={{ display: 'flex' }}>
+      <div className="flex">
         {/* Search input with clear button */}
         <div className="relative flex-grow">
           <input
