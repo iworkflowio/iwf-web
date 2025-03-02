@@ -39,8 +39,8 @@ export const getTimezoneOptions = (): TimezoneOption[] => {
  * @param timezone - The selected timezone option
  * @returns Formatted date string or "N/A" if timestamp is undefined
  */
-export const formatTimestamp = (timestamp?: number, timezone: TimezoneOption): string => {
-  if (!timestamp) return 'N/A';
+export const formatTimestamp = (timestamp: number | undefined, timezone: TimezoneOption): string => {
+  if (timestamp === undefined) return 'N/A';
   
   const date = new Date(timestamp);
   
