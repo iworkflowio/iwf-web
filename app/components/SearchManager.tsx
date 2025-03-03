@@ -1,99 +1,65 @@
 'use client';
 
-import {ColumnDef, SavedQuery, TimezoneOption} from './types';
-import { WorkflowSearchResponseEntry } from '../ts-api/src/api-gen/api';
-import {
-    formatTimestamp,
-    formatAttributeValue,
-    loadFromLocalStorage,
-    saveToLocalStorage,
-    sortQueriesByPriority
-} from './utils';
-import StatusBadge from './StatusBadge';
-import {useEffect, useRef, useState} from "react";
-import {sort} from "next/dist/build/webpack/loaders/css-loader/src/utils";
+import {useState} from "react";
+import {initialQueryParams} from "./PagninationManager";
+import {WorkflowSearchResponseEntry} from "../ts-api/src/api-gen";
+import {FilterSpec, SavedQuery} from "./types";
 
-// Saved searches state with a maximum limit of 500
-const MAX_SAVED_SEARCHES = 500;
-export function useSearchManager(){
+export function useSearchManager(saveRecentSearch, setNextPageToken, setAppliedFilters){
+    // Search query and results state
+    const [results, setResults] = useState<WorkflowSearchResponseEntry[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
-    const [allSearches, setAllSearches] = useState<SavedQuery[]>([]);
-    const [showAllSearchesPopup, setShowAllSearchesPopup] = useState(false);
+    // Parse the query to update applied filters state
+    const syncFiltersWithQuery = (currentQuery: string) => {
+        // Start with empty filters
+        const updatedFilters: Record<string, FilterSpec> = {};
 
-    // Load saved searches from localStorage
-    useEffect(() => {
-        const savedSearches = loadFromLocalStorage<any[]>('allSearches', []);
-        if (!savedSearches.length) return;
-        setAllSearches(savedSearches);
-    }, []);
+        // If there's no query, just clear all filters
+        if (!currentQuery.trim()) {
+            setAppliedFilters({});
+            return;
+        }
 
-    // Save search to localStorage
-    const saveRecentSearch = (searchQuery: string) => {
-        if (!searchQuery) return;
+        // Map field names to column IDs
+        const fieldToColumnMap: Record<string, string> = {
+            'ExecutionStatus': 'workflowStatus',
+            'WorkflowType': 'workflowType',
+            'WorkflowId': 'workflowId',
+            'RunId': 'workflowRunId',
+            'StartTime': 'startTime',
+            'CloseTime': 'closeTime',
+            'TaskQueue': 'taskQueue'
+        };
 
-        // Update all searches
-        setAllSearches(prevSearches => {
-            // Check if this query already exists
-            const existingIndex = prevSearches.findIndex(s => s.query === searchQuery);
-            let newSearches = [...prevSearches];
+        // Define regular expressions for different filter patterns
+        // This handles: Field = "value", Field = 'value', Field != "value", etc.
+        const filterRegex = /(ExecutionStatus|WorkflowType|WorkflowId|RunId|StartTime|CloseTime|TaskQueue)\s*(=|!=|>|<|>=|<=)\s*['"](.*?)['"]|['"](.*?)['"]/g;
 
-            if (existingIndex >= 0) {
-                // If it exists, update the timestamp and keep its name
-                const existing = newSearches[existingIndex];
-                newSearches.splice(existingIndex, 1);
-                newSearches.unshift({
-                    ...existing,
-                    query: searchQuery,
-                    timestamp: Date.now()
-                });
-            } else {
-                // Add new query
-                newSearches.unshift({
-                    query: searchQuery,
-                    timestamp: Date.now()
-                });
-            }
+        let match;
+        while ((match = filterRegex.exec(currentQuery)) !== null) {
+            const field = match[1];
+            const operator = match[2] || '=';
+            const value = match[3] || match[4];
 
-            // Sort by priority 
-            const sorted = sortQueriesByPriority(newSearches);
-            // Enforce the maximum number of saved searches
-            if (newSearches.length > MAX_SAVED_SEARCHES) {
-                newSearches = sorted.slice(0, MAX_SAVED_SEARCHES);
-            }else{
-                newSearches = sorted
-            }
-
-            // Save all searches to localStorage
-            saveToLocalStorage('allSearches', newSearches);
-
-            return newSearches;
-        });
-    };
-
-    // Update the name of a saved query
-    const updateQueryName = (index: number, name: string) => {
-        setAllSearches(prevSearches => {
-            const newSearches = [...prevSearches];
-            if (newSearches[index]) {
-                newSearches[index] = {
-                    ...newSearches[index],
-                    name: name.trim() || undefined // Remove empty names
+            if (field && value && fieldToColumnMap[field]) {
+                const columnId = fieldToColumnMap[field];
+                updatedFilters[columnId] = {
+                    value,
+                    operator
                 };
-
-                // Save to localStorage
-                saveToLocalStorage('allSearches', newSearches);
-
-                // Return the updated searches
-                return sortQueriesByPriority(newSearches);
             }
-            return prevSearches;
-        });
+        }
+
+        // Update the applied filters state
+        setAppliedFilters(updatedFilters);
     };
     
     return {
-        allSearches, setAllSearches,
-        showAllSearchesPopup, setShowAllSearchesPopup,
-        saveRecentSearch,updateQueryName
-        
+        results, setResults,
+        loading, setLoading,
+        error, setError,
+        syncFiltersWithQuery
     }
 }

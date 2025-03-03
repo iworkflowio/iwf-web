@@ -308,3 +308,22 @@ export const formatFilterForQuery = (
   
   return value;
 };
+
+// Function to update URL with search query and pagination params
+export const updateUrlWithParams = (searchQuery: string, page: number = 1, size: number = 20, token: string = '') => {
+  if (typeof window === 'undefined') return;
+
+  const url = new URL(window.location.href);
+
+  // Update search query parameter
+  searchQuery ? url.searchParams.set('q', searchQuery) : url.searchParams.delete('q');
+
+  // Update pagination parameters
+  url.searchParams.set('page', page.toString());
+  url.searchParams.set('size', size.toString());
+
+  // Add nextPageToken to URL if it exists
+  token ? url.searchParams.set('token', token) : url.searchParams.delete('token');
+
+  window.history.pushState({}, '', url.toString());
+};

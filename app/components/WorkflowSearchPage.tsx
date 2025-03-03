@@ -9,7 +9,8 @@ import {
   sortQueriesByPriority,
   formatAttributeValue,
   saveToLocalStorage,
-  loadFromLocalStorage
+  loadFromLocalStorage,
+  updateUrlWithParams
 } from './utils';
 import StatusBadge from './StatusBadge';
 import {getBaseColumnsWithAccessors, createSearchAttributeAccessor, useColumnManager} from './ColumnManager';
@@ -25,7 +26,10 @@ import FilterPopup from './FilterPopup';
 import ColumnSelector from './ColumnSelector';
 import AppHeader from './AppHeader';
 import Popup from './Popup';
+import {useSearchHistoryManager} from "./SearchHistoryManager";
+import {initialQueryParams, usePaginationManager} from './PagninationManager';
 import {useSearchManager} from "./SearchManager";
+import {underline} from "next/dist/lib/picocolors";
 
 /**
  * WorkflowSearchPage Component - Main application component
@@ -57,43 +61,40 @@ import {useSearchManager} from "./SearchManager";
  * It serves as an excellent example of a complex React application structure.
  */
 export default function WorkflowSearchPage() {
-  // Initialize query state from URL if present (for sharing/bookmarking)
-  const initialQueryParams = (() => {
-    if (typeof window === 'undefined') {
-      return { query: '', page: 1, size: 20, token: '' };
-    }
-    
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get('q') || '';
-    const size = parseInt(params.get('size') || '20', 10);
-    const token = params.get('token') || '';
-    const rawPage = parseInt(params.get('page') || '1', 10);
-    
-    // Reset to page 1 if page > 1 but no token is provided
-    const page = (!token && rawPage > 1) ? 1 : rawPage;
-    
-    return { query, size, token, page };
-  })();
+  // Use search history manager hook
+  const {allSearches,
+    setAllSearches,
+    showAllSearchesPopup,
+    setShowAllSearchesPopup,
+    saveRecentSearch,
+    updateQueryName} = useSearchHistoryManager();
+
+  // Filter state
+  const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
+  const [filterValue, setFilterValue] = useState<string>('');
+  const [filterOperator, setFilterOperator] = useState<string>('=');
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, FilterSpec>>({});
   
-  // Search query and results state
+  // declare some states at top level to avoid circular dependency
+  let fetchWorkflows: ((searchInput: string | SavedQuery, pageToken: string, pageSize: number)=>Promise<void>)|undefined;
   const [query, setQuery] = useState(initialQueryParams.query);
-  const [results, setResults] = useState<WorkflowSearchResponseEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   
-  // Pagination state
-  const [pageSize, setPageSize] = useState<number>(initialQueryParams.size);
-  const [currentPage, setCurrentPage] = useState<number>(initialQueryParams.page);
-  const [nextPageToken, setNextPageToken] = useState<string>(initialQueryParams.token);
-  const [hasMoreResults, setHasMoreResults] = useState<boolean>(false);
-  const [pageHistory, setPageHistory] = useState<string[]>(() => {
-    // Initialize page history array with the correct token in place
-    const history = Array(initialQueryParams.page).fill('');
-    if (initialQueryParams.page > 1 && initialQueryParams.token) {
-      history[initialQueryParams.page - 1] = initialQueryParams.token;
-    }
-    return history;
-  });
+  const {
+        pageSize,
+        nextPageToken, setNextPageToken,
+        currentPage, setCurrentPage,
+        pageHistory, setPageHistory,
+        goToNextPage, goToPrevPage,goToFirstPage,
+        changePageSize
+  } = usePaginationManager(query, fetchWorkflows);
+
+  // use search manager hook
+  const {
+    results, setResults,
+    loading, setLoading,
+    error, setError,
+    syncFiltersWithQuery
+  } = useSearchManager(saveRecentSearch, setNextPageToken, setAppliedFilters)
   
   // App configuration state
   const [config, setConfig] = useState<AppConfig>({
@@ -109,24 +110,12 @@ export default function WorkflowSearchPage() {
     setShowTimezoneSelector
   } = useTimezoneManager();
   
-  // Use search manager hook
-  const {allSearches, 
-    setAllSearches, 
-    showAllSearchesPopup, 
-    setShowAllSearchesPopup,
-    saveRecentSearch,
-    updateQueryName} = useSearchManager();
+
   
   // UI state for popups/dialogs
   const [showConfigPopup, setShowConfigPopup] = useState(false);
   const [showFilterPopup, setShowFilterPopup] = useState(false);
   const [showColumnSelector, setShowColumnSelector] = useState(false);
-  
-  // Filter state
-  const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
-  const [filterValue, setFilterValue] = useState<string>('');
-  const [filterOperator, setFilterOperator] = useState<string>('=');
-  const [appliedFilters, setAppliedFilters] = useState<Record<string, FilterSpec>>({});
   
   // Popup state for displaying custom search attributes
   const [customSearchAttributesPopup, setCustomSearchAttributesPopup] = useState<CustomSearchAttributesPopupState>({
@@ -144,26 +133,74 @@ export default function WorkflowSearchPage() {
     handleDragOver,
     handleDragEnd
   } = useColumnManager(timezone);
-  
-  // Function to update URL with search query and pagination params
-  const updateUrlWithParams = (searchQuery: string, page: number = 1, size: number = 20, token: string = '') => {
-    if (typeof window === 'undefined') return;
-    
-    const url = new URL(window.location.href);
-    
-    // Update search query parameter
-    searchQuery ? url.searchParams.set('q', searchQuery) : url.searchParams.delete('q');
-    
-    // Update pagination parameters
-    url.searchParams.set('page', page.toString());
-    url.searchParams.set('size', size.toString());
-    
-    // Add nextPageToken to URL if it exists
-    token ? url.searchParams.set('token', token) : url.searchParams.delete('token');
-    
-    window.history.pushState({}, '', url.toString());
+
+  // TODO: I tried to move this to SearchManager but didn't work
+  // Function to fetch workflows
+  // Execute a search with either query string or SavedQuery
+  fetchWorkflows = async (searchInput: string | SavedQuery = '', pageToken: string = '', pageSize: number) => {
+    try {
+      setLoading(true);
+      setError('');
+
+      // Extract the actual query string whether input is a string or SavedQuery
+      let searchQuery: string;
+      if (typeof searchInput === 'string') {
+        searchQuery = searchInput;
+      } else {
+        searchQuery = searchInput.query;
+        // Set the input field value to match the selected query
+        setQuery(searchInput.query);
+      }
+
+      // Use specified page size or current page size with fallback
+      const currentPageSize = pageSize || 20;
+
+      // Save to recent searches only when starting a new search
+      if (searchQuery && !pageToken) {
+        saveRecentSearch(searchQuery);
+      }
+
+      const response = await fetch('/api/v1/workflow/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          pageSize: currentPageSize,
+          nextPageToken: pageToken || '' // Always ensure we send empty string not undefined/null
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Handle API error from Temporal or other backend errors
+        let errorMessage = data.detail || 'Error processing request';
+        if (data.error) {
+          errorMessage += `: ${data.error}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      setResults(data.workflowExecutions || []);
+
+      // Update pagination state
+      setNextPageToken(data.nextPageToken || '');
+
+      // Sync filters with query if it's successful
+      syncFiltersWithQuery(searchQuery);
+    } catch (err) {
+      console.error('Search error:', err);
+      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setResults([]); // Clear results on error
+
+      // Reset pagination on error
+      setNextPageToken('');
+    } finally {
+      setLoading(false);
+    }
   };
-  
   
   // Show popup to display search attributes
   const showSearchAttributes = (attributes?: SearchAttribute[]) => {
@@ -221,90 +258,6 @@ export default function WorkflowSearchPage() {
       ),
     });
   };
-
-  // Function to fetch workflows
-  // Execute a search with either query string or SavedQuery
-  const fetchWorkflows = async (searchInput: string | SavedQuery = '', pageToken: string = '', newPageSize?: number) => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      // Extract the actual query string whether input is a string or SavedQuery
-      let searchQuery: string;
-      if (typeof searchInput === 'string') {
-        searchQuery = searchInput;
-      } else {
-        searchQuery = searchInput.query;
-        // Set the input field value to match the selected query
-        setQuery(searchInput.query);
-      }
-      
-      // Use specified page size or current page size with fallback
-      const currentPageSize = newPageSize || pageSize || 20;
-      const pageNum = currentPage || 1;
-      
-      // Update URL with the current search query and pagination params
-      updateUrlWithParams(searchQuery, pageNum, currentPageSize, pageToken);
-      
-      // Save to recent searches only when starting a new search
-      if (searchQuery && !pageToken) {
-        saveRecentSearch(searchQuery);
-      }
-      
-      // If page token is empty and it's not the first page, reset to first page
-      if (!pageToken && pageNum !== 1) {
-        setCurrentPage(1);
-        setPageHistory(['']);
-      }
-      
-      const response = await fetch('/api/v1/workflow/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          query: searchQuery,
-          pageSize: currentPageSize,
-          nextPageToken: pageToken || '' // Always ensure we send empty string not undefined/null
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        // Handle API error from Temporal or other backend errors
-        let errorMessage = data.detail || 'Error processing request';
-        if (data.error) {
-          errorMessage += `: ${data.error}`;
-        }
-        throw new Error(errorMessage);
-      }
-      
-      setResults(data.workflowExecutions || []);
-      
-      // Update pagination state
-      setNextPageToken(data.nextPageToken || '');
-      setHasMoreResults(!!data.nextPageToken);
-      
-      // If page size changed, update it
-      if (newPageSize && newPageSize !== pageSize) {
-        setPageSize(newPageSize);
-      }
-      
-      // Sync filters with query
-      syncFiltersWithQuery(searchQuery);
-    } catch (err) {
-      console.error('Search error:', err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      setResults([]); // Clear results on error
-      
-      // Reset pagination on error
-      setNextPageToken('');
-      setHasMoreResults(false);
-    } finally {
-      setLoading(false);
-    }
-  };
   
   // Sync applied filters with the current query before searching
   const handleSearch = () => {
@@ -313,51 +266,6 @@ export default function WorkflowSearchPage() {
     
     // Then execute the search
     fetchWorkflows(query);
-  };
-  
-  // Parse the query to update applied filters state
-  const syncFiltersWithQuery = (currentQuery: string) => {
-    // Start with empty filters
-    const updatedFilters: Record<string, FilterSpec> = {};
-    
-    // If there's no query, just clear all filters
-    if (!currentQuery.trim()) {
-      setAppliedFilters({});
-      return;
-    }
-    
-    // Map field names to column IDs
-    const fieldToColumnMap: Record<string, string> = {
-      'ExecutionStatus': 'workflowStatus',
-      'WorkflowType': 'workflowType',
-      'WorkflowId': 'workflowId',
-      'RunId': 'workflowRunId',
-      'StartTime': 'startTime',
-      'CloseTime': 'closeTime',
-      'TaskQueue': 'taskQueue'
-    };
-    
-    // Define regular expressions for different filter patterns
-    // This handles: Field = "value", Field = 'value', Field != "value", etc.
-    const filterRegex = /(ExecutionStatus|WorkflowType|WorkflowId|RunId|StartTime|CloseTime|TaskQueue)\s*(=|!=|>|<|>=|<=)\s*['"](.*?)['"]|['"](.*?)['"]/g;
-    
-    let match;
-    while ((match = filterRegex.exec(currentQuery)) !== null) {
-      const field = match[1];
-      const operator = match[2] || '=';
-      const value = match[3] || match[4];
-      
-      if (field && value && fieldToColumnMap[field]) {
-        const columnId = fieldToColumnMap[field];
-        updatedFilters[columnId] = {
-          value,
-          operator
-        };
-      }
-    }
-    
-    // Update the applied filters state
-    setAppliedFilters(updatedFilters);
   };
   
   // Open filter popup for a column
@@ -559,63 +467,6 @@ export default function WorkflowSearchPage() {
     return ['=', '!='];
   };
   
-  // Navigate to the next page of results
-  const goToNextPage = () => {
-    if (!hasMoreResults || !nextPageToken) return;
-    
-    // Add the current token to history before moving to the next page
-    const newHistory = [...pageHistory];
-    if (currentPage >= newHistory.length) {
-      newHistory.push(nextPageToken);
-    } else {
-      newHistory[currentPage] = nextPageToken;
-    }
-    
-    const nextPage = currentPage + 1;
-    setPageHistory(newHistory);
-    setCurrentPage(nextPage);
-    // Update URL with new page number and token
-    updateUrlWithParams(query, nextPage, pageSize, nextPageToken);
-    // Use an empty string as the token for safety with JSON serialization
-    fetchWorkflows(query, nextPageToken || '');
-  };
-  
-  // Navigate to the previous page of results
-  const goToPrevPage = () => {
-    if (currentPage <= 1) return;
-    
-    const prevPageIndex = currentPage - 2;
-    const prevToken = pageHistory[prevPageIndex] || '';
-    const prevPage = currentPage - 1;
-    
-    setCurrentPage(prevPage);
-    // Update URL with new page number and token
-    updateUrlWithParams(query, prevPage, pageSize, prevToken);
-    // Use an empty string as the token for safety with JSON serialization
-    fetchWorkflows(query, prevToken || '');
-  };
-  
-  // Go to the first page of results
-  const goToFirstPage = () => {
-    if (currentPage === 1) return;
-    
-    setCurrentPage(1);
-    // Update URL with new page number and empty token
-    updateUrlWithParams(query, 1, pageSize, '');
-    fetchWorkflows(query, '');
-  };
-  
-  // Change page size and reset to first page
-  const changePageSize = (newSize: number) => {
-    if (newSize === pageSize) return;
-    
-    setPageSize(newSize);
-    setCurrentPage(1);
-    setPageHistory(['']);
-    // Update URL with new page size and empty token
-    updateUrlWithParams(query, 1, newSize, '');
-    fetchWorkflows(query, '', newSize);
-  };
   
   // Fetch configuration and initial workflows
   useEffect(() => {
@@ -716,7 +567,7 @@ export default function WorkflowSearchPage() {
           pageSize={pageSize}
           setCurrentPage={setCurrentPage}
           changePageSize={changePageSize}
-          hasMoreResults={hasMoreResults}
+          hasMoreResults={!!nextPageToken}
           goToFirstPage={goToFirstPage}
           goToPrevPage={goToPrevPage}
           goToNextPage={goToNextPage}
