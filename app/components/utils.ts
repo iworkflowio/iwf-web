@@ -189,6 +189,40 @@ export const sortQueriesByPriority = (queries: SavedQuery[]): SavedQuery[] => {
 };
 
 /**
+ * loadFromLocalStorage - Safely loads data from localStorage with error handling
+ * 
+ * @param key - The localStorage key to retrieve
+ * @param defaultValue - The default value to return if the key doesn't exist or there's an error
+ * @returns The parsed value from localStorage or the defaultValue if not found/error
+ */
+export const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
+  if (typeof window === 'undefined') return defaultValue;
+  
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : defaultValue;
+  } catch (e) {
+    console.error(`Error loading ${key} from localStorage:`, e);
+    return defaultValue;
+  }
+};
+
+/**
+ * saveToLocalStorage - Safely saves data to localStorage with error handling
+ * 
+ * @param key - The localStorage key to store the data under
+ * @param value - The value to store (will be JSON.stringify'd)
+ */
+export const saveToLocalStorage = (key: string, value: any): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.error(`Error saving ${key} to localStorage:`, e);
+  }
+};
+
+/**
  * formatAttributeValue - Formats a search attribute for display
  * 
  * Converts different search attribute types (string, integer, boolean, etc.) to

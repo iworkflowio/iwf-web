@@ -2,15 +2,18 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { WorkflowSearchResponse, WorkflowSearchResponseEntry, WorkflowStatus, SearchAttribute } from '../ts-api/src/api-gen/api';
-import { ColumnDef, TimezoneOption, SavedQuery, AppConfig, PopupState, FilterSpec } from './types';
+import { ColumnDef, TimezoneOption, SavedQuery, AppConfig, CustomSearchAttributesPopupState, FilterSpec } from './types';
 import { 
   getTimezoneOptions, 
   formatTimestamp, 
   formatFilterForQuery,
   sortQueriesByPriority,
-  formatAttributeValue
+  formatAttributeValue,
+  saveToLocalStorage,
+  loadFromLocalStorage
 } from './utils';
 import StatusBadge from './StatusBadge';
+import { getBaseColumnsWithAccessors, createSearchAttributeAccessor } from './ColumnManager';
 
 // Import our components
 import SearchBox from './SearchBox';
@@ -120,8 +123,8 @@ export default function WorkflowSearchPage() {
   const [filterOperator, setFilterOperator] = useState<string>('=');
   const [appliedFilters, setAppliedFilters] = useState<Record<string, FilterSpec>>({});
   
-  // Generic popup state for displaying details
-  const [popup, setPopup] = useState<PopupState>({
+  // Popup state for displaying custom search attributes
+  const [customSearchAttributesPopup, setCustomSearchAttributesPopup] = useState<CustomSearchAttributesPopupState>({
     show: false,
     title: '',
     content: null,
@@ -129,19 +132,6 @@ export default function WorkflowSearchPage() {
   
   // Track if this is the initial mount to avoid unnecessary localStorage updates
   const isInitialMount = useRef(true);
-  
-  // Helper function to safely load from localStorage
-  const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
-    if (typeof window === 'undefined') return defaultValue;
-    
-    try {
-      const saved = localStorage.getItem(key);
-      return saved ? JSON.parse(saved) : defaultValue;
-    } catch (e) {
-      console.error(`Error loading ${key} from localStorage:`, e);
-      return defaultValue;
-    }
-  };
   
   // Initialize timezone options and saved timezone on client side
   useEffect(() => {
@@ -157,15 +147,7 @@ export default function WorkflowSearchPage() {
     }
   }, []);
   
-  // Helper function to safely save to localStorage
-  const saveToLocalStorage = (key: string, value: any): void => {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (e) {
-      console.error(`Error saving ${key} to localStorage:`, e);
-    }
-  };
+  // Now using saveToLocalStorage from utils.ts
   
   // Save timezone to localStorage whenever it changes
   useEffect(() => {
@@ -199,106 +181,7 @@ export default function WorkflowSearchPage() {
     setRecentSearches(sortedSearches.slice(0, 5)); // Show only 5 highest priority
   }, []);
   
-  // Define base column definitions
-  const baseColumns: Omit<ColumnDef, 'accessor'>[] = [
-    { id: 'workflowStatus', label: 'Status', visible: true },
-    { id: 'workflowType', label: 'Type', visible: true },
-    { id: 'workflowId', label: 'Workflow ID', visible: true },
-    { id: 'workflowRunId', label: 'Run ID', visible: true },
-    { id: 'startTime', label: 'Start Time', visible: true },
-    { id: 'closeTime', label: 'Close Time', visible: true },
-    { id: 'taskQueue', label: 'Task Queue', visible: false },
-    { id: 'historySizeInBytes', label: 'History Size', visible: false },
-    { id: 'historyLength', label: 'History Length', visible: false },
-    { id: 'customSearchAttributes', label: 'Search Attributes', visible: true }
-  ];
-  
-  // Function to generate time column accessor that respects timezone
-  const createTimeColumnAccessor = (timeGetter: (w: WorkflowSearchResponseEntry) => number | undefined) => {
-    // Return a function that will use the current timezone setting when called
-    return (w: WorkflowSearchResponseEntry) => formatTimestamp(timeGetter(w), timezone);
-  };
-  
-  // We're now using formatAttributeValue from utils.ts
-  
-  // Create columns with accessors that will re-evaluate when timezone changes
-  const getColumnsWithAccessors = (): ColumnDef[] => {
-    // Map base columns to add accessors
-    const columnsWithAccessors = baseColumns.map(col => {
-      let accessor;
-      
-      switch (col.id) {
-        case 'workflowStatus':
-          accessor = (w: WorkflowSearchResponseEntry) => <StatusBadge status={w.workflowStatus} />;
-          break;
-        case 'workflowId':
-          accessor = (w: WorkflowSearchResponseEntry) => w.workflowId;
-          break;
-        case 'workflowRunId':
-          accessor = (w: WorkflowSearchResponseEntry) => w.workflowRunId;
-          break;
-        case 'workflowType':
-          accessor = (w: WorkflowSearchResponseEntry) => w.workflowType || 'N/A';
-          break;
-        case 'startTime':
-          // Create dynamic accessor that will use the current timezone setting
-          accessor = createTimeColumnAccessor(w => w.startTime);
-          break;
-        case 'closeTime':
-          // Create dynamic accessor that will use the current timezone setting
-          accessor = createTimeColumnAccessor(w => w.closeTime);
-          break;
-        case 'taskQueue':
-          accessor = (w: WorkflowSearchResponseEntry) => w.taskQueue || 'N/A';
-          break;
-        case 'historySizeInBytes':
-          accessor = (w: WorkflowSearchResponseEntry) => {
-            if (w.historySizeInBytes === undefined) return 'N/A';
-            
-            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-            if (w.historySizeInBytes === 0) return '0 Byte';
-            const i = Math.floor(Math.log(w.historySizeInBytes) / Math.log(1024));
-            return Math.round((w.historySizeInBytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
-          };
-          break;
-        case 'historyLength':
-          accessor = (w: WorkflowSearchResponseEntry) => w.historyLength?.toString() || 'N/A';
-          break;
-        case 'customSearchAttributes':
-          accessor = (w: WorkflowSearchResponseEntry) => (
-            <button
-              onClick={() => showSearchAttributes(w.customSearchAttributes)}
-              className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
-              >
-              {w.customSearchAttributes?.length || 0} attributes
-            </button>
-          );
-          break;
-        default:
-          accessor = () => 'N/A';
-      }
-      
-      return { ...col, accessor };
-    });
-    
-    return columnsWithAccessors;
-  };
-  
-  // Create accessor function for custom search attribute column
-  const createSearchAttributeAccessor = (attributeKey: string) => {
-    return (workflow: WorkflowSearchResponseEntry) => {
-      const attr = workflow.customSearchAttributes?.find(a => a.key === attributeKey);
-      if (!attr) return 'N/A';
-      
-      // Special handling for datetime values
-      if (attr.valueType === 'DATETIME' && attr.integerValue !== undefined) {
-        return formatTimestamp(attr.integerValue, timezone);
-      }
-      
-      // For other types, use the regular formatter
-      return formatAttributeValue(attr);
-    };
-  };
+  // Now using functions from ColumnManager component
   
   // Generate columns including accessors with saved state
   const [columns, setColumns] = useState<ColumnDef[]>(() => {
@@ -308,12 +191,12 @@ export default function WorkflowSearchPage() {
     // If we have saved columns, update their accessors and return
     if (savedColumns && savedColumns.length > 0) {
       // Create base columns with accessors
-      const columnsWithAccessors = getColumnsWithAccessors();
+      const baseColumnsWithAccessors = getBaseColumnsWithAccessors(timezone);
       
       // Map saved columns to ensure they have current accessors
       return savedColumns.map(savedCol => {
         // Find matching base column to get current accessor
-        const baseCol = columnsWithAccessors.find(c => c.id === savedCol.id);
+        const baseCol = baseColumnsWithAccessors.find(c => c.id === savedCol.id);
         
         if (baseCol) {
           // Keep visibility and other properties from saved column, but use current accessor
@@ -328,7 +211,7 @@ export default function WorkflowSearchPage() {
           // Create an appropriate accessor for this search attribute column
           return {
             ...savedCol,
-            accessor: createSearchAttributeAccessor(attributeKey)
+            accessor: createSearchAttributeAccessor(attributeKey, timezone)
           };
         }
         
@@ -338,7 +221,7 @@ export default function WorkflowSearchPage() {
     }
     
     // Otherwise return default columns
-    return getColumnsWithAccessors();
+    return getBaseColumnsWithAccessors(timezone);
   });
   
   // Save column configuration to localStorage whenever it changes
@@ -487,7 +370,7 @@ export default function WorkflowSearchPage() {
   // Show popup to display search attributes
   const showSearchAttributes = (attributes?: SearchAttribute[]) => {
     if (!attributes || attributes.length === 0) {
-      setPopup({
+      setCustomSearchAttributesPopup({
         show: true,
         title: 'Custom Search Attributes',
         content: <p className="text-gray-500">No custom search attributes available</p>,
@@ -498,7 +381,7 @@ export default function WorkflowSearchPage() {
     // Force this component to update whenever timezone changes
     const currentTimezone = timezone.value;
 
-    setPopup({
+    setCustomSearchAttributesPopup({
       show: true,
       title: 'Custom Search Attributes',
       content: (
@@ -1026,12 +909,12 @@ export default function WorkflowSearchPage() {
         <WorkflowList 
           results={results}
           columns={columns}
+          showSearchAttributes={showSearchAttributes}
           handleDragStart={handleDragStart}
           handleDragOver={handleDragOver}
           handleDragEnd={handleDragEnd}
           openFilterForColumn={openFilterForColumn}
           appliedFilters={appliedFilters}
-          showSearchAttributes={showSearchAttributes}
           setShowColumnSelector={setShowColumnSelector}
           currentPage={currentPage}
           pageSize={pageSize}
@@ -1046,11 +929,11 @@ export default function WorkflowSearchPage() {
       )}
       
       {/* Popup for displaying search attributes */}
-      {popup.show && (
+      {customSearchAttributesPopup.show && (
         <Popup
-          title={popup.title}
-          content={popup.content}
-          onClose={() => setPopup({ title: popup.title, content: popup.content, show: false })}
+          title={customSearchAttributesPopup.title}
+          content={customSearchAttributesPopup.content}
+          onClose={() => setCustomSearchAttributesPopup({ title: customSearchAttributesPopup.title, content: customSearchAttributesPopup.content, show: false })}
         />
       )}
 

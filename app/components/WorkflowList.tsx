@@ -249,7 +249,14 @@ const WorkflowList = ({
                 <tr key={`${workflow.workflowId}-${workflow.workflowRunId}`} className="hover:bg-gray-50">
                   {visibleColumns.map(column => (
                     <td key={column.id} className="py-2 px-4 border">
-                      {column.accessor(workflow)}
+                      {column.id === 'customSearchAttributes' ? (
+                        <button
+                          onClick={() => showSearchAttributes(workflow.customSearchAttributes)}
+                          className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
+                        >
+                          {workflow.customSearchAttributes?.length || 0} attributes
+                        </button>
+                      ) : column.accessor(workflow)}
                     </td>
                   ))}
                 </tr>

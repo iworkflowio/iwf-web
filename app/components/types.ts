@@ -58,14 +58,14 @@ export interface AppConfig {
 }
 
 /**
- * PopupState manages the state of popup dialogs.
+ * CustomSearchAttributesPopupState manages the state of the search attributes popup.
  * 
  * Properties:
  * - show: Whether the popup should be displayed
  * - title: The popup's title
  * - content: The React component/content to show inside the popup
  */
-export interface PopupState {
+export interface CustomSearchAttributesPopupState {
   show: boolean;
   title: string;
   content: React.ReactNode;
