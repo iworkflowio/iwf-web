@@ -139,14 +139,14 @@ const SearchBox = ({
       {/* Recent searches section */}
       {allSearches.length > 0 && (
         <div className="mt-2">
-          {/* Header with "Show all" link - always visible */}
-          <div className="flex justify-between items-center mb-1">
-            <div className="text-sm text-gray-500">Recent:</div>
+          {/* Header with "Show all" link positioned next to "Recent:" label */}
+          <div className="flex items-center mb-1">
+            <div className="text-sm text-gray-500 mr-2">Recent:</div>
             <button 
               onClick={showAllSearches}
               className="text-xs text-blue-600 font-medium hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1"
             >
-              Show all ({allSearches.length})
+              (Manage: {allSearches.length})
             </button>
           </div>
           
