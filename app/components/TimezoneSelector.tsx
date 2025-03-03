@@ -1,7 +1,7 @@
 'use client';
 
 import { TimezoneOption } from './types';
-import { formatTimestamp } from './utils';
+import {formatTimestamp, getTimezoneOptions} from './utils';
 
 /**
  * TimezoneSelector Component - Modal for selecting timezone settings
@@ -27,20 +27,18 @@ import { formatTimestamp } from './utils';
  * - Displays current time in the selected timezone for real-time preview
  * - Changes take effect immediately as user selects different options
  * 
- * @param props.timezoneOptions - Array of available timezone options
  * @param props.timezone - Currently selected timezone option
  * @param props.setTimezone - State setter function to update the selected timezone
  * @param props.onClose - Function to close the timezone selector
  */
 interface TimezoneSelectorProps {
-  timezoneOptions: TimezoneOption[];
   timezone: TimezoneOption;
   setTimezone: (timezone: TimezoneOption) => void;
   onClose: () => void;
 }
+let timezoneOptions = getTimezoneOptions();
 
 const TimezoneSelector = ({
-  timezoneOptions,
   timezone,
   setTimezone,
   onClose

@@ -101,10 +101,7 @@ export default function WorkflowSearchPage() {
   });
   
   // Timezone state
-  const [timezoneOptions, setTimezoneOptions] = useState<TimezoneOption[]>([]);
-  // Default timezone for server rendering - will be replaced on client
-  const defaultTimezone: TimezoneOption = { label: 'Local Time', value: 'local', offset: 0 };
-  const [timezone, setTimezone] = useState<TimezoneOption>(defaultTimezone);
+  const [timezone, setTimezone] = useState<TimezoneOption>({ label: 'Local Time', value: 'local', offset: 0 });
   
   // Saved searches state  
   const [recentSearches, setRecentSearches] = useState<SavedQuery[]>([]);
@@ -132,13 +129,10 @@ export default function WorkflowSearchPage() {
   
   // Initialize timezone options and saved timezone on client side
   useEffect(() => {
-    const tzOptions = getTimezoneOptions();
-    setTimezoneOptions(tzOptions);
-    
     if (typeof window !== 'undefined') {
       const savedTzData = loadFromLocalStorage<{value: string, label: string}>('selectedTimezone', null);
       if (savedTzData) {
-        const match = tzOptions.find(tz => tz.value === savedTzData.value);
+        const match = getTimezoneOptions().find(tz => tz.value === savedTzData.value);
         if (match) setTimezone(match);
       }
     }
@@ -990,7 +984,6 @@ export default function WorkflowSearchPage() {
       {/* Popup for timezone selection */}
       {showTimezoneSelector && (
         <TimezoneSelector 
-          timezoneOptions={timezoneOptions}
           timezone={timezone}
           setTimezone={setTimezone}
           onClose={() => setShowTimezoneSelector(false)}
