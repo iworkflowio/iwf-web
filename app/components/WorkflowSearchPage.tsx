@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { WorkflowSearchResponse, WorkflowSearchResponseEntry, WorkflowStatus, SearchAttribute } from '../ts-api/src/api-gen/api';
-import { ColumnDef, TimezoneOption, SavedQuery, AppConfig, CustomSearchAttributesPopupState, FilterSpec } from './types';
+import { ColumnDef, SavedQuery, AppConfig, CustomSearchAttributesPopupState, FilterSpec } from './types';
 import { 
-  getTimezoneOptions, 
   formatTimestamp, 
   formatFilterForQuery,
   sortQueriesByPriority,
@@ -14,6 +13,7 @@ import {
 } from './utils';
 import StatusBadge from './StatusBadge';
 import { getBaseColumnsWithAccessors, createSearchAttributeAccessor } from './ColumnManager';
+import { useTimezoneManager } from './timezoneManager';
 
 // Import our components
 import SearchBox from './SearchBox';
@@ -100,15 +100,19 @@ export default function WorkflowSearchPage() {
     temporalNamespace: ''
   });
   
-  // Timezone state
-  const [timezone, setTimezone] = useState<TimezoneOption>({ label: 'Local Time', value: 'local', offset: 0 });
+  // Use the timezone manager hook
+  const { 
+    timezone, 
+    setTimezone, 
+    showTimezoneSelector, 
+    setShowTimezoneSelector
+  } = useTimezoneManager();
   
   // Saved searches state  
   const [recentSearches, setRecentSearches] = useState<SavedQuery[]>([]);
   const [allSearches, setAllSearches] = useState<SavedQuery[]>([]);
   
   // UI state for popups/dialogs
-  const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
   const [showConfigPopup, setShowConfigPopup] = useState(false);
   const [showAllSearchesPopup, setShowAllSearchesPopup] = useState(false);
   const [showFilterPopup, setShowFilterPopup] = useState(false);
@@ -126,27 +130,6 @@ export default function WorkflowSearchPage() {
     title: '',
     content: null,
   });
-  
-  // Initialize timezone options and saved timezone on client side
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedTzData = loadFromLocalStorage<{value: string, label: string}>('selectedTimezone', null);
-      if (savedTzData) {
-        const match = getTimezoneOptions().find(tz => tz.value === savedTzData.value);
-        if (match) setTimezone(match);
-      }
-    }
-  }, []);
-  
-  // Now using saveToLocalStorage from utils.ts
-  
-  // Save timezone to localStorage whenever it changes
-  useEffect(() => {
-    saveToLocalStorage('selectedTimezone', {
-      value: timezone.value,
-      label: timezone.label
-    });
-  }, [timezone]);
   
   // Load saved searches from localStorage
   useEffect(() => {
