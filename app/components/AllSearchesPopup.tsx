@@ -30,7 +30,6 @@ import { SavedQuery } from './types';
  * @param props.updateQueryName - Function to update the name of a saved query
  * @param props.fetchWorkflows - Function to execute a saved query
  * @param props.setAllSearches - Function to update the full search list (setState from parent)
- * @param props.setRecentSearches - Function to update the recent searches list (setState from parent)
  */
 interface AllSearchesPopupProps {
   allSearches: SavedQuery[];
@@ -38,7 +37,6 @@ interface AllSearchesPopupProps {
   updateQueryName: (index: number, name: string) => void;
   fetchWorkflows: (query: SavedQuery) => void;
   setAllSearches: (searches: SavedQuery[]) => void;
-  setRecentSearches: (searches: SavedQuery[]) => void;
 }
 
 const AllSearchesPopup = ({
@@ -46,8 +44,7 @@ const AllSearchesPopup = ({
   onClose,
   updateQueryName,
   fetchWorkflows,
-  setAllSearches,
-  setRecentSearches
+  setAllSearches
 }: AllSearchesPopupProps) => {
   // Track which query is being edited (if any)
   const [editingQueryIndex, setEditingQueryIndex] = useState<number | null>(null);
@@ -188,7 +185,6 @@ const AllSearchesPopup = ({
                               // Remove this query from the list
                               const newSearches = allSearches.filter((_, i) => i !== originalIndex);
                               setAllSearches(newSearches);
-                              setRecentSearches(newSearches.slice(0, 5));
                               setFilteredSearches(filteredSearches.filter((_, i) => i !== index));
                               
                               // Update localStorage
@@ -222,7 +218,6 @@ const AllSearchesPopup = ({
             onClick={() => {
               // Clear all search history
               setAllSearches([]);
-              setRecentSearches([]);
               setFilteredSearches([]);
               
               // Clear localStorage

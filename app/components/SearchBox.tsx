@@ -79,7 +79,6 @@ import { formatQueryForDisplay } from './utils';
  * @param props.allSearches - Array of all saved search objects
  * @param props.fetchWorkflows - Function to load workflows for a saved query
  * @param props.showAllSearches - Function to open the full search history dialog
- * @param props.appliedFilters - Currently applied filters
  * @param props.setAppliedFilters - Function to update applied filters
  */
 interface SearchBoxProps {
@@ -87,11 +86,9 @@ interface SearchBoxProps {
   setQuery: (query: string) => void;
   loading: boolean;
   handleSearch: () => void;
-  recentSearches: SavedQuery[];
   allSearches: SavedQuery[];
   fetchWorkflows: (query: string | SavedQuery) => void;
   showAllSearches: () => void;
-  appliedFilters: Record<string, {value: string, operator: string}>;
   setAppliedFilters: (filters: Record<string, {value: string, operator: string}>) => void;
 }
 
@@ -100,11 +97,9 @@ const SearchBox = ({
   setQuery,
   loading,
   handleSearch,
-  recentSearches,
   allSearches,
   fetchWorkflows,
   showAllSearches,
-  appliedFilters,
   setAppliedFilters
 }: SearchBoxProps) => {
   return (
@@ -142,7 +137,7 @@ const SearchBox = ({
       </div>
       
       {/* Recent searches section */}
-      {recentSearches.length > 0 && (
+      {allSearches.length > 0 && (
         <div className="mt-2">
           {/* Header with "Show all" link */}
           <div className="flex justify-between items-center mb-1">
@@ -157,9 +152,9 @@ const SearchBox = ({
             )}
           </div>
           
-          {/* Recent search pills */}
+          {/* Recent search pills - show 5 most recent/important */}
           <div className="flex flex-wrap gap-2">
-            {recentSearches.map((savedQuery, index) => (
+            {allSearches.slice(0, 5).map((savedQuery, index) => (
               <button
                 key={index}
                 onClick={() => {

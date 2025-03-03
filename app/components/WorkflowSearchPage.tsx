@@ -25,6 +25,7 @@ import FilterPopup from './FilterPopup';
 import ColumnSelector from './ColumnSelector';
 import AppHeader from './AppHeader';
 import Popup from './Popup';
+import {useSearchManager} from "./SearchManager";
 
 /**
  * WorkflowSearchPage Component - Main application component
@@ -108,13 +109,16 @@ export default function WorkflowSearchPage() {
     setShowTimezoneSelector
   } = useTimezoneManager();
   
-  // Saved searches state  
-  const [recentSearches, setRecentSearches] = useState<SavedQuery[]>([]);
-  const [allSearches, setAllSearches] = useState<SavedQuery[]>([]);
+  // Use search manager hook
+  const {allSearches, 
+    setAllSearches, 
+    showAllSearchesPopup, 
+    setShowAllSearchesPopup,
+    saveRecentSearch,
+    updateQueryName} = useSearchManager();
   
   // UI state for popups/dialogs
   const [showConfigPopup, setShowConfigPopup] = useState(false);
-  const [showAllSearchesPopup, setShowAllSearchesPopup] = useState(false);
   const [showFilterPopup, setShowFilterPopup] = useState(false);
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   
@@ -130,25 +134,6 @@ export default function WorkflowSearchPage() {
     title: '',
     content: null,
   });
-  
-  // Load saved searches from localStorage
-  useEffect(() => {
-    const savedSearches = loadFromLocalStorage<any[]>('allSearches', []);
-    if (!savedSearches.length) return;
-    
-    // Ensure all saved queries have timestamp field (backward compatibility)
-    const validSearches = savedSearches.map(s => {
-      if (typeof s === 'string') {
-        // Convert old format to new format
-        return { query: s, timestamp: Date.now() };
-      }
-      return { ...s, timestamp: s.timestamp || Date.now() };
-    });
-    
-    const sortedSearches = sortQueriesByPriority(validSearches);
-    setAllSearches(sortedSearches);
-    setRecentSearches(sortedSearches.slice(0, 5)); // Show only 5 highest priority
-  }, []);
   
   const {
     columns, 
@@ -179,73 +164,6 @@ export default function WorkflowSearchPage() {
     window.history.pushState({}, '', url.toString());
   };
   
-  // Save recent search to localStorage
-  const saveRecentSearch = (searchQuery: string) => {
-    if (!searchQuery) return;
-    
-    // Update all searches
-    setAllSearches(prevSearches => {
-      // Check if this query already exists
-      const existingIndex = prevSearches.findIndex(s => s.query === searchQuery);
-      let newSearches = [...prevSearches];
-      
-      if (existingIndex >= 0) {
-        // If it exists, update the timestamp and keep its name
-        const existing = newSearches[existingIndex];
-        newSearches.splice(existingIndex, 1);
-        newSearches.unshift({
-          ...existing,
-          query: searchQuery,
-          timestamp: Date.now()
-        });
-      } else {
-        // Add new query
-        newSearches.unshift({
-          query: searchQuery,
-          timestamp: Date.now()
-        });
-      }
-      
-      // Keep up to 100 searches, removing low priority ones first
-      if (newSearches.length > 100) {
-        // Sort by priority to decide which ones to remove
-        const sorted = sortQueriesByPriority(newSearches);
-        newSearches = sorted.slice(0, 100);
-      }
-      
-      // Save all searches to localStorage
-      saveToLocalStorage('allSearches', newSearches);
-      
-      // Update recent searches with the highest priority ones
-      const sortedSearches = sortQueriesByPriority(newSearches);
-      setRecentSearches(sortedSearches.slice(0, 5));
-      
-      return sortedSearches;
-    });
-  };
-  
-  // Update the name of a saved query
-  const updateQueryName = (index: number, name: string) => {
-    setAllSearches(prevSearches => {
-      const newSearches = [...prevSearches];
-      if (newSearches[index]) {
-        newSearches[index] = {
-          ...newSearches[index],
-          name: name.trim() || undefined // Remove empty names
-        };
-        
-        // Save to localStorage
-        saveToLocalStorage('allSearches', newSearches);
-        
-        // Update recent searches
-        const sortedSearches = sortQueriesByPriority(newSearches);
-        setRecentSearches(sortedSearches.slice(0, 5));
-        
-        return sortedSearches;
-      }
-      return prevSearches;
-    });
-  };
   
   // Show popup to display search attributes
   const showSearchAttributes = (attributes?: SearchAttribute[]) => {
@@ -758,11 +676,9 @@ export default function WorkflowSearchPage() {
         setQuery={setQuery}
         loading={loading}
         handleSearch={handleSearch}
-        recentSearches={recentSearches}
         allSearches={allSearches}
         fetchWorkflows={fetchWorkflows}
         showAllSearches={() => setShowAllSearchesPopup(true)}
-        appliedFilters={appliedFilters}
         setAppliedFilters={setAppliedFilters}
       />
       
@@ -854,7 +770,6 @@ export default function WorkflowSearchPage() {
           updateQueryName={updateQueryName}
           fetchWorkflows={fetchWorkflows}
           setAllSearches={setAllSearches}
-          setRecentSearches={setRecentSearches}
         />
       )}
       
