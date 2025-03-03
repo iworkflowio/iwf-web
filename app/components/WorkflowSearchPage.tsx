@@ -12,7 +12,7 @@ import {
   loadFromLocalStorage
 } from './utils';
 import StatusBadge from './StatusBadge';
-import { getBaseColumnsWithAccessors, createSearchAttributeAccessor } from './ColumnManager';
+import {getBaseColumnsWithAccessors, createSearchAttributeAccessor, useColumnManager} from './ColumnManager';
 import { useTimezoneManager } from './timezoneManager';
 
 // Import our components
@@ -150,101 +150,8 @@ export default function WorkflowSearchPage() {
     setRecentSearches(sortedSearches.slice(0, 5)); // Show only 5 highest priority
   }, []);
   
-  // Now using functions from ColumnManager component
-  
   // Initialize columns with base columns for server rendering
-  const [columns, setColumns] = useState<ColumnDef[]>(() => {
-    // Start with base columns - no localStorage access during initial render to avoid hydration issues
-    return getBaseColumnsWithAccessors(timezone);
-  });
-
-  // Track if columns are loaded to avoid overwriting columns stored in localStorage
-  const hasLoadedColumns = useRef(false);
-  
-  // After initial render, load saved columns from localStorage - only runs once on mount
-  useEffect(() => {
-    // Don't reload columns if we've already loaded them
-    if (hasLoadedColumns.current) {
-      return;
-    }
-    
-    // Load saved columns from localStorage
-    const savedColumns = loadFromLocalStorage<ColumnDef[]>('columns', null);
-    
-    // If we have saved columns, update them with current accessors
-    if (savedColumns && savedColumns.length > 0) {
-      // Create base columns with accessors
-      const baseColumnsWithAccessors = getBaseColumnsWithAccessors(timezone);
-      
-      // Map saved columns to ensure they have current accessors
-      const updatedColumns = savedColumns.map(savedCol => {
-        // Find matching base column to get current accessor
-        const baseCol = baseColumnsWithAccessors.find(c => c.id === savedCol.id);
-        
-        if (baseCol) {
-          // Keep visibility and other properties from saved column, but use current accessor
-          return {
-            ...savedCol,
-            accessor: baseCol.accessor
-          };
-        } else if (savedCol.id.startsWith('attr_')) {
-          // This is a custom search attribute column
-          const attributeKey = savedCol.id.substring(5); // Remove 'attr_' prefix
-          
-          // Create an appropriate accessor for this search attribute column
-          return {
-            ...savedCol,
-            accessor: createSearchAttributeAccessor(attributeKey, timezone)
-          };
-        }
-        
-        // Default case: just return the saved column as is
-        return savedCol;
-      });
-      
-      // Update the columns state
-      setColumns(updatedColumns);
-    }
-    // now columns are loaded, it's safe to write
-    hasLoadedColumns.current = true;
-  }, []); // Only run once on mount
-  
-  // Update accessors when timezone changes
-  useEffect(() => {
-    // Skip if we haven't loaded columns yet
-    if (!hasLoadedColumns.current) {
-      return;
-    }
-    
-    // Update time-related columns with new timezone information
-    const baseColumnsWithAccessors = getBaseColumnsWithAccessors(timezone);
-    
-    setColumns(prevColumns => prevColumns.map(col => {
-      // Update time-related columns
-      if (col.id === 'startTime' || col.id === 'closeTime') {
-        const baseCol = baseColumnsWithAccessors.find(c => c.id === col.id);
-        if (baseCol) {
-          return { ...col, accessor: baseCol.accessor };
-        }
-      } 
-      // Update datetime search attribute columns
-      else if (col.id.startsWith('attr_')) {
-        const attributeKey = col.id.substring(5);
-        return {
-          ...col,
-          accessor: createSearchAttributeAccessor(attributeKey, timezone)
-        };
-      }
-      return col;
-    }));
-  }, [timezone]); // Re-run when timezone changes
-  
-  // Save column configuration to localStorage whenever it changes
-  useEffect(() => {
-    if (hasLoadedColumns.current && columns.length > 0) {
-      saveToLocalStorage('columns', columns);
-    }
-  }, [columns]);
+  const {columns, setColumns} = useColumnManager(timezone);
   
   // For drag and drop functionality
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);

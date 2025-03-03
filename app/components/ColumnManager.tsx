@@ -1,14 +1,101 @@
 'use client';
 
-import { ColumnDef } from './types';
+import {ColumnDef, TimezoneOption} from './types';
 import { WorkflowSearchResponseEntry } from '../ts-api/src/api-gen/api';
-import { formatTimestamp, formatAttributeValue } from './utils';
+import {formatTimestamp, formatAttributeValue, loadFromLocalStorage, saveToLocalStorage} from './utils';
 import StatusBadge from './StatusBadge';
+import {useEffect, useState} from "react";
 
 /**
  * ColumnManager handles all the column logic including creation, 
  * search attribute column generation, and accessor creation.
  */
+
+export function useColumnManager(timezone: TimezoneOption){
+  // Initialize columns with base columns for server rendering
+  const [columns, setColumns] = useState<ColumnDef[]>(() => {
+    // Start with base columns - no localStorage access during initial render to avoid hydration issues
+    return getBaseColumnsWithAccessors(timezone);
+  });
+
+  // After initial render, load saved columns from localStorage - only runs once on mount
+  useEffect(() => {
+
+    // Load saved columns from localStorage
+    const savedColumns = loadFromLocalStorage<ColumnDef[]>('columns', null);
+
+    // If we have saved columns, update them with current accessors
+    if (savedColumns && savedColumns.length > 0) {
+      // Create base columns with accessors
+      const baseColumnsWithAccessors = getBaseColumnsWithAccessors(timezone);
+
+      // Map saved columns to ensure they have current accessors
+      const updatedColumns = savedColumns.map(savedCol => {
+        // Find matching base column to get current accessor
+        const baseCol = baseColumnsWithAccessors.find(c => c.id === savedCol.id);
+
+        if (baseCol) {
+          // Keep visibility and other properties from saved column, but use current accessor
+          return {
+            ...savedCol,
+            accessor: baseCol.accessor
+          };
+        } else if (savedCol.id.startsWith('attr_')) {
+          // This is a custom search attribute column
+          const attributeKey = savedCol.id.substring(5); // Remove 'attr_' prefix
+
+          // Create an appropriate accessor for this search attribute column
+          return {
+            ...savedCol,
+            accessor: createSearchAttributeAccessor(attributeKey, timezone)
+          };
+        }
+
+        // Default case: just return the saved column as is
+        return savedCol;
+      });
+
+      // Update the columns state
+      setColumns(updatedColumns);
+    }
+  }, []); // Only run once on mount
+
+  // Save column configuration to localStorage whenever it changes
+  useEffect(() => {
+    saveToLocalStorage('columns', columns);
+  }, [columns]);
+
+  // Update accessors when timezone changes
+  useEffect(() => {
+
+    // Update time-related columns with new timezone information
+    const baseColumnsWithAccessors = getBaseColumnsWithAccessors(timezone);
+
+    setColumns(prevColumns => prevColumns.map(col => {
+      // Update time-related columns
+      if (col.id === 'startTime' || col.id === 'closeTime') {
+        const baseCol = baseColumnsWithAccessors.find(c => c.id === col.id);
+        if (baseCol) {
+          return { ...col, accessor: baseCol.accessor };
+        }
+      }
+      // Update datetime search attribute columns
+      else if (col.id.startsWith('attr_')) {
+        const attributeKey = col.id.substring(5);
+        return {
+          ...col,
+          accessor: createSearchAttributeAccessor(attributeKey, timezone)
+        };
+      }
+      return col;
+    }));
+  }, [timezone]); // Re-run when timezone changes
+  
+  return {
+    columns,
+    setColumns
+  }
+}
 
 /**
  * Gets the base columns with accessors for rendering workflow data
