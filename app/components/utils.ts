@@ -189,6 +189,30 @@ export const sortQueriesByPriority = (queries: SavedQuery[]): SavedQuery[] => {
 };
 
 /**
+ * formatAttributeValue - Formats a search attribute for display
+ * 
+ * Converts different search attribute types (string, integer, boolean, etc.) to
+ * a string representation suitable for display in the UI.
+ * 
+ * @param attr - The search attribute to format
+ * @returns Formatted string representation of the attribute value
+ */
+export const formatAttributeValue = (attr: SearchAttribute): string => {
+  if (attr.stringValue !== undefined) return attr.stringValue;
+  if (attr.integerValue !== undefined) return attr.integerValue.toString();
+  if (attr.doubleValue !== undefined) return attr.doubleValue.toString();
+  if (attr.boolValue !== undefined) return attr.boolValue ? 'true' : 'false';
+  if (attr.stringArrayValue) {
+    if (attr.stringArrayValue.length === 0) return '[]';
+    if (attr.stringArrayValue.length === 1) return attr.stringArrayValue[0];
+    return attr.stringArrayValue.length <= 2 
+      ? attr.stringArrayValue.join(', ')
+      : `${attr.stringArrayValue[0]}, ${attr.stringArrayValue[1]}, ... (${attr.stringArrayValue.length})`;
+  }
+  return 'N/A';
+};
+
+/**
  * formatFilterForQuery - Formats a filter value for inclusion in a query
  * 
  * Handles different data types and adds quotes as needed based on field type.

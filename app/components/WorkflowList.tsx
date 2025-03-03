@@ -84,8 +84,7 @@ import { ColumnDef, FilterSpec } from './types';
  * - Compound component: Combines many small UI elements into a cohesive unit
  * 
  * @param props.results - Array of workflow objects to display
- * @param props.columns - Column definitions for the table
- * @param props.visibleColumns - Filtered list of columns that should be displayed
+ * @param props.columns - Column definitions for the table (includes visibility flag)
  * @param props.handleDragStart - Function for starting column drag
  * @param props.handleDragOver - Function for handling drag over another column
  * @param props.handleDragEnd - Function for finishing drag operation
@@ -106,7 +105,6 @@ import { ColumnDef, FilterSpec } from './types';
 interface WorkflowListProps {
   results: WorkflowSearchResponseEntry[];
   columns: ColumnDef[];
-  visibleColumns: ColumnDef[];
   handleDragStart: (columnId: string) => void;
   handleDragOver: (e: React.DragEvent, columnId: string) => void;
   handleDragEnd: () => void;
@@ -128,7 +126,6 @@ interface WorkflowListProps {
 const WorkflowList = ({
   results,
   columns,
-  visibleColumns,
   handleDragStart,
   handleDragOver,
   handleDragEnd,
@@ -145,6 +142,8 @@ const WorkflowList = ({
   goToNextPage,
   clearAllFilters
 }: WorkflowListProps) => {
+  // Calculate visible columns (those marked as visible)
+  const visibleColumns = columns.filter(col => col.visible);
   // No local popup state needed - using parent component's popup instead
 
   return (

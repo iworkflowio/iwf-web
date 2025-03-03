@@ -7,7 +7,8 @@ import {
   getTimezoneOptions, 
   formatTimestamp, 
   formatFilterForQuery,
-  sortQueriesByPriority
+  sortQueriesByPriority,
+  formatAttributeValue
 } from './utils';
 import StatusBadge from './StatusBadge';
 
@@ -218,9 +219,12 @@ export default function WorkflowSearchPage() {
     return (w: WorkflowSearchResponseEntry) => formatTimestamp(timeGetter(w), timezone);
   };
   
+  // We're now using formatAttributeValue from utils.ts
+  
   // Create columns with accessors that will re-evaluate when timezone changes
   const getColumnsWithAccessors = (): ColumnDef[] => {
-    return baseColumns.map(col => {
+    // Map base columns to add accessors
+    const columnsWithAccessors = baseColumns.map(col => {
       let accessor;
       
       switch (col.id) {
@@ -276,83 +280,73 @@ export default function WorkflowSearchPage() {
       
       return { ...col, accessor };
     });
+    
+    return columnsWithAccessors;
   };
   
-  // Generate columns including accessors
-  const [columns, setColumns] = useState<ColumnDef[]>([]);
-  
-  // Create default column visibility
-  const getDefaultColumnVisibility = (): Record<string, boolean> => {
-    const defaults: Record<string, boolean> = {};
-    baseColumns.forEach(col => {
-      defaults[col.id] = col.visible;
-    });
-    return defaults;
+  // Create accessor function for custom search attribute column
+  const createSearchAttributeAccessor = (attributeKey: string) => {
+    return (workflow: WorkflowSearchResponseEntry) => {
+      const attr = workflow.customSearchAttributes?.find(a => a.key === attributeKey);
+      if (!attr) return 'N/A';
+      
+      // Special handling for datetime values
+      if (attr.valueType === 'DATETIME' && attr.integerValue !== undefined) {
+        return formatTimestamp(attr.integerValue, timezone);
+      }
+      
+      // For other types, use the regular formatter
+      return formatAttributeValue(attr);
+    };
   };
   
-  // Forward declaration to fix initialization order issue
-  const columnsOrderRef = useRef<string[]>(baseColumns.map(col => col.id));
-  
-  // Store column visibility state
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => 
-    loadFromLocalStorage<Record<string, boolean>>('columnVisibility', getDefaultColumnVisibility())
-  );
-  
-  // Store columns order - initialize after ref is created
-  const [columnsOrder, setColumnsOrder] = useState<string[]>(() => {
-    const savedOrder = loadFromLocalStorage<string[]>('columnsOrder', null);
-    if (savedOrder) {
-      columnsOrderRef.current = savedOrder; // Update ref with saved value
-      return savedOrder;
+  // Generate columns including accessors with saved state
+  const [columns, setColumns] = useState<ColumnDef[]>(() => {
+    // First try to load the complete columns configuration from localStorage
+    const savedColumns = loadFromLocalStorage<ColumnDef[]>('columns', null);
+    
+    // If we have saved columns, update their accessors and return
+    if (savedColumns && savedColumns.length > 0) {
+      // Create base columns with accessors
+      const columnsWithAccessors = getColumnsWithAccessors();
+      
+      // Map saved columns to ensure they have current accessors
+      return savedColumns.map(savedCol => {
+        // Find matching base column to get current accessor
+        const baseCol = columnsWithAccessors.find(c => c.id === savedCol.id);
+        
+        if (baseCol) {
+          // Keep visibility and other properties from saved column, but use current accessor
+          return {
+            ...savedCol,
+            accessor: baseCol.accessor
+          };
+        } else if (savedCol.id.startsWith('attr_')) {
+          // This is a custom search attribute column
+          const attributeKey = savedCol.id.substring(5); // Remove 'attr_' prefix
+          
+          // Create an appropriate accessor for this search attribute column
+          return {
+            ...savedCol,
+            accessor: createSearchAttributeAccessor(attributeKey)
+          };
+        }
+        
+        // Default case: just return the saved column as is
+        return savedCol;
+      });
     }
-    return columnsOrderRef.current; // Default to base column order
+    
+    // Otherwise return default columns
+    return getColumnsWithAccessors();
   });
   
-  // Update column visibility when initializing or changing timezone
+  // Save column configuration to localStorage whenever it changes
   useEffect(() => {
-    setColumns(getColumnsWithAccessors().map(col => ({
-      ...col,
-      visible: columnVisibility[col.id] ?? col.visible
-    })));
-  }, [timezone, columnVisibility]);
-  
-  // Save column visibility to localStorage whenever it changes
-  useEffect(() => {
-    if (!isInitialMount.current) {
-      saveToLocalStorage('columnVisibility', columnVisibility);
-    }
-  }, [columnVisibility]);
-  
-  // Apply saved column order when initializing columns
-  useEffect(() => {
-    if (columns.length === 0 || columnsOrderRef.current.length === 0) return;
-    
-    // Create a new array with columns in the saved order
-    const orderedColumns = [...columns].sort((a, b) => {
-      const aIndex = columnsOrderRef.current.indexOf(a.id);
-      const bIndex = columnsOrderRef.current.indexOf(b.id);
-      
-      // Handle columns that aren't in the saved order (new columns)
-      if (aIndex === -1) return 1; // Put at the end
-      if (bIndex === -1) return -1; // Put at the end
-      
-      return aIndex - bIndex;
-    });
-    
-    // Only update if order is different
-    const currentIds = columns.map(c => c.id).join(',');
-    const newIds = orderedColumns.map(c => c.id).join(',');
-    if (currentIds !== newIds) {
-      setColumns(orderedColumns);
+    if (!isInitialMount.current && columns.length > 0) {
+      saveToLocalStorage('columns', columns);
     }
   }, [columns]);
-  
-  // Save column order to localStorage whenever it changes
-  useEffect(() => {
-    if (!isInitialMount.current) {
-      saveToLocalStorage('columnsOrder', columnsOrder);
-    }
-  }, [columnsOrder]);
   
   // For drag and drop functionality
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
@@ -360,19 +354,16 @@ export default function WorkflowSearchPage() {
   
   // Function to toggle column visibility
   const toggleColumnVisibility = (columnId: string) => {
-    setColumnVisibility(prev => ({
-      ...prev,
-      [columnId]: !prev[columnId]
-    }));
+    setColumns(prev => prev.map(col => 
+      col.id === columnId 
+        ? { ...col, visible: !col.visible } 
+        : col
+    ));
   };
 
   // Reset column visibility (show all)
   const resetColumnVisibility = () => {
-    const resetVisibility: Record<string, boolean> = {};
-    baseColumns.forEach(col => {
-      resetVisibility[col.id] = true;
-    });
-    setColumnVisibility(resetVisibility);
+    setColumns(prev => prev.map(col => ({ ...col, visible: true })));
   };
   
   // Handler for starting column drag
@@ -398,11 +389,6 @@ export default function WorkflowSearchPage() {
         const [draggedCol] = newColumns.splice(draggedColIndex, 1);
         newColumns.splice(dropColIndex, 0, draggedCol);
         setColumns(newColumns);
-        
-        // Update and save the new column order
-        const newOrder = newColumns.map(col => col.id);
-        columnsOrderRef.current = newOrder; // Update ref immediately
-        setColumnsOrder(newOrder);
       }
     }
     
@@ -991,8 +977,7 @@ export default function WorkflowSearchPage() {
     }
   }, []);
   
-  // Get visible columns for display
-  const visibleColumns = columns.filter(col => col.visible);
+  // Visible columns are now calculated within the WorkflowList component
   
   return (
     <div className="container mx-auto p-4">
@@ -1041,7 +1026,6 @@ export default function WorkflowSearchPage() {
         <WorkflowList 
           results={results}
           columns={columns}
-          visibleColumns={visibleColumns}
           handleDragStart={handleDragStart}
           handleDragOver={handleDragOver}
           handleDragEnd={handleDragEnd}

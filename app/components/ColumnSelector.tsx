@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ColumnDef } from './types';
 import { SearchAttribute } from '../ts-api/src/api-gen/api';
+import { formatAttributeValue } from './utils';
 
 /**
  * ColumnSelector Component - Modal for customizing table columns
@@ -80,21 +81,8 @@ const ColumnSelector = ({
     setAttributeColumns(attributeKeysMap);
   }, [results, columns]);
 
-  // Format search attribute value for display
-  const formatAttributeValue = (attr: SearchAttribute) => {
-    if (attr.stringValue !== undefined) return attr.stringValue;
-    if (attr.integerValue !== undefined) return attr.integerValue.toString();
-    if (attr.doubleValue !== undefined) return attr.doubleValue.toString();
-    if (attr.boolValue !== undefined) return attr.boolValue ? 'true' : 'false';
-    if (attr.stringArrayValue) {
-      if (attr.stringArrayValue.length === 0) return '[]';
-      if (attr.stringArrayValue.length === 1) return attr.stringArrayValue[0];
-      return attr.stringArrayValue.length <= 2 
-        ? attr.stringArrayValue.join(', ')
-        : `${attr.stringArrayValue[0]}, ${attr.stringArrayValue[1]}, ... (${attr.stringArrayValue.length})`;
-    }
-    return 'N/A';
-  };
+  // We don't need formatAttributeValue here
+  // It's now defined and managed in WorkflowSearchPage
   
   // Get value type label
   const getValueTypeLabel = (attr?: SearchAttribute) => {
@@ -127,7 +115,7 @@ const ColumnSelector = ({
         const attr = workflow.customSearchAttributes?.find((a: SearchAttribute) => a.key === attributeKey);
         if (!attr) return 'N/A';
         
-        // Render different attribute types with appropriate formatting
+        // Use the formatAttributeValue utility function to format the attribute
         return formatAttributeValue(attr);
       },
       visible: true
