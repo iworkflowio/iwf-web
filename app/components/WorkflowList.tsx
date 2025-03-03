@@ -144,7 +144,6 @@ const WorkflowList = ({
 }: WorkflowListProps) => {
   // Calculate visible columns (those marked as visible)
   const visibleColumns = columns.filter(col => col.visible);
-  // No local popup state needed - using parent component's popup instead
 
   return (
     <div className="relative">

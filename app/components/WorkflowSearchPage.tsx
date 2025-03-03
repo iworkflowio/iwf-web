@@ -130,9 +130,6 @@ export default function WorkflowSearchPage() {
     content: null,
   });
   
-  // Track if this is the initial mount to avoid unnecessary localStorage updates
-  const isInitialMount = useRef(true);
-  
   // Initialize timezone options and saved timezone on client side
   useEffect(() => {
     const tzOptions = getTimezoneOptions();
@@ -151,11 +148,6 @@ export default function WorkflowSearchPage() {
   
   // Save timezone to localStorage whenever it changes
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-    
     saveToLocalStorage('selectedTimezone', {
       value: timezone.value,
       label: timezone.label
@@ -183,18 +175,32 @@ export default function WorkflowSearchPage() {
   
   // Now using functions from ColumnManager component
   
-  // Generate columns including accessors with saved state
+  // Initialize columns with base columns for server rendering
   const [columns, setColumns] = useState<ColumnDef[]>(() => {
-    // First try to load the complete columns configuration from localStorage
+    // Start with base columns - no localStorage access during initial render to avoid hydration issues
+    return getBaseColumnsWithAccessors(timezone);
+  });
+
+  // Track if columns are loaded to avoid overwriting columns stored in localStorage
+  const hasLoadedColumns = useRef(false);
+  
+  // After initial render, load saved columns from localStorage - only runs once on mount
+  useEffect(() => {
+    // Don't reload columns if we've already loaded them
+    if (hasLoadedColumns.current) {
+      return;
+    }
+    
+    // Load saved columns from localStorage
     const savedColumns = loadFromLocalStorage<ColumnDef[]>('columns', null);
     
-    // If we have saved columns, update their accessors and return
+    // If we have saved columns, update them with current accessors
     if (savedColumns && savedColumns.length > 0) {
       // Create base columns with accessors
       const baseColumnsWithAccessors = getBaseColumnsWithAccessors(timezone);
       
       // Map saved columns to ensure they have current accessors
-      return savedColumns.map(savedCol => {
+      const updatedColumns = savedColumns.map(savedCol => {
         // Find matching base column to get current accessor
         const baseCol = baseColumnsWithAccessors.find(c => c.id === savedCol.id);
         
@@ -218,15 +224,47 @@ export default function WorkflowSearchPage() {
         // Default case: just return the saved column as is
         return savedCol;
       });
+      
+      // Update the columns state
+      setColumns(updatedColumns);
+    }
+    // now columns are loaded, it's safe to write
+    hasLoadedColumns.current = true;
+  }, []); // Only run once on mount
+  
+  // Update accessors when timezone changes
+  useEffect(() => {
+    // Skip if we haven't loaded columns yet
+    if (!hasLoadedColumns.current) {
+      return;
     }
     
-    // Otherwise return default columns
-    return getBaseColumnsWithAccessors(timezone);
-  });
+    // Update time-related columns with new timezone information
+    const baseColumnsWithAccessors = getBaseColumnsWithAccessors(timezone);
+    
+    setColumns(prevColumns => prevColumns.map(col => {
+      // Update time-related columns
+      if (col.id === 'startTime' || col.id === 'closeTime') {
+        const baseCol = baseColumnsWithAccessors.find(c => c.id === col.id);
+        if (baseCol) {
+          return { ...col, accessor: baseCol.accessor };
+        }
+      } 
+      // Update datetime search attribute columns
+      else if (col.id.startsWith('attr_')) {
+        const attributeKey = col.id.substring(5);
+        return {
+          ...col,
+          accessor: createSearchAttributeAccessor(attributeKey, timezone)
+        };
+      }
+      return col;
+    }));
+  }, [timezone]); // Re-run when timezone changes
   
   // Save column configuration to localStorage whenever it changes
   useEffect(() => {
-    if (!isInitialMount.current && columns.length > 0) {
+    if (hasLoadedColumns.current && columns.length > 0) {
       saveToLocalStorage('columns', columns);
     }
   }, [columns]);
