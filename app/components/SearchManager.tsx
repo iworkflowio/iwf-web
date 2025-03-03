@@ -11,6 +11,7 @@ import {
 } from './utils';
 import StatusBadge from './StatusBadge';
 import {useEffect, useRef, useState} from "react";
+import {sort} from "next/dist/build/webpack/loaders/css-loader/src/utils";
 
 // Saved searches state with a maximum limit of 500
 const MAX_SAVED_SEARCHES = 500;
@@ -53,11 +54,13 @@ export function useSearchManager(){
                 });
             }
 
+            // Sort by priority 
+            const sorted = sortQueriesByPriority(newSearches);
             // Enforce the maximum number of saved searches
             if (newSearches.length > MAX_SAVED_SEARCHES) {
-                // Sort by priority to decide which ones to remove
-                const sorted = sortQueriesByPriority(newSearches);
                 newSearches = sorted.slice(0, MAX_SAVED_SEARCHES);
+            }else{
+                newSearches = sorted
             }
 
             // Save all searches to localStorage
@@ -91,5 +94,6 @@ export function useSearchManager(){
         allSearches, setAllSearches,
         showAllSearchesPopup, setShowAllSearchesPopup,
         saveRecentSearch,updateQueryName
+        
     }
 }
