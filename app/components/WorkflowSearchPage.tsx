@@ -150,57 +150,15 @@ export default function WorkflowSearchPage() {
     setRecentSearches(sortedSearches.slice(0, 5)); // Show only 5 highest priority
   }, []);
   
-  // Initialize columns with base columns for server rendering
-  const {columns, setColumns} = useColumnManager(timezone);
-  
-  // For drag and drop functionality
-  const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
-  const draggedOverColumnId = useRef<string | null>(null);
-  
-  // Function to toggle column visibility
-  const toggleColumnVisibility = (columnId: string) => {
-    setColumns(prev => prev.map(col => 
-      col.id === columnId 
-        ? { ...col, visible: !col.visible } 
-        : col
-    ));
-  };
-
-  // Reset column visibility (show all)
-  const resetColumnVisibility = () => {
-    setColumns(prev => prev.map(col => ({ ...col, visible: true })));
-  };
-  
-  // Handler for starting column drag
-  const handleDragStart = (columnId: string) => {
-    setDraggedColumnId(columnId);
-  };
-
-  // Handler for dragging over another column
-  const handleDragOver = (e: React.DragEvent, columnId: string) => {
-    e.preventDefault();
-    draggedOverColumnId.current = columnId;
-  };
-
-  // Handler for ending column drag
-  const handleDragEnd = () => {
-    if (draggedColumnId && draggedOverColumnId.current) {
-      // Reorder columns
-      const draggedColIndex = columns.findIndex(col => col.id === draggedColumnId);
-      const dropColIndex = columns.findIndex(col => col.id === draggedOverColumnId.current);
-      
-      if (draggedColIndex !== -1 && dropColIndex !== -1) {
-        const newColumns = [...columns];
-        const [draggedCol] = newColumns.splice(draggedColIndex, 1);
-        newColumns.splice(dropColIndex, 0, draggedCol);
-        setColumns(newColumns);
-      }
-    }
-    
-    // Reset drag state
-    setDraggedColumnId(null);
-    draggedOverColumnId.current = null;
-  };
+  const {
+    columns, 
+    setColumns, 
+    toggleColumnVisibility,
+    resetColumnVisibility,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd
+  } = useColumnManager(timezone);
   
   // Function to update URL with search query and pagination params
   const updateUrlWithParams = (searchQuery: string, page: number = 1, size: number = 20, token: string = '') => {

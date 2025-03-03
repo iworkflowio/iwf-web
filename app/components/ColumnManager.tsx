@@ -4,7 +4,7 @@ import {ColumnDef, TimezoneOption} from './types';
 import { WorkflowSearchResponseEntry } from '../ts-api/src/api-gen/api';
 import {formatTimestamp, formatAttributeValue, loadFromLocalStorage, saveToLocalStorage} from './utils';
 import StatusBadge from './StatusBadge';
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 
 /**
  * ColumnManager handles all the column logic including creation, 
@@ -90,10 +90,64 @@ export function useColumnManager(timezone: TimezoneOption){
       return col;
     }));
   }, [timezone]); // Re-run when timezone changes
+
+  // Function to toggle column visibility
+  const toggleColumnVisibility = (columnId: string) => {
+    setColumns(prev => prev.map(col =>
+        col.id === columnId
+            ? { ...col, visible: !col.visible }
+            : col
+    ));
+  };
+
+  // For drag and drop functionality
+  const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
+  const draggedOverColumnId = useRef<string | null>(null);
+
+  // Reset column visibility (show all)
+  const resetColumnVisibility = () => {
+    setColumns(prev => prev.map(col => ({ ...col, visible: true })));
+  };
+
+  // Handler for starting column drag
+  const handleDragStart = (columnId: string) => {
+    setDraggedColumnId(columnId);
+  };
+
+  // Handler for dragging over another column
+  const handleDragOver = (e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    draggedOverColumnId.current = columnId;
+  };
+
+  // Handler for ending column drag
+  const handleDragEnd = () => {
+    if (draggedColumnId && draggedOverColumnId.current) {
+      // Reorder columns
+      const draggedColIndex = columns.findIndex(col => col.id === draggedColumnId);
+      const dropColIndex = columns.findIndex(col => col.id === draggedOverColumnId.current);
+
+      if (draggedColIndex !== -1 && dropColIndex !== -1) {
+        const newColumns = [...columns];
+        const [draggedCol] = newColumns.splice(draggedColIndex, 1);
+        newColumns.splice(dropColIndex, 0, draggedCol);
+        setColumns(newColumns);
+      }
+    }
+
+    // Reset drag state
+    setDraggedColumnId(null);
+    draggedOverColumnId.current = null;
+  };
   
   return {
     columns,
-    setColumns
+    setColumns,
+    toggleColumnVisibility,
+    resetColumnVisibility,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd
   }
 }
 
@@ -104,7 +158,7 @@ export function useColumnManager(timezone: TimezoneOption){
  * @param timezone - The current timezone for formatting time values
  * @returns An array of column definitions with accessor functions
  */
-export const getBaseColumnsWithAccessors = (timezone: any): ColumnDef[] => {
+export const getBaseColumnsWithAccessors = (timezone: TimezoneOption): ColumnDef[] => {
   // Define base column definitions without accessors
   const baseColumns: Omit<ColumnDef, 'accessor'>[] = [
     { id: 'workflowStatus', label: 'Status', visible: true },
