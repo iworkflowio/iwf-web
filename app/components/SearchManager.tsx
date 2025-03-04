@@ -4,6 +4,24 @@ import {useState} from "react";
 import {WorkflowSearchResponseEntry} from "../ts-api/src/api-gen";
 import {FilterSpec, SavedQuery} from "./types";
 
+// Initialize query state from URL if present (for sharing/bookmarking)
+export const initialQueryParams = (() => {
+    if (typeof window === 'undefined') {
+        return { query: '', page: 1, size: 20, token: '' };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('q') || '';
+    const size = parseInt(params.get('size') || '20', 10);
+    const token = params.get('token') || '';
+    const rawPage = parseInt(params.get('page') || '1', 10);
+
+    // Reset to page 1 if page > 1 but no token is provided
+    const page = (!token && rawPage > 1) ? 1 : rawPage;
+
+    return { query, size, token, page };
+})();
+
 export function useSearchManager(saveRecentSearch, setNextPageToken, setAppliedFilters){
     // Search query and results state
     const [results, setResults] = useState<WorkflowSearchResponseEntry[]>([]);

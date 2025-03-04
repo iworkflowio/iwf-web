@@ -22,8 +22,7 @@ import ColumnSelector from './ColumnSelector';
 import AppHeader from './AppHeader';
 import Popup from './Popup';
 import {useSearchHistoryManager} from "./SearchHistoryManager";
-import {initialQueryParams} from './PagninationManager';
-import {useSearchManager} from "./SearchManager";
+import {useSearchManager, initialQueryParams} from "./SearchManager";
 
 /**
  * WorkflowSearchPage Component - Main application component
