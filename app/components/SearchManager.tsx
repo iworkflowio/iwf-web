@@ -108,11 +108,6 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
             // Use specified page size or current page size with fallback
             const currentPageSize = pageSize || 20;
 
-            // Save to recent searches only when starting a new search
-            if (searchQuery && !pageToken) {
-                saveRecentSearch(searchQuery);
-            }
-
             const response = await fetch('/api/v1/workflow/search', {
                 method: 'POST',
                 headers: {
@@ -141,8 +136,10 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
             // Update pagination state
             setNextPageToken(data.nextPageToken || '');
 
-            // Sync filters with query if it's successful
+            // Save and sync filters with query if it's successful
+            saveRecentSearch(searchQuery);
             syncFiltersWithQuery(searchQuery);
+            
         } catch (err) {
             console.error('Search error:', err);
             setError(err instanceof Error ? err.message : 'An unknown error occurred');
