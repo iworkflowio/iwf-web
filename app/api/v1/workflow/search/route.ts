@@ -91,12 +91,12 @@ function extractStringValue(value: any): string {
 // Convert Temporal workflow info to our API format
 const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
   // First find the iWF workflow type from search attributes if it exists
-  let iwfWorkflowType = '';
+  let wfType = '';
   if (workflow.searchAttributes && workflow.searchAttributes['IwfWorkflowType']) {
-    iwfWorkflowType = extractStringValue(workflow.searchAttributes['IwfWorkflowType']);
+    wfType = extractStringValue(workflow.searchAttributes['IwfWorkflowType']);
+  }else{
+    wfType = workflow.type
   }
-  
-  // We don't use Temporal's workflow type, only iWF's
   
   // Extract search attributes from Temporal workflow
   const searchAttributes = Object.entries(workflow.searchAttributes || {})
@@ -154,7 +154,7 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
     workflowId: workflow.workflowId,
     workflowRunId: workflow.runId,
     // Only use IwfWorkflowType from search attributes, fallback to "N/A" if empty
-    workflowType: iwfWorkflowType || 'N/A',
+    workflowType: wfType || 'N/A',
     workflowStatus: mapTemporalStatus(workflow.status.name),
     historySizeInBytes: workflow.historySize || 0,
     historyLength: workflow.historyLength || 0,
@@ -198,18 +198,27 @@ export async function POST(request: NextRequest) {
       
       // Special case: If query contains WorkflowType="X" or WorkflowType='X', replace with IwfWorkflowType="X"
       if (query && query.includes('WorkflowType')) {
-        // Use simple string replacement approach for more reliability
+        // support searching for both Temporal and iWF workflow types
         transformedQuery = query
           // Replace double-quoted WorkflowType
-          .replace(/WorkflowType\s*=\s*"([^"]*)"/g, 'IwfWorkflowType="$1"')
+          .replace(/WorkflowType\s*=\s*"([^"]*)"/g, '(IwfWorkflowType="$1" OR WorkflowType="$1")')
           // Replace single-quoted WorkflowType  
-          .replace(/WorkflowType\s*=\s*'([^']*)'/g, "IwfWorkflowType='$1'");
-        
-        // Log the transformation if it changed
-        if (transformedQuery !== query) {
-          console.log(`Replaced query: Original [${query}] → Transformed [${transformedQuery}]`);
-        }
+          .replace(/WorkflowType\s*=\s*'([^']*)'/g, "(IwfWorkflowType='$1' OR WorkflowType='$1')");
       }
+
+      if(transformedQuery){
+        // filter to exclude iWF system workflow like WaitforStateCompletionWorkflow
+        transformedQuery = `WorkflowType!='WaitforStateCompletionWorkflow' AND ${transformedQuery}`  
+      }else{
+        transformedQuery = "WorkflowType!='WaitforStateCompletionWorkflow'"
+      }
+      
+      // Log the transformation if it changed
+      if (transformedQuery !== query) {
+        console.log(`Replaced query: Original [${query}] → Transformed [${transformedQuery}]`);
+      }
+      
+      
       
       // Handle next page token with extra care to avoid deserialization issues
       let tokenBuffer = undefined;
@@ -276,9 +285,9 @@ export async function POST(request: NextRequest) {
         const workflowTypeStr = execution.type?.name || 'Unknown';
         
         const clientWorkflow = {
+          type: workflowTypeStr,
           workflowId: execution.execution?.workflowId || '',
           runId: execution.execution?.runId || '',
-          workflowType: { name: workflowTypeStr },
           status: { name: String(execution.status || 1) }, // Use numeric status if available
           historyLength: execution.historyLength?.toString() ? parseInt(execution.historyLength.toString()) : 0,
           historySize: execution.historySizeBytes?.toString() ? parseInt(execution.historySizeBytes.toString()) : 0,
