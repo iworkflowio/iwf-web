@@ -91,9 +91,11 @@ function extractStringValue(value: any): string {
 // Convert Temporal workflow info to our API format
 const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
   // First find the iWF workflow type from search attributes if it exists
+  let isIwf = false
   let wfType = '';
   if (workflow.searchAttributes && workflow.searchAttributes['IwfWorkflowType']) {
     wfType = extractStringValue(workflow.searchAttributes['IwfWorkflowType']);
+    isIwf = true
   }else{
     wfType = workflow.type
   }
@@ -162,6 +164,7 @@ const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
     closeTime: workflow.closeTime ? workflow.closeTime.getTime() : undefined,
     taskQueue: workflow.taskQueue,
     customSearchAttributes: searchAttributes,
+    isIwf: isIwf
   };
 };
 

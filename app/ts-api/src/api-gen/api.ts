@@ -2372,6 +2372,12 @@ export interface WorkflowSearchResponseEntry {
      * @memberof WorkflowSearchResponseEntry
      */
     'customTags'?: Array<string>;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof WorkflowSearchResponseEntry
+     */
+    'isIwf'?: boolean;
 }
 
 
