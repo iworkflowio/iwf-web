@@ -31,6 +31,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/workflow/show:
+    post:
+      summary: "show details for a workflow execution"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowShowRequest'
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowShowResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'                
 components:
   schemas:
     KeyValue:
@@ -1162,8 +1183,24 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SearchAttribute'
+    WorkflowShowRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+        runId:
+          type: string
+    WorkflowShowResponse:
+      type: object
+      required:
+        - input
+      properties:
+        input:
+          $ref: '#/components/schemas/InterpreterWorkflowInput'
     # below is additional data models translated from iwf-server
-    # https://github.com/indeedeng/iwf/blob/main/service/interfaces.go        
+    # https://github.com/indeedeng/iwf/blob/main/service/interfaces.go TODO        
     InterpreterWorkflowInput:
       type: object
       properties:

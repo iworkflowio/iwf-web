@@ -202,7 +202,7 @@ export const getBaseColumnsWithAccessors = (timezone: TimezoneOption): ColumnDef
                 <img 
                   src="/favicon.temporal.ico" 
                   alt="Temporal Workflow" 
-                  className="ml-1 h-4 w-4 cursor-help hover:opacity-70 transition-opacity duration-200" 
+                  className="ml-1 h-4 w-4 cursor-help temporal-icon-dance" 
                   title="Raw Temporal workflow without iWF workflow framework"
                 />
               </div>
