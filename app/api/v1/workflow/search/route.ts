@@ -218,8 +218,6 @@ export async function POST(request: NextRequest) {
         console.log(`Replaced query: Original [${query}] → Transformed [${transformedQuery}]`);
       }
       
-      
-      
       // Handle next page token with extra care to avoid deserialization issues
       let tokenBuffer = undefined;
       if (nextPageToken && typeof nextPageToken === 'string' && nextPageToken.trim() !== '') {

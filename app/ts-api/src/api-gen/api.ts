@@ -26,6 +26,25 @@ import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerM
 /**
  * 
  * @export
+ * @interface BasicInfo
+ */
+export interface BasicInfo {
+    /**
+     * 
+     * @type {string}
+     * @memberof BasicInfo
+     */
+    'iwfWorkflowType'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof BasicInfo
+     */
+    'iwfWorkerUrl'?: string;
+}
+/**
+ * 
+ * @export
  * @interface ChannelInfo
  */
 export interface ChannelInfo {
@@ -200,6 +219,105 @@ export interface Context {
 /**
  * 
  * @export
+ * @interface ContinueAsNewDumpResponse
+ */
+export interface ContinueAsNewDumpResponse {
+    /**
+     * StatesToStartFromBeginning means they haven\'t started in the previous run
+     * @type {Array<StateMovement>}
+     * @memberof ContinueAsNewDumpResponse
+     */
+    'statesToStartFromBeginning'?: Array<StateMovement>;
+    /**
+     * stateExeId to StateExecutionResumeInfo
+     * @type {{ [key: string]: StateExecutionResumeInfo; }}
+     * @memberof ContinueAsNewDumpResponse
+     */
+    'stateExecutionsToResume'?: { [key: string]: StateExecutionResumeInfo; };
+    /**
+     * 
+     * @type {{ [key: string]: Array<EncodedObject>; }}
+     * @memberof ContinueAsNewDumpResponse
+     */
+    'interStateChannelReceived'?: { [key: string]: Array<EncodedObject>; };
+    /**
+     * 
+     * @type {{ [key: string]: Array<EncodedObject>; }}
+     * @memberof ContinueAsNewDumpResponse
+     */
+    'signalsReceived'?: { [key: string]: Array<EncodedObject>; };
+    /**
+     * 
+     * @type {StateExecutionCounterInfo}
+     * @memberof ContinueAsNewDumpResponse
+     */
+    'stateExecutionCounterInfo'?: StateExecutionCounterInfo;
+    /**
+     * 
+     * @type {Array<StateCompletionOutput>}
+     * @memberof ContinueAsNewDumpResponse
+     */
+    'stateOutputs'?: Array<StateCompletionOutput>;
+    /**
+     * 
+     * @type {Array<StaleSkipTimerSignal>}
+     * @memberof ContinueAsNewDumpResponse
+     */
+    'staleSkipTimerSignals'?: Array<StaleSkipTimerSignal>;
+    /**
+     * 
+     * @type {Array<KeyValue>}
+     * @memberof ContinueAsNewDumpResponse
+     */
+    'dataObjects'?: Array<KeyValue>;
+    /**
+     * 
+     * @type {Array<SearchAttribute>}
+     * @memberof ContinueAsNewDumpResponse
+     */
+    'searchAttributes'?: Array<SearchAttribute>;
+}
+/**
+ * 
+ * @export
+ * @interface ContinueAsNewInput
+ */
+export interface ContinueAsNewInput {
+    /**
+     * For loading from previous run
+     * @type {string}
+     * @memberof ContinueAsNewInput
+     */
+    'previousInternalRunId': string;
+}
+/**
+ * 
+ * @export
+ * @interface DebugDumpResponse
+ */
+export interface DebugDumpResponse {
+    /**
+     * 
+     * @type {WorkflowConfig}
+     * @memberof DebugDumpResponse
+     */
+    'config'?: WorkflowConfig;
+    /**
+     * 
+     * @type {ContinueAsNewDumpResponse}
+     * @memberof DebugDumpResponse
+     */
+    'snapshot'?: ContinueAsNewDumpResponse;
+    /**
+     * 
+     * @type {Array<number>}
+     * @memberof DebugDumpResponse
+     */
+    'firingTimersUnixTimestamps'?: Array<number>;
+}
+/**
+ * 
+ * @export
  * @enum {string}
  */
 
@@ -330,6 +448,55 @@ export type ExecuteApiFailurePolicy = typeof ExecuteApiFailurePolicy[keyof typeo
 /**
  * 
  * @export
+ * @interface ExecuteRpcSignalRequest
+ */
+export interface ExecuteRpcSignalRequest {
+    /**
+     * 
+     * @type {EncodedObject}
+     * @memberof ExecuteRpcSignalRequest
+     */
+    'rpcInput'?: EncodedObject;
+    /**
+     * 
+     * @type {EncodedObject}
+     * @memberof ExecuteRpcSignalRequest
+     */
+    'rpcOutput'?: EncodedObject;
+    /**
+     * 
+     * @type {Array<KeyValue>}
+     * @memberof ExecuteRpcSignalRequest
+     */
+    'upsertDataObjects'?: Array<KeyValue>;
+    /**
+     * 
+     * @type {Array<SearchAttribute>}
+     * @memberof ExecuteRpcSignalRequest
+     */
+    'upsertSearchAttributes'?: Array<SearchAttribute>;
+    /**
+     * 
+     * @type {StateDecision}
+     * @memberof ExecuteRpcSignalRequest
+     */
+    'stateDecision'?: StateDecision;
+    /**
+     * 
+     * @type {Array<KeyValue>}
+     * @memberof ExecuteRpcSignalRequest
+     */
+    'recordEvents'?: Array<KeyValue>;
+    /**
+     * 
+     * @type {Array<InterStateChannelPublishing>}
+     * @memberof ExecuteRpcSignalRequest
+     */
+    'interStateChannelPublishing'?: Array<InterStateChannelPublishing>;
+}
+/**
+ * 
+ * @export
  * @enum {string}
  */
 
@@ -342,6 +509,71 @@ export const ExecutingStateIdMode = {
 export type ExecutingStateIdMode = typeof ExecutingStateIdMode[keyof typeof ExecutingStateIdMode];
 
 
+/**
+ * 
+ * @export
+ * @interface FailWorkflowSignalRequest
+ */
+export interface FailWorkflowSignalRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof FailWorkflowSignalRequest
+     */
+    'reason': string;
+}
+/**
+ * 
+ * @export
+ * @interface GetCurrentTimerInfosQueryResponse
+ */
+export interface GetCurrentTimerInfosQueryResponse {
+    /**
+     * 
+     * @type {{ [key: string]: Array<TimerInfo>; }}
+     * @memberof GetCurrentTimerInfosQueryResponse
+     */
+    'stateExecutionCurrentTimerInfos'?: { [key: string]: Array<TimerInfo>; };
+}
+/**
+ * 
+ * @export
+ * @interface GetDataAttributesQueryRequest
+ */
+export interface GetDataAttributesQueryRequest {
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof GetDataAttributesQueryRequest
+     */
+    'keys'?: Array<string>;
+}
+/**
+ * 
+ * @export
+ * @interface GetDataAttributesQueryResponse
+ */
+export interface GetDataAttributesQueryResponse {
+    /**
+     * 
+     * @type {Array<KeyValue>}
+     * @memberof GetDataAttributesQueryResponse
+     */
+    'dataAttributes'?: Array<KeyValue>;
+}
+/**
+ * 
+ * @export
+ * @interface GetScheduledGreedyTimerTimesQueryResponse
+ */
+export interface GetScheduledGreedyTimerTimesQueryResponse {
+    /**
+     * 
+     * @type {Array<TimerInfo>}
+     * @memberof GetScheduledGreedyTimerTimesQueryResponse
+     */
+    'pendingScheduled'?: Array<TimerInfo>;
+}
 /**
  * 
  * @export
@@ -467,6 +699,119 @@ export interface InterStateChannelResult {
 }
 
 
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const InternalTimerStatus = {
+    Pending: 'Pending',
+    Fired: 'Fired',
+    Skipped: 'Skipped'
+} as const;
+
+export type InternalTimerStatus = typeof InternalTimerStatus[keyof typeof InternalTimerStatus];
+
+
+/**
+ * 
+ * @export
+ * @interface InterpreterWorkflowInput
+ */
+export interface InterpreterWorkflowInput {
+    /**
+     * 
+     * @type {string}
+     * @memberof InterpreterWorkflowInput
+     */
+    'iwfWorkflowType'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof InterpreterWorkflowInput
+     */
+    'iwfWorkerUrl'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof InterpreterWorkflowInput
+     */
+    'startStateId'?: string;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof InterpreterWorkflowInput
+     */
+    'waitForCompletionStateExecutionIds'?: Array<string>;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof InterpreterWorkflowInput
+     */
+    'waitForCompletionStateIds'?: Array<string>;
+    /**
+     * 
+     * @type {EncodedObject}
+     * @memberof InterpreterWorkflowInput
+     */
+    'stateInput'?: EncodedObject;
+    /**
+     * 
+     * @type {WorkflowStateOptions}
+     * @memberof InterpreterWorkflowInput
+     */
+    'stateOptions'?: WorkflowStateOptions;
+    /**
+     * 
+     * @type {Array<SearchAttribute>}
+     * @memberof InterpreterWorkflowInput
+     */
+    'initSearchAttributes'?: Array<SearchAttribute>;
+    /**
+     * 
+     * @type {Array<KeyValue>}
+     * @memberof InterpreterWorkflowInput
+     */
+    'initDataAttributes'?: Array<KeyValue>;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof InterpreterWorkflowInput
+     */
+    'useMemoForDataAttributes'?: boolean;
+    /**
+     * 
+     * @type {WorkflowConfig}
+     * @memberof InterpreterWorkflowInput
+     */
+    'config'?: WorkflowConfig;
+    /**
+     * Indicates this is input for continueAsNew. When true, will ignore StartStateId, StateInput, StateOptions, InitSearchAttributes
+     * @type {boolean}
+     * @memberof InterpreterWorkflowInput
+     */
+    'isResumeFromContinueAsNew'?: boolean;
+    /**
+     * 
+     * @type {ContinueAsNewInput}
+     * @memberof InterpreterWorkflowInput
+     */
+    'continueAsNewInput'?: ContinueAsNewInput;
+}
+/**
+ * 
+ * @export
+ * @interface InterpreterWorkflowOutput
+ */
+export interface InterpreterWorkflowOutput {
+    /**
+     * 
+     * @type {Array<StateCompletionOutput>}
+     * @memberof InterpreterWorkflowOutput
+     */
+    'stateCompletionOutputs'?: Array<StateCompletionOutput>;
+}
 /**
  * 
  * @export
@@ -630,6 +975,86 @@ export const PersistenceLoadingType = {
 export type PersistenceLoadingType = typeof PersistenceLoadingType[keyof typeof PersistenceLoadingType];
 
 
+/**
+ * 
+ * @export
+ * @interface PrepareRpcQueryRequest
+ */
+export interface PrepareRpcQueryRequest {
+    /**
+     * 
+     * @type {PersistenceLoadingPolicy}
+     * @memberof PrepareRpcQueryRequest
+     */
+    'dataObjectsLoadingPolicy'?: PersistenceLoadingPolicy;
+    /**
+     * 
+     * @type {PersistenceLoadingPolicy}
+     * @memberof PrepareRpcQueryRequest
+     */
+    'cachedDataObjectsLoadingPolicy'?: PersistenceLoadingPolicy;
+    /**
+     * 
+     * @type {PersistenceLoadingPolicy}
+     * @memberof PrepareRpcQueryRequest
+     */
+    'searchAttributesLoadingPolicy'?: PersistenceLoadingPolicy;
+}
+/**
+ * 
+ * @export
+ * @interface PrepareRpcQueryResponse
+ */
+export interface PrepareRpcQueryResponse {
+    /**
+     * 
+     * @type {Array<KeyValue>}
+     * @memberof PrepareRpcQueryResponse
+     */
+    'dataObjects'?: Array<KeyValue>;
+    /**
+     * 
+     * @type {Array<SearchAttribute>}
+     * @memberof PrepareRpcQueryResponse
+     */
+    'searchAttributes'?: Array<SearchAttribute>;
+    /**
+     * 
+     * @type {string}
+     * @memberof PrepareRpcQueryResponse
+     */
+    'workflowRunId'?: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof PrepareRpcQueryResponse
+     */
+    'workflowStartedTimestamp'?: number;
+    /**
+     * 
+     * @type {string}
+     * @memberof PrepareRpcQueryResponse
+     */
+    'iwfWorkflowType'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof PrepareRpcQueryResponse
+     */
+    'iwfWorkerUrl'?: string;
+    /**
+     * 
+     * @type {{ [key: string]: ChannelInfo; }}
+     * @memberof PrepareRpcQueryResponse
+     */
+    'signalChannelInfo'?: { [key: string]: ChannelInfo; };
+    /**
+     * 
+     * @type {{ [key: string]: ChannelInfo; }}
+     * @memberof PrepareRpcQueryResponse
+     */
+    'internalChannelInfo'?: { [key: string]: ChannelInfo; };
+}
 /**
  * 
  * @export
@@ -825,6 +1250,56 @@ export interface SignalResult {
 /**
  * 
  * @export
+ * @interface SkipTimerSignalRequest
+ */
+export interface SkipTimerSignalRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof SkipTimerSignalRequest
+     */
+    'stateExecutionId': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof SkipTimerSignalRequest
+     */
+    'commandId': string;
+    /**
+     * 
+     * @type {number}
+     * @memberof SkipTimerSignalRequest
+     */
+    'commandIndex': number;
+}
+/**
+ * 
+ * @export
+ * @interface StaleSkipTimerSignal
+ */
+export interface StaleSkipTimerSignal {
+    /**
+     * 
+     * @type {string}
+     * @memberof StaleSkipTimerSignal
+     */
+    'stateExecutionId'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof StaleSkipTimerSignal
+     */
+    'timerCommandId'?: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof StaleSkipTimerSignal
+     */
+    'timerCommandIndex'?: number;
+}
+/**
+ * 
+ * @export
  * @enum {string}
  */
 
@@ -864,6 +1339,25 @@ export interface StateCompletionOutput {
 /**
  * 
  * @export
+ * @interface StateDecideActivityInput
+ */
+export interface StateDecideActivityInput {
+    /**
+     * 
+     * @type {string}
+     * @memberof StateDecideActivityInput
+     */
+    'iwfWorkerUrl': string;
+    /**
+     * 
+     * @type {WorkflowStateDecideRequest}
+     * @memberof StateDecideActivityInput
+     */
+    'request': WorkflowStateDecideRequest;
+}
+/**
+ * 
+ * @export
  * @interface StateDecision
  */
 export interface StateDecision {
@@ -880,6 +1374,109 @@ export interface StateDecision {
      */
     'conditionalClose'?: WorkflowConditionalClose;
 }
+/**
+ * 
+ * @export
+ * @interface StateExecutionCompletedCommands
+ */
+export interface StateExecutionCompletedCommands {
+    /**
+     * 
+     * @type {{ [key: string]: InternalTimerStatus; }}
+     * @memberof StateExecutionCompletedCommands
+     */
+    'completedTimerCommands'?: { [key: string]: InternalTimerStatus; };
+    /**
+     * 
+     * @type {{ [key: string]: EncodedObject; }}
+     * @memberof StateExecutionCompletedCommands
+     */
+    'completedSignalCommands'?: { [key: string]: EncodedObject; };
+    /**
+     * 
+     * @type {{ [key: string]: EncodedObject; }}
+     * @memberof StateExecutionCompletedCommands
+     */
+    'completedInterStateChannelCommands'?: { [key: string]: EncodedObject; };
+}
+/**
+ * 
+ * @export
+ * @interface StateExecutionCounterInfo
+ */
+export interface StateExecutionCounterInfo {
+    /**
+     * for stateExecutionId
+     * @type {{ [key: string]: number; }}
+     * @memberof StateExecutionCounterInfo
+     */
+    'stateIdStartedCount'?: { [key: string]: number; };
+    /**
+     * for sys search attribute ExecutingStateIds
+     * @type {{ [key: string]: number; }}
+     * @memberof StateExecutionCounterInfo
+     */
+    'stateIdCurrentlyExecutingCount'?: { [key: string]: number; };
+    /**
+     * for dead end
+     * @type {number}
+     * @memberof StateExecutionCounterInfo
+     */
+    'totalCurrentlyExecutingCount'?: number;
+}
+/**
+ * 
+ * @export
+ * @interface StateExecutionResumeInfo
+ */
+export interface StateExecutionResumeInfo {
+    /**
+     * 
+     * @type {string}
+     * @memberof StateExecutionResumeInfo
+     */
+    'stateExecutionId': string;
+    /**
+     * 
+     * @type {StateMovement}
+     * @memberof StateExecutionResumeInfo
+     */
+    'state': StateMovement;
+    /**
+     * 
+     * @type {StateExecutionCompletedCommands}
+     * @memberof StateExecutionResumeInfo
+     */
+    'stateExecutionCompletedCommands': StateExecutionCompletedCommands;
+    /**
+     * 
+     * @type {CommandRequest}
+     * @memberof StateExecutionResumeInfo
+     */
+    'commandRequest': CommandRequest;
+    /**
+     * 
+     * @type {Array<KeyValue>}
+     * @memberof StateExecutionResumeInfo
+     */
+    'stateExecutionLocals': Array<KeyValue>;
+}
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const StateExecutionStatus = {
+    Failure: 'Failure',
+    WaitingCommands: 'WaitingCommands',
+    Completed: 'Completed',
+    ExecuteApiFailedAndProceed: 'ExecuteApiFailedAndProceed'
+} as const;
+
+export type StateExecutionStatus = typeof StateExecutionStatus[keyof typeof StateExecutionStatus];
+
+
 /**
  * 
  * @export
@@ -914,6 +1511,25 @@ export interface StateMovement {
 /**
  * 
  * @export
+ * @interface StateStartActivityInput
+ */
+export interface StateStartActivityInput {
+    /**
+     * 
+     * @type {string}
+     * @memberof StateStartActivityInput
+     */
+    'iwfWorkerUrl': string;
+    /**
+     * 
+     * @type {WorkflowStateStartRequest}
+     * @memberof StateStartActivityInput
+     */
+    'request': WorkflowStateStartRequest;
+}
+/**
+ * 
+ * @export
  * @interface TimerCommand
  */
 export interface TimerCommand {
@@ -936,6 +1552,33 @@ export interface TimerCommand {
      */
     'durationSeconds'?: number;
 }
+/**
+ * 
+ * @export
+ * @interface TimerInfo
+ */
+export interface TimerInfo {
+    /**
+     * 
+     * @type {string}
+     * @memberof TimerInfo
+     */
+    'commandId'?: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof TimerInfo
+     */
+    'firingUnixTimestampSeconds'?: number;
+    /**
+     * 
+     * @type {InternalTimerStatus}
+     * @memberof TimerInfo
+     */
+    'status'?: InternalTimerStatus;
+}
+
+
 /**
  * 
  * @export
@@ -989,6 +1632,19 @@ export interface TriggerContinueAsNewRequest {
      * @memberof TriggerContinueAsNewRequest
      */
     'workflowRunId'?: string;
+}
+/**
+ * 
+ * @export
+ * @interface WaitForStateCompletionWorkflowOutput
+ */
+export interface WaitForStateCompletionWorkflowOutput {
+    /**
+     * 
+     * @type {StateCompletionOutput}
+     * @memberof WaitForStateCompletionWorkflowOutput
+     */
+    'stateCompletionOutput'?: StateCompletionOutput;
 }
 /**
  * 

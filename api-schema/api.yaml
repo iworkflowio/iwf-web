@@ -1160,3 +1160,341 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SearchAttribute'
+    # below is additional data models translated from iwf-server
+    # https://github.com/indeedeng/iwf/blob/main/service/interfaces.go        
+    InterpreterWorkflowInput:
+      type: object
+      properties:
+        iwfWorkflowType:
+          type: string
+        iwfWorkerUrl:
+          type: string
+        startStateId:
+          type: string
+        waitForCompletionStateExecutionIds:
+          type: array
+          items:
+            type: string
+        waitForCompletionStateIds:
+          type: array
+          items:
+            type: string
+        stateInput:
+          $ref: '#/components/schemas/EncodedObject'
+        stateOptions:
+          $ref: '#/components/schemas/WorkflowStateOptions'
+        initSearchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        initDataAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        useMemoForDataAttributes:
+          type: boolean
+        config:
+          $ref: '#/components/schemas/WorkflowConfig'
+        isResumeFromContinueAsNew:
+          type: boolean
+          description: "Indicates this is input for continueAsNew. When true, will ignore StartStateId, StateInput, StateOptions, InitSearchAttributes"
+        continueAsNewInput:
+          $ref: '#/components/schemas/ContinueAsNewInput'
+    ContinueAsNewInput:
+      type: object
+      required:
+        - previousInternalRunId
+      properties:
+        previousInternalRunId:
+          type: string
+          description: "For loading from previous run"
+    InterpreterWorkflowOutput:
+      type: object
+      properties:
+        stateCompletionOutputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateCompletionOutput'
+    WaitForStateCompletionWorkflowOutput:
+      type: object
+      properties:
+        stateCompletionOutput:
+          $ref: '#/components/schemas/StateCompletionOutput'
+    BasicInfo:
+      type: object
+      properties:
+        iwfWorkflowType:
+          type: string
+        iwfWorkerUrl:
+          type: string
+    StateStartActivityInput:
+      type: object
+      required:
+        - iwfWorkerUrl
+        - request
+      properties:
+        iwfWorkerUrl:
+          type: string
+        request:
+          $ref: '#/components/schemas/WorkflowStateStartRequest'
+    StateDecideActivityInput:
+      type: object
+      required:
+        - iwfWorkerUrl
+        - request
+      properties:
+        iwfWorkerUrl:
+          type: string
+        request:
+          $ref: '#/components/schemas/WorkflowStateDecideRequest'
+    GetDataAttributesQueryRequest:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            type: string
+    GetDataAttributesQueryResponse:
+      type: object
+      properties:
+        dataAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+    PrepareRpcQueryRequest:
+      type: object
+      properties:
+        dataObjectsLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        cachedDataObjectsLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+        searchAttributesLoadingPolicy:
+          $ref: '#/components/schemas/PersistenceLoadingPolicy'
+    PrepareRpcQueryResponse:
+      type: object
+      properties:
+        dataObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        workflowRunId:
+          type: string
+        workflowStartedTimestamp:
+          type: integer
+          format: int64
+        iwfWorkflowType:
+          type: string
+        iwfWorkerUrl:
+          type: string
+        signalChannelInfo:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ChannelInfo'
+        internalChannelInfo:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ChannelInfo'
+    ExecuteRpcSignalRequest:
+      type: object
+      properties:
+        rpcInput:
+          $ref: '#/components/schemas/EncodedObject'
+        rpcOutput:
+          $ref: '#/components/schemas/EncodedObject'
+        upsertDataObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        upsertSearchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+        stateDecision:
+          $ref: '#/components/schemas/StateDecision'
+        recordEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        interStateChannelPublishing:
+          type: array
+          items:
+            $ref: '#/components/schemas/InterStateChannelPublishing'
+    GetCurrentTimerInfosQueryResponse:
+      type: object
+      properties:
+        stateExecutionCurrentTimerInfos:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/TimerInfo'
+    GetScheduledGreedyTimerTimesQueryResponse:
+      type: object
+      properties:
+        pendingScheduled:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimerInfo'
+    TimerInfo:
+      type: object
+      properties:
+        commandId:
+          type: string
+        firingUnixTimestampSeconds:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/InternalTimerStatus'
+    SkipTimerSignalRequest:
+      type: object
+      required:
+        - stateExecutionId
+        - commandId
+        - commandIndex
+      properties:
+        stateExecutionId:
+          type: string
+        commandId:
+          type: string
+        commandIndex:
+          type: integer
+    FailWorkflowSignalRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+    InternalTimerStatus:
+      type: string
+      enum:
+        - Pending
+        - Fired
+        - Skipped
+    ContinueAsNewDumpResponse:
+      type: object
+      properties:
+        statesToStartFromBeginning:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateMovement'
+          description: "StatesToStartFromBeginning means they haven't started in the previous run"
+        stateExecutionsToResume:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/StateExecutionResumeInfo'
+          description: "stateExeId to StateExecutionResumeInfo"
+        interStateChannelReceived:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/EncodedObject'
+        signalsReceived:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/EncodedObject'
+        stateExecutionCounterInfo:
+          $ref: '#/components/schemas/StateExecutionCounterInfo'
+        stateOutputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateCompletionOutput'
+        staleSkipTimerSignals:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaleSkipTimerSignal'
+        dataObjects:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        searchAttributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchAttribute'
+    DebugDumpResponse:
+      type: object
+      properties:
+        config:
+          $ref: '#/components/schemas/WorkflowConfig'
+        snapshot:
+          $ref: '#/components/schemas/ContinueAsNewDumpResponse'
+        firingTimersUnixTimestamps:
+          type: array
+          items:
+            type: integer
+            format: int64
+    StateExecutionCounterInfo:
+      type: object
+      properties:
+        stateIdStartedCount:
+          type: object
+          additionalProperties:
+            type: integer
+          description: "for stateExecutionId"
+        stateIdCurrentlyExecutingCount:
+          type: object
+          additionalProperties:
+            type: integer
+          description: "for sys search attribute ExecutingStateIds"
+        totalCurrentlyExecutingCount:
+          type: integer
+          description: "for dead end"
+    StateExecutionResumeInfo:
+      type: object
+      required:
+        - stateExecutionId
+        - state
+        - stateExecutionCompletedCommands
+        - commandRequest
+        - stateExecutionLocals
+      properties:
+        stateExecutionId:
+          type: string
+        state:
+          $ref: '#/components/schemas/StateMovement'
+        stateExecutionCompletedCommands:
+          $ref: '#/components/schemas/StateExecutionCompletedCommands'
+        commandRequest:
+          $ref: '#/components/schemas/CommandRequest'
+        stateExecutionLocals:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+    StateExecutionCompletedCommands:
+      type: object
+      properties:
+        completedTimerCommands:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/InternalTimerStatus'
+        completedSignalCommands:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/EncodedObject'
+        completedInterStateChannelCommands:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/EncodedObject'
+    StaleSkipTimerSignal:
+      type: object
+      properties:
+        stateExecutionId:
+          type: string
+        timerCommandId:
+          type: string
+        timerCommandIndex:
+          type: integer
+    StateExecutionStatus:
+      type: string
+      enum:
+        - Failure
+        - WaitingCommands
+        - Completed
+        - ExecuteApiFailedAndProceed            
