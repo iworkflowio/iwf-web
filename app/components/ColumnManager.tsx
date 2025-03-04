@@ -194,7 +194,22 @@ export const getBaseColumnsWithAccessors = (timezone: TimezoneOption): ColumnDef
         accessor = (w: WorkflowSearchResponseEntry) => w.workflowRunId;
         break;
       case 'workflowType':
-        accessor = (w: WorkflowSearchResponseEntry) => w.workflowType || 'N/A';
+        accessor = (w: WorkflowSearchResponseEntry) => {
+          if (w.isIwf === false) {
+            return (
+              <div className="flex items-center">
+                <span>{w.workflowType || 'N/A'}</span>
+                <img 
+                  src="/favicon.temporal.ico" 
+                  alt="Temporal Workflow" 
+                  className="ml-1 h-4 w-4" 
+                  title="Temporal Workflow"
+                />
+              </div>
+            );
+          }
+          return w.workflowType || 'N/A';
+        };
         break;
       case 'startTime':
         // Create dynamic accessor that will use the current timezone setting
