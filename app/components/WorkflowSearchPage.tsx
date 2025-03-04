@@ -1,20 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { WorkflowSearchResponse, WorkflowSearchResponseEntry, WorkflowStatus, SearchAttribute } from '../ts-api/src/api-gen/api';
-import { ColumnDef, SavedQuery, AppConfig, CustomSearchAttributesPopupState, FilterSpec } from './types';
+import { SearchAttribute } from '../ts-api/src/api-gen/api';
+import { SavedQuery, AppConfig, CustomSearchAttributesPopupState, FilterSpec } from './types';
 import { 
   formatTimestamp, 
   formatFilterForQuery,
-  sortQueriesByPriority,
-  formatAttributeValue,
-  saveToLocalStorage,
-  loadFromLocalStorage,
   updateUrlWithParams
 } from './utils';
-import StatusBadge from './StatusBadge';
-import {getBaseColumnsWithAccessors, createSearchAttributeAccessor, useColumnManager} from './ColumnManager';
-import { useTimezoneManager } from './timezoneManager';
+import { useColumnManager} from './ColumnManager';
+import { useTimezoneManager } from './TimezoneManager';
 
 // Import our components
 import SearchBox from './SearchBox';
@@ -27,9 +22,8 @@ import ColumnSelector from './ColumnSelector';
 import AppHeader from './AppHeader';
 import Popup from './Popup';
 import {useSearchHistoryManager} from "./SearchHistoryManager";
-import {initialQueryParams, usePaginationManager} from './PagninationManager';
+import {initialQueryParams} from './PagninationManager';
 import {useSearchManager} from "./SearchManager";
-import {underline} from "next/dist/lib/picocolors";
 
 /**
  * WorkflowSearchPage Component - Main application component
@@ -75,69 +69,25 @@ export default function WorkflowSearchPage() {
   const [filterOperator, setFilterOperator] = useState<string>('=');
   const [appliedFilters, setAppliedFilters] = useState<Record<string, FilterSpec>>({});
   
-  // declare some states at top level to avoid circular dependency
-  let fetchWorkflows: ((searchInput: string | SavedQuery, pageToken: string, pageSize: number)=>Promise<void>)|undefined;
   const [query, setQuery] = useState(initialQueryParams.query);
-  
-  const {
-        pageSize,
-        nextPageToken, setNextPageToken,
-        currentPage, setCurrentPage,
-        pageHistory, setPageHistory,
-        goToNextPage, goToPrevPage,goToFirstPage,
-        changePageSize
-  } = usePaginationManager(query, fetchWorkflows);
 
-  // use search manager hook
-  const {
-    results, setResults,
-    loading, setLoading,
-    error, setError,
-    syncFiltersWithQuery
-  } = useSearchManager(saveRecentSearch, setNextPageToken, setAppliedFilters)
-  
-  // App configuration state
-  const [config, setConfig] = useState<AppConfig>({
-    temporalHostPort: '',
-    temporalNamespace: ''
+  // Pagination state 
+  const [pageSize, setPageSize] = useState<number>(initialQueryParams.size);
+  const [nextPageToken, setNextPageToken] = useState<string>(initialQueryParams.token);
+  const [currentPage, setCurrentPage] = useState<number>(initialQueryParams.page);
+  const [pageHistory, setPageHistory] = useState<string[]>(() => {
+    // Initialize page history array with the correct token in place
+    const history = Array(initialQueryParams.page).fill('');
+    if (initialQueryParams.page > 1 && initialQueryParams.token) {
+      history[initialQueryParams.page - 1] = initialQueryParams.token;
+    }
+    return history;
   });
-  
-  // Use the timezone manager hook
-  const { 
-    timezone, 
-    setTimezone, 
-    showTimezoneSelector, 
-    setShowTimezoneSelector
-  } = useTimezoneManager();
-  
 
-  
-  // UI state for popups/dialogs
-  const [showConfigPopup, setShowConfigPopup] = useState(false);
-  const [showFilterPopup, setShowFilterPopup] = useState(false);
-  const [showColumnSelector, setShowColumnSelector] = useState(false);
-  
-  // Popup state for displaying custom search attributes
-  const [customSearchAttributesPopup, setCustomSearchAttributesPopup] = useState<CustomSearchAttributesPopupState>({
-    show: false,
-    title: '',
-    content: null,
-  });
-  
-  const {
-    columns, 
-    setColumns, 
-    toggleColumnVisibility,
-    resetColumnVisibility,
-    handleDragStart,
-    handleDragOver,
-    handleDragEnd
-  } = useColumnManager(timezone);
-
-  // TODO: I tried to move this to SearchManager but didn't work
+  // TODO: I tried to move this to PaginationManager but didn't work because of circular dependency
   // Function to fetch workflows
   // Execute a search with either query string or SavedQuery
-  fetchWorkflows = async (searchInput: string | SavedQuery = '', pageToken: string = '', pageSize: number) => {
+  const fetchWorkflows = async (searchInput: string | SavedQuery = '', pageToken: string = '', pageSize?: number) => {
     try {
       setLoading(true);
       setError('');
@@ -201,6 +151,110 @@ export default function WorkflowSearchPage() {
       setLoading(false);
     }
   };
+
+  // Navigate to the next page of results
+  const goToNextPage = () => {
+    if ( !nextPageToken) return;
+
+    // Add the current token to history before moving to the next page
+    const newHistory = [...pageHistory];
+    if (currentPage >= newHistory.length) {
+      newHistory.push(nextPageToken);
+    } else {
+      newHistory[currentPage] = nextPageToken;
+    }
+
+    const nextPage = currentPage + 1;
+    setPageHistory(newHistory);
+    setCurrentPage(nextPage);
+    // Update URL with new page number and token
+    updateUrlWithParams(query, nextPage, pageSize, nextPageToken);
+    // Use an empty string as the token for safety with JSON serialization
+    fetchWorkflows(query, nextPageToken || '');
+  };
+
+  // Navigate to the previous page of results
+  const goToPrevPage = () => {
+    if (currentPage <= 1) return;
+
+    const prevPageIndex = currentPage - 2;
+    const prevToken = pageHistory[prevPageIndex] || '';
+    const prevPage = currentPage - 1;
+
+    setCurrentPage(prevPage);
+    // Update URL with new page number and token
+    updateUrlWithParams(query, prevPage, pageSize, prevToken);
+    // Use an empty string as the token for safety with JSON serialization
+    fetchWorkflows(query, prevToken || '');
+  };
+
+  // Go to the first page of results
+  const goToFirstPage = () => {
+    if (currentPage === 1) return;
+
+    setCurrentPage(1);
+    // Update URL with new page number and empty token
+    updateUrlWithParams(query, 1, pageSize, '');
+    fetchWorkflows(query, '');
+  };
+
+  // Change page size and reset to first page
+  const changePageSize = (newSize: number) => {
+    if (newSize === pageSize) return;
+
+    setPageSize(newSize);
+    setCurrentPage(1);
+    setPageHistory(['']);
+    // Update URL with new page size and empty token
+    updateUrlWithParams(query, 1, newSize, '');
+    fetchWorkflows(query, '', newSize);
+  };
+
+  // use search manager hook
+  const {
+    results, setResults,
+    loading, setLoading,
+    error, setError,
+    syncFiltersWithQuery
+  } = useSearchManager(saveRecentSearch, setNextPageToken, setAppliedFilters)
+  
+  // App configuration state
+  const [config, setConfig] = useState<AppConfig>({
+    temporalHostPort: '',
+    temporalNamespace: ''
+  });
+  
+  // Use the timezone manager hook
+  const { 
+    timezone, 
+    setTimezone, 
+    showTimezoneSelector, 
+    setShowTimezoneSelector
+  } = useTimezoneManager();
+  
+  // UI state for popups/dialogs
+  const [showConfigPopup, setShowConfigPopup] = useState(false);
+  const [showFilterPopup, setShowFilterPopup] = useState(false);
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
+  
+  // Popup state for displaying custom search attributes
+  const [customSearchAttributesPopup, setCustomSearchAttributesPopup] = useState<CustomSearchAttributesPopupState>({
+    show: false,
+    title: '',
+    content: null,
+  });
+  
+  const {
+    columns, 
+    setColumns, 
+    toggleColumnVisibility,
+    resetColumnVisibility,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd
+  } = useColumnManager(timezone);
+
+  
   
   // Show popup to display search attributes
   const showSearchAttributes = (attributes?: SearchAttribute[]) => {

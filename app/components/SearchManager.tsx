@@ -1,7 +1,6 @@
 'use client';
 
 import {useState} from "react";
-import {initialQueryParams} from "./PagninationManager";
 import {WorkflowSearchResponseEntry} from "../ts-api/src/api-gen";
 import {FilterSpec, SavedQuery} from "./types";
 
