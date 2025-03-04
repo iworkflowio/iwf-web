@@ -1197,8 +1197,98 @@ components:
       required:
         - input
       properties:
+        workflowStartedTimestamp:
+          type: integer
+          format: int64
+        workflowType:
+          type: string
         input:
           $ref: '#/components/schemas/InterpreterWorkflowInput'
+        continueAsNewSnapshot:
+          $ref: '#/components/schemas/ContinueAsNewDumpResponse'
+        status:
+          $ref: '#/components/schemas/WorkflowStatus'
+        historyEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/IwfHistoryEvent'
+    IwfHistoryEventType:
+      type: string
+      enum: 
+        - StateWaitUntil
+        - StateExecute
+        - RpcExecution
+        - SignalReceived
+        - WorkflowClosed
+    IwfHistoryEvent:
+      type: object
+      properties:
+        eventType:
+          $ref: '#/components/schemas/IwfHistoryEvent'
+        stateWaitUntil:
+          $ref: '#/components/schemas/StateWaitUntilDetails'
+        stateExecute:
+          $ref: '#/components/schemas/StateExecuteDetails'
+        rpcExecution:
+          $ref: '#/components/schemas/RpcExecutionDetails'
+        signalReceived:
+          $ref: '#/components/schemas/SignalReceivedDetails'
+        workflowClosed:
+          $ref: '#/components/schemas/WorkflowClosedDetails'
+    StateWaitUntilDetails:
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/Context'
+        stateExecutionId:
+          type: string
+        stateId:
+          type: string
+        input:
+          $ref: '#/components/schemas/EncodedObject'
+        fromStateExecutionId:
+          type: string
+        stateOptions:
+          $ref: '#/components/schemas/WorkflowStateOptions'
+        response:
+          $ref: '#/components/schemas/WorkflowStateStartResponse'
+    StateExecuteDetails:
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/Context'
+        stateExecutionId:
+          type: string
+        stateId:
+          type: string
+        input:
+          $ref: '#/components/schemas/EncodedObject'
+        fromStateExecutionId:
+          type: string
+        stateOptions:
+          $ref: '#/components/schemas/WorkflowStateOptions'
+        request:
+          $ref: '#/components/schemas/WorkflowStateDecideRequest'
+        response:
+          $ref: '#/components/schemas/WorkflowStateDecideResponse'
+    RpcExecutionDetails:
+      type: object
+      properties:
+        response:
+          $ref: '#/components/schemas/ExecuteRpcSignalRequest'
+    SignalReceivedDetails:
+      type: object
+      properties:
+        signalName:
+          type: string
+        value:
+          $ref: '#/components/schemas/EncodedObject'
+    WorkflowClosedDetails:
+      type: object
+      properties:
+        workflowClosedTimestamp:
+          type: integer
+          format: int64
     # below is additional data models translated from iwf-server
     # https://github.com/indeedeng/iwf/blob/main/service/interfaces.go TODO        
     InterpreterWorkflowInput:
