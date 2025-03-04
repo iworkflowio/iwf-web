@@ -185,7 +185,7 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
         // Update URL with new page number and token
         updateUrlWithParams(query, prevPage, pageSize, prevToken);
         // Use an empty string as the token for safety with JSON serialization
-        fetchWorkflows(query, prevToken || '');
+        fetchWorkflows(query, prevToken || '', pageSize);
     };
 
     // Go to the first page of results
@@ -195,7 +195,7 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
         setCurrentPage(1);
         // Update URL with new page number and empty token
         updateUrlWithParams(query, 1, pageSize, '');
-        fetchWorkflows(query, '');
+        fetchWorkflows(query, '', pageSize);
     };
 
     // Change page size and reset to first page
