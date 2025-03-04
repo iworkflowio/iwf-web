@@ -909,6 +909,66 @@ export interface IwfEventError {
 /**
  * 
  * @export
+ * @interface IwfHistoryEvent
+ */
+export interface IwfHistoryEvent {
+    /**
+     * 
+     * @type {IwfHistoryEvent}
+     * @memberof IwfHistoryEvent
+     */
+    'eventType'?: IwfHistoryEvent;
+    /**
+     * 
+     * @type {StateWaitUntilDetails}
+     * @memberof IwfHistoryEvent
+     */
+    'stateWaitUntil'?: StateWaitUntilDetails;
+    /**
+     * 
+     * @type {StateExecuteDetails}
+     * @memberof IwfHistoryEvent
+     */
+    'stateExecute'?: StateExecuteDetails;
+    /**
+     * 
+     * @type {RpcExecutionDetails}
+     * @memberof IwfHistoryEvent
+     */
+    'rpcExecution'?: RpcExecutionDetails;
+    /**
+     * 
+     * @type {SignalReceivedDetails}
+     * @memberof IwfHistoryEvent
+     */
+    'signalReceived'?: SignalReceivedDetails;
+    /**
+     * 
+     * @type {WorkflowClosedDetails}
+     * @memberof IwfHistoryEvent
+     */
+    'workflowClosed'?: WorkflowClosedDetails;
+}
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const IwfHistoryEventType = {
+    StateWaitUntil: 'StateWaitUntil',
+    StateExecute: 'StateExecute',
+    RpcExecution: 'RpcExecution',
+    SignalReceived: 'SignalReceived',
+    WorkflowClosed: 'WorkflowClosed'
+} as const;
+
+export type IwfHistoryEventType = typeof IwfHistoryEventType[keyof typeof IwfHistoryEventType];
+
+
+/**
+ * 
+ * @export
  * @interface KeyValue
  */
 export interface KeyValue {
@@ -1095,6 +1155,19 @@ export interface RetryPolicy {
 /**
  * 
  * @export
+ * @interface RpcExecutionDetails
+ */
+export interface RpcExecutionDetails {
+    /**
+     * 
+     * @type {ExecuteRpcSignalRequest}
+     * @memberof RpcExecutionDetails
+     */
+    'response'?: ExecuteRpcSignalRequest;
+}
+/**
+ * 
+ * @export
  * @interface SearchAttribute
  */
 export interface SearchAttribute {
@@ -1213,6 +1286,25 @@ export interface SignalCommand {
      * @memberof SignalCommand
      */
     'atMost'?: number;
+}
+/**
+ * 
+ * @export
+ * @interface SignalReceivedDetails
+ */
+export interface SignalReceivedDetails {
+    /**
+     * 
+     * @type {string}
+     * @memberof SignalReceivedDetails
+     */
+    'signalName'?: string;
+    /**
+     * 
+     * @type {EncodedObject}
+     * @memberof SignalReceivedDetails
+     */
+    'value'?: EncodedObject;
 }
 /**
  * 
@@ -1377,6 +1469,61 @@ export interface StateDecision {
 /**
  * 
  * @export
+ * @interface StateExecuteDetails
+ */
+export interface StateExecuteDetails {
+    /**
+     * 
+     * @type {Context}
+     * @memberof StateExecuteDetails
+     */
+    'context'?: Context;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateExecuteDetails
+     */
+    'stateExecutionId'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateExecuteDetails
+     */
+    'stateId'?: string;
+    /**
+     * 
+     * @type {EncodedObject}
+     * @memberof StateExecuteDetails
+     */
+    'input'?: EncodedObject;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateExecuteDetails
+     */
+    'fromStateExecutionId'?: string;
+    /**
+     * 
+     * @type {WorkflowStateOptions}
+     * @memberof StateExecuteDetails
+     */
+    'stateOptions'?: WorkflowStateOptions;
+    /**
+     * 
+     * @type {WorkflowStateDecideRequest}
+     * @memberof StateExecuteDetails
+     */
+    'request'?: WorkflowStateDecideRequest;
+    /**
+     * 
+     * @type {WorkflowStateDecideResponse}
+     * @memberof StateExecuteDetails
+     */
+    'response'?: WorkflowStateDecideResponse;
+}
+/**
+ * 
+ * @export
  * @interface StateExecutionCompletedCommands
  */
 export interface StateExecutionCompletedCommands {
@@ -1526,6 +1673,55 @@ export interface StateStartActivityInput {
      * @memberof StateStartActivityInput
      */
     'request': WorkflowStateStartRequest;
+}
+/**
+ * 
+ * @export
+ * @interface StateWaitUntilDetails
+ */
+export interface StateWaitUntilDetails {
+    /**
+     * 
+     * @type {Context}
+     * @memberof StateWaitUntilDetails
+     */
+    'context'?: Context;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateWaitUntilDetails
+     */
+    'stateExecutionId'?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateWaitUntilDetails
+     */
+    'stateId'?: string;
+    /**
+     * 
+     * @type {EncodedObject}
+     * @memberof StateWaitUntilDetails
+     */
+    'input'?: EncodedObject;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateWaitUntilDetails
+     */
+    'fromStateExecutionId'?: string;
+    /**
+     * 
+     * @type {WorkflowStateOptions}
+     * @memberof StateWaitUntilDetails
+     */
+    'stateOptions'?: WorkflowStateOptions;
+    /**
+     * 
+     * @type {WorkflowStateStartResponse}
+     * @memberof StateWaitUntilDetails
+     */
+    'response'?: WorkflowStateStartResponse;
 }
 /**
  * 
@@ -1697,6 +1893,19 @@ export interface WorkflowAlreadyStartedOptions {
      * @memberof WorkflowAlreadyStartedOptions
      */
     'requestId'?: string;
+}
+/**
+ * 
+ * @export
+ * @interface WorkflowClosedDetails
+ */
+export interface WorkflowClosedDetails {
+    /**
+     * 
+     * @type {number}
+     * @memberof WorkflowClosedDetails
+     */
+    'workflowClosedTimestamp'?: number;
 }
 /**
  * 
@@ -2431,6 +2640,70 @@ export interface WorkflowSetSearchAttributesRequest {
      */
     'searchAttributes'?: Array<SearchAttribute>;
 }
+/**
+ * 
+ * @export
+ * @interface WorkflowShowRequest
+ */
+export interface WorkflowShowRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof WorkflowShowRequest
+     */
+    'workflowId': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof WorkflowShowRequest
+     */
+    'runId'?: string;
+}
+/**
+ * 
+ * @export
+ * @interface WorkflowShowResponse
+ */
+export interface WorkflowShowResponse {
+    /**
+     * 
+     * @type {number}
+     * @memberof WorkflowShowResponse
+     */
+    'workflowStartedTimestamp'?: number;
+    /**
+     * 
+     * @type {string}
+     * @memberof WorkflowShowResponse
+     */
+    'workflowType'?: string;
+    /**
+     * 
+     * @type {InterpreterWorkflowInput}
+     * @memberof WorkflowShowResponse
+     */
+    'input': InterpreterWorkflowInput;
+    /**
+     * 
+     * @type {ContinueAsNewDumpResponse}
+     * @memberof WorkflowShowResponse
+     */
+    'continueAsNewSnapshot'?: ContinueAsNewDumpResponse;
+    /**
+     * 
+     * @type {WorkflowStatus}
+     * @memberof WorkflowShowResponse
+     */
+    'status'?: WorkflowStatus;
+    /**
+     * 
+     * @type {Array<IwfHistoryEvent>}
+     * @memberof WorkflowShowResponse
+     */
+    'historyEvents'?: Array<IwfHistoryEvent>;
+}
+
+
 /**
  * 
  * @export
@@ -3247,6 +3520,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
+        /**
+         * 
+         * @summary show details for a workflow execution
+         * @param {WorkflowShowRequest} [workflowShowRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1WorkflowShowPost: async (workflowShowRequest?: WorkflowShowRequest, options: AxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/api/v1/workflow/show`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(workflowShowRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
     }
 };
 
@@ -3270,6 +3577,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const operationBasePath = operationServerMap['DefaultApi.apiV1WorkflowSearchPost']?.[index]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
         },
+        /**
+         * 
+         * @summary show details for a workflow execution
+         * @param {WorkflowShowRequest} [workflowShowRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async apiV1WorkflowShowPost(workflowShowRequest?: WorkflowShowRequest, options?: AxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<WorkflowShowResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.apiV1WorkflowShowPost(workflowShowRequest, options);
+            const index = configuration?.serverIndex ?? 0;
+            const operationBasePath = operationServerMap['DefaultApi.apiV1WorkflowShowPost']?.[index]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, operationBasePath || basePath);
+        },
     }
 };
 
@@ -3289,6 +3609,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         apiV1WorkflowSearchPost(workflowSearchRequest?: WorkflowSearchRequest, options?: any): AxiosPromise<WorkflowSearchResponse> {
             return localVarFp.apiV1WorkflowSearchPost(workflowSearchRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary show details for a workflow execution
+         * @param {WorkflowShowRequest} [workflowShowRequest] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        apiV1WorkflowShowPost(workflowShowRequest?: WorkflowShowRequest, options?: any): AxiosPromise<WorkflowShowResponse> {
+            return localVarFp.apiV1WorkflowShowPost(workflowShowRequest, options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -3310,6 +3640,18 @@ export class DefaultApi extends BaseAPI {
      */
     public apiV1WorkflowSearchPost(workflowSearchRequest?: WorkflowSearchRequest, options?: AxiosRequestConfig) {
         return DefaultApiFp(this.configuration).apiV1WorkflowSearchPost(workflowSearchRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary show details for a workflow execution
+     * @param {WorkflowShowRequest} [workflowShowRequest] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public apiV1WorkflowShowPost(workflowShowRequest?: WorkflowShowRequest, options?: AxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).apiV1WorkflowShowPost(workflowShowRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
