@@ -179,8 +179,13 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
 
         const prevPageIndex = currentPage - 2;
         const prevToken = pageHistory[prevPageIndex] || '';
-        const prevPage = currentPage - 1;
+        let prevPage = currentPage - 1;
 
+        // if the token doesn't exist, 
+        // it maybe a copy paste or refresh, and we don't know how to go to prev page
+        if(!prevToken && prevPage>1){
+            prevPage = 1
+        }
         setCurrentPage(prevPage);
         // Update URL with new page number and token
         updateUrlWithParams(query, prevPage, pageSize, prevToken);
