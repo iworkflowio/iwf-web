@@ -98,16 +98,39 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     
     console.log("Retrieved workflow details:", workflow);
     
+    // Access the workflowExecutionInfo from the response
+    const workflowInfo = workflow.workflowExecutionInfo;
+    
+    if (!workflowInfo) {
+      throw new Error("Workflow execution info not found in the response");
+    }
+    
+    // Extract workflow type from the workflowInfo
+    const workflowType = workflowInfo.type?.name || 'Unknown';
+    
+    // Extract timestamp from the Temporal format
+    let startTimeMs = 0;
+    if (workflowInfo.startTime?.seconds) {
+      // Convert seconds to milliseconds (handling both number and Long)
+      const seconds = typeof workflowInfo.startTime.seconds === 'number' 
+        ? workflowInfo.startTime.seconds 
+        : Number(workflowInfo.startTime.seconds);
+      const nanos = workflowInfo.startTime.nanos || 0;
+      startTimeMs = seconds * 1000 + Math.floor(nanos / 1000000);
+    }
+    
+    // Map numeric status code to status enum
+    const statusCode = workflowInfo.status;
+    
     // Build the response
     const response: WorkflowShowResponse = {
       workflowStartedTimestamp: startTimeMs,
       workflowType: workflowType,
+      status: statusCode ? mapTemporalStatus(String(statusCode)):undefined,
+      // Per requirements, set these fields to undefined
       input: undefined,
-      status: mapTemporalStatus(workflow.status.name),
-      // For the initial implementation, we won't populate these fields
-      // which would require more complex processing
       continueAsNewSnapshot: undefined,
-      historyEvents: []
+      historyEvents: undefined
     };
     
     return NextResponse.json(response, { status: 200 });
