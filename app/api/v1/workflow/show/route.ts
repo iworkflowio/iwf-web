@@ -310,9 +310,35 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           executeDetails.completedTimestamp = event.eventTime.seconds.toNumber();
           // Update the event in the array with the added details
           historyEvents[indexToUpdate].stateExecute = executeDetails;
-          const nextStates = executeDetails.response.stateDecision.nextStates
-
-
+          
+          // Check if the response has a stateDecision with nextStates
+          if (executeDetails.response && 
+              executeDetails.response.stateDecision && 
+              executeDetails.response.stateDecision.nextStates) {
+            
+            const nextStates = executeDetails.response.stateDecision.nextStates;
+            
+            // Iterate through each next state movement from the decision
+            for (const stateMovement of nextStates) {
+                // Create an entry for this state in fromStateLookup
+                const indexOption: IndexAndStateOption = {
+                  index: indexToUpdate,  // Current event index as the source
+                  option: stateMovement.stateOptions,  // StateOptions from the movement
+                  input: stateMovement.stateInput  // Input from the movement
+                };
+                
+                // Check if the state already exists in the lookup
+                if (fromStateLookup.has(stateMovement.stateId)) {
+                  // Append to existing array
+                  const existingOptions = fromStateLookup.get(stateMovement.stateId);
+                  existingOptions.push(indexOption);
+                  fromStateLookup.set(stateMovement.stateId, existingOptions);
+                } else {
+                  // Create new array with this option
+                  fromStateLookup.set(stateMovement.stateId, [indexOption]);
+                }
+              }
+            }
         }
       } else if (event.workflowExecutionSignaledEventAttributes) {
         console.log(`  signal received=${event}`);
