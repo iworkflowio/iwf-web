@@ -105,8 +105,50 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       throw new Error("Workflow execution info not found in the response");
     }
     
-    // Extract workflow type from the workflowInfo
-    const workflowType = workflowInfo.type?.name || 'Unknown';
+    // Extract search attributes and decode them properly
+    const searchAttributes: Record<string, any> = {};
+    
+    try {
+      // Use the same decoding logic as in the search route
+      if (workflowInfo.searchAttributes?.indexedFields) {
+        Object.entries(workflowInfo.searchAttributes.indexedFields).forEach(([key, value]) => {
+          if (value) {
+            // Try to convert Buffer/data to string
+            if (value.data) {
+              try {
+                const dataStr = value.data.toString();
+                try {
+                  // Try to parse as JSON
+                  searchAttributes[key] = JSON.parse(dataStr);
+                } catch (e) {
+                  // If not valid JSON, use as string
+                  searchAttributes[key] = dataStr;
+                }
+              } catch (e) {
+                // If can't convert to string, store as-is
+                searchAttributes[key] = value;
+              }
+            } else {
+              // No data field, store as-is
+              searchAttributes[key] = value;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Error processing search attributes:", e);
+    }
+    
+    console.log("Decoded search attributes:", searchAttributes);
+    
+    // Get workflow type - preferring IwfWorkflowType search attribute 
+    let workflowType = workflowInfo.type?.name || 'Unknown';
+    if (searchAttributes.IwfWorkflowType) {
+      // Use the IwfWorkflowType from search attributes
+      workflowType = typeof searchAttributes.IwfWorkflowType === 'string' 
+        ? searchAttributes.IwfWorkflowType 
+        : extractStringValue(searchAttributes.IwfWorkflowType);
+    }
     
     // Extract timestamp from the Temporal format
     let startTimeMs = 0;
