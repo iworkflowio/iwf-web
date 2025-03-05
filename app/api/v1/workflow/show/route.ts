@@ -146,17 +146,18 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
 
     const handle = client.getHandle(params.workflowId, params.runId)
     const rawHistories = await handle.fetchHistory()
-    // TODO configure data converter
     const startInputs = await arrayFromPayloads(defaultDataConverter.payloadConverter, rawHistories.events[0].workflowExecutionStartedEventAttributes.input.payloads)
-    console.log("startInput", startInputs[0])
+
+    // Convert the raw input to InterpreterWorkflowInput type
+    const input: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
     
     // Build the response
     const response: WorkflowShowResponse = {
       workflowStartedTimestamp: startTimeSeconds,
       workflowType: workflowType,
       status: statusCode ? mapTemporalStatus(String(statusCode)):undefined,
-      // Per requirements, set these fields to undefined
-      input: undefined,
+      // Include the decoded input in the response
+      input: input,
       continueAsNewSnapshot: undefined,
       historyEvents: undefined
     };
