@@ -1265,8 +1265,6 @@ components:
         completedTimestamp:
           type: integer
           format: int64
-        activityId: # for internal details of temporal
-          type: string
         lastFailedAttemptError:
           type: string
     StateExecuteDetails:
@@ -1301,8 +1299,6 @@ components:
         completedTimestamp:
           type: integer
           format: int64
-        activityId: # for internal details of temporal
-          type: string
         lastFailedAttemptError:
           type: string
     RpcExecutionDetails:

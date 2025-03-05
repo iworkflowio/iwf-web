@@ -1557,12 +1557,6 @@ export interface StateExecuteDetails {
      * @type {string}
      * @memberof StateExecuteDetails
      */
-    'activityId': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof StateExecuteDetails
-     */
     'lastFailedAttemptError'?: string;
 }
 /**
@@ -1784,12 +1778,6 @@ export interface StateWaitUntilDetails {
      * @memberof StateWaitUntilDetails
      */
     'completedTimestamp'?: number;
-    /**
-     * 
-     * @type {string}
-     * @memberof StateWaitUntilDetails
-     */
-    'activityId': string;
     /**
      * 
      * @type {string}
