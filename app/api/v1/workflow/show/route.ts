@@ -151,6 +151,35 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     // Convert the raw input to InterpreterWorkflowInput type
     const input: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
     
+    // Extract and process history events
+    const historyEvents: IwfHistoryEvent[] = [];
+    
+    // Step 1: Iterate through raw Temporal events starting from the second event
+    console.log(`Total events in history: ${rawHistories.events.length}`);
+    for (let i = 1; i < rawHistories.events.length; i++) {
+      const event = rawHistories.events[i];
+      
+      // Log event information
+      console.log(`Event [${i}]: Type=${event.eventType}, ID=${event.eventId}, Timestamp=${event.eventTime?.seconds}`);
+      
+      // Log specific event attributes based on type
+      if (event.activityTaskScheduledEventAttributes) {
+        console.log(`  Activity started: scheduledEventId=${event.activityTaskStartedEventAttributes.scheduledEventId}`);
+      } else if (event.activityTaskCompletedEventAttributes) {
+        console.log(`  Activity completed: scheduledEventId=${event.activityTaskCompletedEventAttributes.scheduledEventId}`);
+      } else if (event.workflowExecutionSignaledEventAttributes) {
+        console.log(`  Workflow task completed: startedEventId=${event.workflowTaskCompletedEventAttributes.startedEventId}`);
+      } else if (event.activityTaskFailedEventAttributes) {
+        // TODO do we need to process for the stateApiFailure policy?
+      } else if (event.workflowExecutionCompletedEventAttributes) {
+        console.log(`  Workflow completed`);
+      } else if (event.workflowExecutionFailedEventAttributes) {
+        console.log(`  Workflow failed`);
+      }
+    }
+    
+    // For now, we'll return an empty array as we're just logging the events
+    
     // Build the response
     const response: WorkflowShowResponse = {
       workflowStartedTimestamp: startTimeSeconds,
@@ -159,7 +188,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       // Include the decoded input in the response
       input: input,
       continueAsNewSnapshot: undefined,
-      historyEvents: undefined
+      historyEvents: historyEvents
     };
     
     return NextResponse.json(response, { status: 200 });
