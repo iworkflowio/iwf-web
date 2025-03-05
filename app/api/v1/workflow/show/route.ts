@@ -1,19 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Connection, WorkflowClient } from '@temporalio/client';
-import { 
-  WorkflowShowRequest, 
-  WorkflowShowResponse,
-  InterpreterWorkflowInput,
-  ContinueAsNewDumpResponse,
-  IwfHistoryEvent 
-} from '../../../../ts-api/src/api-gen/api';
-import {temporalConfig, mapTemporalStatus, extractStringValue, decodeSearchAttributes} from '../utils';
-import {arrayFromPayloads, defaultDataConverter, mapFromPayloads} from "@temporalio/common";
+import {NextRequest, NextResponse} from 'next/server';
+import {Connection, WorkflowClient} from '@temporalio/client';
 import {
-  decodeMapFromPayloads,
-  decodeOptional,
-  decodeOptionalSingle
-} from "@temporalio/common/lib/internal-non-workflow/codec-helpers";
+  InterpreterWorkflowInput,
+  IwfHistoryEvent, IwfHistoryEventType, StateDecideActivityInput, StateStartActivityInput, StateWaitUntilDetails,
+  WorkflowShowRequest,
+  WorkflowShowResponse, WorkflowStateOptions
+} from '../../../../ts-api/src/api-gen/api';
+import {decodeSearchAttributes, extractStringValue, mapTemporalStatus, temporalConfig} from '../utils';
+import {arrayFromPayloads, defaultDataConverter} from "@temporalio/common";
 
 // Handler for GET requests
 export async function GET(request: NextRequest) {
@@ -78,6 +72,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
+interface IndexAndStateOption{
+  index: number,
+  option? : WorkflowStateOptions
+}
+
 // Common handler implementation for both GET and POST
 async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
   try {
@@ -102,8 +101,6 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           }
     });
     
-    console.log("Retrieved workflow describeWorkflowExecution details:", workflow);
-    
     // Access the workflowExecutionInfo from the response
     const workflowInfo = workflow.workflowExecutionInfo;
     
@@ -113,8 +110,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     
     // Extract search attributes and decode them properly using the utility function
     const searchAttributes = decodeSearchAttributes(workflowInfo.searchAttributes);
-    console.log("Decoded search attributes:", searchAttributes);
-    
+
     // Get workflow type - preferring IwfWorkflowType search attribute 
     let workflowType = workflowInfo.type?.name || 'Unknown';
     if (searchAttributes.IwfWorkflowType) {
@@ -134,41 +130,92 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     let startTimeSeconds = 0;
     if (workflowInfo.startTime?.seconds) {
       // Extract seconds (handling both number and Long)
-      const seconds = typeof workflowInfo.startTime.seconds === 'number' 
-        ? workflowInfo.startTime.seconds 
-        : Number(workflowInfo.startTime.seconds);
       // Keep as seconds, not converting to milliseconds
-      startTimeSeconds = seconds;
+      startTimeSeconds = typeof workflowInfo.startTime.seconds === 'number'
+          ? workflowInfo.startTime.seconds
+          : Number(workflowInfo.startTime.seconds);
     }
     
     // Map numeric status code to status enum
     const statusCode = workflowInfo.status;
 
+    // Now fetch history and get the other fields
+    // TODO support configuring data converter
+    const dataConverter = defaultDataConverter
     const handle = client.getHandle(params.workflowId, params.runId)
     const rawHistories = await handle.fetchHistory()
-    const startInputs = await arrayFromPayloads(defaultDataConverter.payloadConverter, rawHistories.events[0].workflowExecutionStartedEventAttributes.input.payloads)
+    const startInputs = arrayFromPayloads(dataConverter.payloadConverter, rawHistories.events[0].workflowExecutionStartedEventAttributes.input.payloads)
 
     // Convert the raw input to InterpreterWorkflowInput type
     const input: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
+    // stateId -> a list of indexes of iWF history events that decide to this stateId
+    // when the index is -1, it's the starting states, or states from continueAsNew
+    // TODO support continueAsNew
+    let fromStateLookup = new Map<string, IndexAndStateOption[]>([
+      [input.startStateId, [
+          {
+            index: -1,
+            option: input.stateOptions
+          }
+      ]],
+    ]);
+    // activityId -> index of iWF history event. This is for activity task started/completed event
+    // to look up the scheduled event, which inserted the iwfHistory event. So that activity task started/completed
+    // can read it back and update it.
+    let historyActivityIdLookup = new Map<string, number>();
     
     // Extract and process history events
     const historyEvents: IwfHistoryEvent[] = [];
     
     // Step 1: Iterate through raw Temporal events starting from the second event
-    console.log(`Total events in history: ${rawHistories.events.length}`);
     for (let i = 1; i < rawHistories.events.length; i++) {
       const event = rawHistories.events[i];
-      
-      // Log event information
-      console.log(`Event [${i}]: Type=${event.eventType}, ID=${event.eventId}, Timestamp=${event.eventTime?.seconds}`);
-      
-      // Log specific event attributes based on type
       if (event.activityTaskScheduledEventAttributes) {
-        console.log(`  Activity started: scheduledEventId=${event.activityTaskStartedEventAttributes.scheduledEventId}`);
+        const firstAttemptStartedTimestamp = event.eventTime?.seconds
+        const activityId = event.activityTaskScheduledEventAttributes.activityId
+
+        const activityInputs = arrayFromPayloads(dataConverter.payloadConverter, event.activityTaskScheduledEventAttributes.input.payloads)
+        if(event.activityTaskScheduledEventAttributes.activityType.name == "StateApiWaitUntil"){
+
+          const activityInput = activityInputs[1] as StateStartActivityInput;
+          const req = activityInput.Request
+          let lookup: IndexAndStateOption[] = fromStateLookup.get(req.workflowStateId)
+          const from:IndexAndStateOption = lookup[0]
+          lookup.shift()
+          if(lookup.length === 0){
+            fromStateLookup.delete(req.workflowStateId)
+          }else{
+            fromStateLookup.set(req.workflowStateId, lookup)
+          }
+
+          const waitUntilDetail: StateWaitUntilDetails = {
+            stateExecutionId: req.context.stateExecutionId,
+            stateId: req.workflowStateId,
+            input: req.stateInput,
+            fromEventId: from.index,
+            stateOptions: from.option,
+
+            activityId: activityId,
+            firstAttemptStartedTimestamp: firstAttemptStartedTimestamp.toNumber(),
+          }
+          const iwfEvent: IwfHistoryEvent = {
+            eventType: "StateWaitUntil",
+            stateWaitUntil: waitUntilDetail
+          }
+          historyActivityIdLookup[activityId] = historyEvents.length
+          historyEvents.push(iwfEvent)
+
+          break;
+        }else if(event.activityTaskScheduledEventAttributes.activityType.name == "StateApiExecute"){
+          const activityInput = activityInputs[0] as StateDecideActivityInput;
+        }else{
+          // TODO for continueAsNew, or rpc locking
+        }
+
       } else if (event.activityTaskCompletedEventAttributes) {
-        console.log(`  Activity completed: scheduledEventId=${event.activityTaskCompletedEventAttributes.scheduledEventId}`);
+        console.log(`  Activity completed=${event}`);
       } else if (event.workflowExecutionSignaledEventAttributes) {
-        console.log(`  Workflow task completed: startedEventId=${event.workflowTaskCompletedEventAttributes.startedEventId}`);
+        console.log(`  signal received=${event}`);
       } else if (event.activityTaskFailedEventAttributes) {
         // TODO do we need to process for the stateApiFailure policy?
       } else if (event.workflowExecutionCompletedEventAttributes) {
@@ -176,6 +223,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       } else if (event.workflowExecutionFailedEventAttributes) {
         console.log(`  Workflow failed`);
       }
+      // TODO local activity
     }
     
     // For now, we'll return an empty array as we're just logging the events
@@ -190,7 +238,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       continueAsNewSnapshot: undefined,
       historyEvents: historyEvents
     };
-    
+
     return NextResponse.json(response, { status: 200 });
     
   } catch (error) {

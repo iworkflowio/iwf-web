@@ -1224,7 +1224,7 @@ components:
       type: object
       properties:
         eventType:
-          $ref: '#/components/schemas/IwfHistoryEvent'
+          $ref: '#/components/schemas/IwfHistoryEventType'
         stateWaitUntil:
           $ref: '#/components/schemas/StateWaitUntilDetails'
         stateExecute:
@@ -1240,6 +1240,7 @@ components:
       required:
         - stateExecutionId
         - stateId
+        - activityId
       properties:
         stateExecutionId:
           type: string
@@ -1247,8 +1248,8 @@ components:
           type: string
         input:
           $ref: '#/components/schemas/EncodedObject'
-        fromStateExecutionId:
-          type: string
+        fromEventId:
+          type: integer
         stateOptions:
           $ref: '#/components/schemas/WorkflowStateOptions'
         response:
@@ -1264,11 +1265,14 @@ components:
         completedTimestamp:
           type: integer
           format: int64
+        activityId: # for internal details of temporal
+          type: string
     StateExecuteDetails:
       type: object
       required:
         - stateExecutionId
         - stateId
+        - activityId
       properties:
         stateExecutionId:
           type: string
@@ -1276,8 +1280,8 @@ components:
           type: string
         input:
           $ref: '#/components/schemas/EncodedObject'
-        fromStateExecutionId:
-          type: string
+        fromEventId:
+          type: integer
         stateOptions:
           $ref: '#/components/schemas/WorkflowStateOptions'
         request:
@@ -1295,6 +1299,8 @@ components:
         completedTimestamp:
           type: integer
           format: int64
+        activityId: # for internal details of temporal
+          type: string
     RpcExecutionDetails:
       type: object
       properties:
@@ -1389,12 +1395,12 @@ components:
     StateStartActivityInput:
       type: object
       required:
-        - iwfWorkerUrl
-        - request
+        - IwfWorkerUrl
+        - Request
       properties:
-        iwfWorkerUrl:
+        IwfWorkerUrl:
           type: string
-        request:
+        Request:
           $ref: '#/components/schemas/WorkflowStateStartRequest'
     StateDecideActivityInput:
       type: object

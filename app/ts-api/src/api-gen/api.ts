@@ -914,10 +914,10 @@ export interface IwfEventError {
 export interface IwfHistoryEvent {
     /**
      * 
-     * @type {IwfHistoryEvent}
+     * @type {IwfHistoryEventType}
      * @memberof IwfHistoryEvent
      */
-    'eventType'?: IwfHistoryEvent;
+    'eventType'?: IwfHistoryEventType;
     /**
      * 
      * @type {StateWaitUntilDetails}
@@ -949,6 +949,8 @@ export interface IwfHistoryEvent {
      */
     'workflowClosed'?: WorkflowClosedDetails;
 }
+
+
 /**
  * 
  * @export
@@ -1504,10 +1506,10 @@ export interface StateExecuteDetails {
     'input'?: EncodedObject;
     /**
      * 
-     * @type {string}
+     * @type {number}
      * @memberof StateExecuteDetails
      */
-    'fromStateExecutionId'?: string;
+    'fromEventId'?: number;
     /**
      * 
      * @type {WorkflowStateOptions}
@@ -1550,6 +1552,12 @@ export interface StateExecuteDetails {
      * @memberof StateExecuteDetails
      */
     'completedTimestamp'?: number;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateExecuteDetails
+     */
+    'activityId': string;
 }
 /**
  * 
@@ -1696,13 +1704,13 @@ export interface StateStartActivityInput {
      * @type {string}
      * @memberof StateStartActivityInput
      */
-    'iwfWorkerUrl': string;
+    'IwfWorkerUrl': string;
     /**
      * 
      * @type {WorkflowStateStartRequest}
      * @memberof StateStartActivityInput
      */
-    'request': WorkflowStateStartRequest;
+    'Request': WorkflowStateStartRequest;
 }
 /**
  * 
@@ -1730,10 +1738,10 @@ export interface StateWaitUntilDetails {
     'input'?: EncodedObject;
     /**
      * 
-     * @type {string}
+     * @type {number}
      * @memberof StateWaitUntilDetails
      */
-    'fromStateExecutionId'?: string;
+    'fromEventId'?: number;
     /**
      * 
      * @type {WorkflowStateOptions}
@@ -1770,6 +1778,12 @@ export interface StateWaitUntilDetails {
      * @memberof StateWaitUntilDetails
      */
     'completedTimestamp'?: number;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateWaitUntilDetails
+     */
+    'activityId': string;
 }
 /**
  * 
