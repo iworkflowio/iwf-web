@@ -4,6 +4,9 @@ import './styles.css';
 export const metadata = {
   title: 'iWF Workflows',
   description: 'Search and view iWF workflow executions',
+  icons: {
+    icon: '/iwf-logo.svg',
+  },
 };
 
 export default function RootLayout({
@@ -16,6 +19,7 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/iwf-logo.svg" type="image/svg+xml" />
       </head>
       <body>
         <div className="min-h-screen bg-gray-50">

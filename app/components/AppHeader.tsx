@@ -78,7 +78,10 @@ const AppHeader = ({
       <div className="flex justify-between items-center">
         {/* Title and GitHub link */}
         <div>
-          <h1 className="text-2xl font-bold">iWF Workflows</h1>
+          <h1 className="text-2xl font-bold flex items-center">
+            <img src="/iwf-logo.svg" alt="iWF Logo" className="h-7 w-7 mr-2" />
+            iWF Workflows
+          </h1>
           <div className="mt-1 text-blue-100 text-sm">
             <a 
               href="https://github.com/indeedeng/iwf" 
