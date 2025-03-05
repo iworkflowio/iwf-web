@@ -8,6 +8,12 @@ import {
   IwfHistoryEvent 
 } from '../../../../ts-api/src/api-gen/api';
 import {temporalConfig, mapTemporalStatus, extractStringValue, decodeSearchAttributes} from '../utils';
+import {arrayFromPayloads, defaultDataConverter, mapFromPayloads} from "@temporalio/common";
+import {
+  decodeMapFromPayloads,
+  decodeOptional,
+  decodeOptionalSingle
+} from "@temporalio/common/lib/internal-non-workflow/codec-helpers";
 
 // Handler for GET requests
 export async function GET(request: NextRequest) {
@@ -86,8 +92,6 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       namespace: temporalConfig.namespace,
     });
 
-
-
     // Get the workflow details
     const workflow = await client.workflowService.describeWorkflowExecution(
         {
@@ -98,7 +102,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           }
     });
     
-    console.log("Retrieved workflow details:", workflow);
+    console.log("Retrieved workflow describeWorkflowExecution details:", workflow);
     
     // Access the workflowExecutionInfo from the response
     const workflowInfo = workflow.workflowExecutionInfo;
@@ -118,6 +122,12 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       workflowType = typeof searchAttributes.IwfWorkflowType === 'string' 
         ? searchAttributes.IwfWorkflowType 
         : extractStringValue(searchAttributes.IwfWorkflowType);
+    }else{
+      return NextResponse.json({
+        detail: "Not an iWF workflow execution",
+        error: `unsupported temporal workflow type ${workflowInfo.type}`,
+        errorType: "TEMPORAL_API_ERROR"
+      }, { status: 400 });
     }
     
     // Extract timestamp from the Temporal format (keeping in seconds)
@@ -133,6 +143,12 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     
     // Map numeric status code to status enum
     const statusCode = workflowInfo.status;
+
+    const handle = client.getHandle(params.workflowId, params.runId)
+    const rawHistories = await handle.fetchHistory()
+    // TODO configure data converter
+    const startInputs = await arrayFromPayloads(defaultDataConverter.payloadConverter, rawHistories.events[0].workflowExecutionStartedEventAttributes.input.payloads)
+    console.log("startInput", startInputs[0])
     
     // Build the response
     const response: WorkflowShowResponse = {
