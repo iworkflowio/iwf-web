@@ -2,86 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Connection, WorkflowClient, WorkflowExecutionInfo } from '@temporalio/client';
 import {temporalConfig, mapTemporalStatus, extractStringValue, decodeSearchAttributes} from '../utils';
 
-// Convert Temporal workflow info to our API format
-const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
-  // First find the iWF workflow type from search attributes if it exists
-  let isIwf = false
-  let wfType = '';
-  if (workflow.searchAttributes && workflow.searchAttributes['IwfWorkflowType']) {
-    wfType = extractStringValue(workflow.searchAttributes['IwfWorkflowType']);
-    isIwf = true
-  }else{
-    wfType = workflow.type
-  }
-  
-  // Extract search attributes from Temporal workflow
-  const searchAttributes = Object.entries(workflow.searchAttributes || {})
-    .filter(([key]) => {
-      // Filter out Temporal system attributes, IwfWorkflowType (since we use it separately),
-      // and specified hidden attributes
-      return ![
-        'TemporalScheduledStartTime',
-        'TemporalScheduledById', 
-        'IwfWorkflowType',
-        'TemporalChangeVersion',
-        'BuildIds'
-      ].includes(key);
-    })
-    .map(([key, value]) => {
-      // Determine the type of value and create appropriate search attribute
-      let searchAttr: any = { key };
-
-      if (Array.isArray(value)) {
-        searchAttr.stringArrayValue = value.map(v => extractStringValue(v));
-        searchAttr.valueType = 'KEYWORD_ARRAY';
-      } else if (typeof value === 'string') {
-        // Check if it looks like a date (Temporal often returns dates as strings)
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
-          searchAttr.stringValue = value;
-          searchAttr.valueType = 'DATETIME';
-        } else {
-          searchAttr.stringValue = value;
-          searchAttr.valueType = 'KEYWORD';
-        }
-      } else if (typeof value === 'number') {
-        if (Number.isInteger(value)) {
-          searchAttr.integerValue = value;
-          searchAttr.valueType = 'INT';
-        } else {
-          searchAttr.doubleValue = value;
-          searchAttr.valueType = 'DOUBLE';
-        }
-      } else if (typeof value === 'boolean') {
-        searchAttr.boolValue = value;
-        searchAttr.valueType = 'BOOL';
-      } else if (value === null || value === undefined) {
-        searchAttr.stringValue = '';
-        searchAttr.valueType = 'KEYWORD';
-      } else if (typeof value === 'object') {
-        // Complex object - try to extract meaningful value
-        searchAttr.stringValue = extractStringValue(value);
-        searchAttr.valueType = 'KEYWORD';
-      }
-
-      return searchAttr;
-    });
-
-  return {
-    workflowId: workflow.workflowId,
-    workflowRunId: workflow.runId,
-    // Only use IwfWorkflowType from search attributes, fallback to "N/A" if empty
-    workflowType: wfType || 'N/A',
-    workflowStatus: mapTemporalStatus(workflow.status.name),
-    historySizeInBytes: workflow.historySize || 0,
-    historyLength: workflow.historyLength || 0,
-    startTime: workflow.startTime.getTime(),
-    closeTime: workflow.closeTime ? workflow.closeTime.getTime() : undefined,
-    taskQueue: workflow.taskQueue,
-    customSearchAttributes: searchAttributes,
-    isIwf: isIwf
-  };
-};
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -239,3 +159,83 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Convert Temporal workflow info to our API format
+const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
+  // First find the iWF workflow type from search attributes if it exists
+  let isIwf = false
+  let wfType = '';
+  if (workflow.searchAttributes && workflow.searchAttributes['IwfWorkflowType']) {
+    wfType = extractStringValue(workflow.searchAttributes['IwfWorkflowType']);
+    isIwf = true
+  }else{
+    wfType = workflow.type
+  }
+
+  // Extract search attributes from Temporal workflow
+  const searchAttributes = Object.entries(workflow.searchAttributes || {})
+      .filter(([key]) => {
+        // Filter out Temporal system attributes, IwfWorkflowType (since we use it separately),
+        // and specified hidden attributes
+        return ![
+          'TemporalScheduledStartTime',
+          'TemporalScheduledById',
+          'IwfWorkflowType',
+          'TemporalChangeVersion',
+          'BuildIds'
+        ].includes(key);
+      })
+      .map(([key, value]) => {
+        // Determine the type of value and create appropriate search attribute
+        let searchAttr: any = { key };
+
+        if (Array.isArray(value)) {
+          searchAttr.stringArrayValue = value.map(v => extractStringValue(v));
+          searchAttr.valueType = 'KEYWORD_ARRAY';
+        } else if (typeof value === 'string') {
+          // Check if it looks like a date (Temporal often returns dates as strings)
+          if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+            searchAttr.stringValue = value;
+            searchAttr.valueType = 'DATETIME';
+          } else {
+            searchAttr.stringValue = value;
+            searchAttr.valueType = 'KEYWORD';
+          }
+        } else if (typeof value === 'number') {
+          if (Number.isInteger(value)) {
+            searchAttr.integerValue = value;
+            searchAttr.valueType = 'INT';
+          } else {
+            searchAttr.doubleValue = value;
+            searchAttr.valueType = 'DOUBLE';
+          }
+        } else if (typeof value === 'boolean') {
+          searchAttr.boolValue = value;
+          searchAttr.valueType = 'BOOL';
+        } else if (value === null || value === undefined) {
+          searchAttr.stringValue = '';
+          searchAttr.valueType = 'KEYWORD';
+        } else if (typeof value === 'object') {
+          // Complex object - try to extract meaningful value
+          searchAttr.stringValue = extractStringValue(value);
+          searchAttr.valueType = 'KEYWORD';
+        }
+
+        return searchAttr;
+      });
+
+  return {
+    workflowId: workflow.workflowId,
+    workflowRunId: workflow.runId,
+    // Only use IwfWorkflowType from search attributes, fallback to "N/A" if empty
+    workflowType: wfType || 'N/A',
+    workflowStatus: mapTemporalStatus(workflow.status.name),
+    historySizeInBytes: workflow.historySize || 0,
+    historyLength: workflow.historyLength || 0,
+    startTime: workflow.startTime.getTime(),
+    closeTime: workflow.closeTime ? workflow.closeTime.getTime() : undefined,
+    taskQueue: workflow.taskQueue,
+    customSearchAttributes: searchAttributes,
+    isIwf: isIwf
+  };
+};
