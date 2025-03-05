@@ -1518,10 +1518,16 @@ export interface StateExecuteDetails {
     'stateOptions'?: WorkflowStateOptions;
     /**
      * 
-     * @type {WorkflowStateDecideRequest}
+     * @type {Array<KeyValue>}
      * @memberof StateExecuteDetails
      */
-    'request'?: WorkflowStateDecideRequest;
+    'stateLocals'?: Array<KeyValue>;
+    /**
+     * 
+     * @type {CommandResults}
+     * @memberof StateExecuteDetails
+     */
+    'commandResults'?: CommandResults;
     /**
      * 
      * @type {WorkflowStateDecideResponse}

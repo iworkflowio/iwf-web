@@ -3,9 +3,15 @@ import {Connection, WorkflowClient} from '@temporalio/client';
 import {
   EncodedObject,
   InterpreterWorkflowInput,
-  IwfHistoryEvent, IwfHistoryEventType, StateDecideActivityInput, StateStartActivityInput, StateWaitUntilDetails,
+  IwfHistoryEvent,
+  IwfHistoryEventType,
+  StateDecideActivityInput,
+  StateExecuteDetails,
+  StateStartActivityInput,
+  StateWaitUntilDetails,
   WorkflowShowRequest,
-  WorkflowShowResponse, WorkflowStateOptions
+  WorkflowShowResponse,
+  WorkflowStateOptions
 } from '../../../../ts-api/src/api-gen/api';
 import {decodeSearchAttributes, extractStringValue, mapTemporalStatus, temporalConfig} from '../utils';
 import {arrayFromPayloads, defaultDataConverter} from "@temporalio/common";
@@ -250,11 +256,13 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
             stateExecutionId: req.context.stateExecutionId,
             stateId: req.workflowStateId,
             input: stateInput,
+            stateLocals: req.stateLocals,
+            commandResults: req.commandResults,
             fromEventId: fromEvent,
             stateOptions: stateOption,
             activityId: activityId,
             firstAttemptStartedTimestamp: firstAttemptStartedTimestamp.toNumber()
-          };
+          } as StateExecuteDetails;
           
           // Create and add the IwfHistoryEvent
           const iwfEvent: IwfHistoryEvent = {
@@ -287,8 +295,24 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           waitUntilDetails.completedTimestamp = event.eventTime.seconds.toNumber();
           // Update the event in the array with the added details
           historyEvents[indexToUpdate].stateWaitUntil = waitUntilDetails;
-        }else{
+        }else if(historyEvents[indexToUpdate].eventType == "StateExecute"){
+          let executeDetails = historyEvents[indexToUpdate].stateExecute;
           // process StateApiExecute for activityTaskCompleted
+          
+          // Get the activity result payload
+          const result = event.activityTaskCompletedEventAttributes.result?.payloads;
+          // Decode the response from the payload
+          const responseData = arrayFromPayloads(dataConverter.payloadConverter, result);
+          // The first element contains the activity output which is the WorkflowStateDecideResponse
+          executeDetails.response = responseData[0];
+          
+          // Add the completedTimestamp from the event time
+          executeDetails.completedTimestamp = event.eventTime.seconds.toNumber();
+          // Update the event in the array with the added details
+          historyEvents[indexToUpdate].stateExecute = executeDetails;
+          const nextStates = executeDetails.response.stateDecision.nextStates
+
+
         }
       } else if (event.workflowExecutionSignaledEventAttributes) {
         console.log(`  signal received=${event}`);

@@ -1183,6 +1183,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SearchAttribute'
+    # TODO: below is for iWF-web only
     WorkflowShowRequest:
       type: object
       required:
@@ -1284,8 +1285,12 @@ components:
           type: integer
         stateOptions:
           $ref: '#/components/schemas/WorkflowStateOptions'
-        request:
-          $ref: '#/components/schemas/WorkflowStateDecideRequest'
+        stateLocals:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyValue'
+        commandResults:
+          $ref: '#/components/schemas/CommandResults'
         response:
           $ref: '#/components/schemas/WorkflowStateDecideResponse'
         firstAttemptStartedTimestamp:
