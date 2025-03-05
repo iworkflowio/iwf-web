@@ -86,6 +86,8 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       namespace: temporalConfig.namespace,
     });
 
+
+
     // Get the workflow details
     const workflow = await client.workflowService.describeWorkflowExecution(
         {

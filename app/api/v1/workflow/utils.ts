@@ -1,6 +1,7 @@
 import { WorkflowStatus } from '../../../ts-api/src/api-gen/api';
 import {temporal} from "@temporalio/proto";
 import ISearchAttributes = temporal.api.common.v1.ISearchAttributes;
+import {mapFromPayloads, searchAttributePayloadConverter, SearchAttributes} from "@temporalio/common";
 
 // Configuration for Temporal connection
 export const temporalConfig = {
@@ -56,27 +57,22 @@ export function extractStringValue(value: any): string {
   if (value === null || value === undefined) {
     return '';
   }
-  
   if (typeof value === 'string') {
     return value;
   }
-  
   if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value);
   }
-  
   if (typeof value === 'object') {
     // Check for Buffer or PayloadData types
     if (value.data && typeof value.data !== 'object') {
       return String(value.data);
     }
-    
     // Try toString - if it's not the default Object toString result
     const strValue = value.toString();
     if (strValue !== '[object Object]') {
       return strValue;
     }
-    
     // Last resort - convert to JSON
     try {
       return JSON.stringify(value);
@@ -101,29 +97,7 @@ export function decodeSearchAttributes(searchAttributes: ISearchAttributes): Rec
   }
   
   try {
-    Object.entries(searchAttributes.indexedFields).forEach(([key, value]) => {
-      if (value) {
-        // Try to convert Buffer/data to string
-        if (value.data) {
-          try {
-            const dataStr = value.data.toString();
-            try {
-              // Try to parse as JSON
-              decodedAttributes[key] = JSON.parse(dataStr);
-            } catch (e) {
-              // If not valid JSON, use as string
-              decodedAttributes[key] = dataStr;
-            }
-          } catch (e) {
-            // If can't convert to string, store as-is
-            decodedAttributes[key] = value;
-          }
-        } else {
-          // No data field, store as-is
-          decodedAttributes[key] = value;
-        }
-      }
-    });
+    return mapFromPayloads(searchAttributePayloadConverter, searchAttributes?.indexedFields ?? {}) as SearchAttributes
   } catch (e) {
     console.error("Error decoding search attributes:", e);
   }
