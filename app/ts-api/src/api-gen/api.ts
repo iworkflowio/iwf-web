@@ -1164,6 +1164,12 @@ export interface RpcExecutionDetails {
      * @memberof RpcExecutionDetails
      */
     'response'?: ExecuteRpcSignalRequest;
+    /**
+     * 
+     * @type {number}
+     * @memberof RpcExecutionDetails
+     */
+    'completedTimestamp'?: number;
 }
 /**
  * 
@@ -1305,6 +1311,12 @@ export interface SignalReceivedDetails {
      * @memberof SignalReceivedDetails
      */
     'value'?: EncodedObject;
+    /**
+     * 
+     * @type {number}
+     * @memberof SignalReceivedDetails
+     */
+    'completedTimestamp'?: number;
 }
 /**
  * 
@@ -1474,22 +1486,16 @@ export interface StateDecision {
 export interface StateExecuteDetails {
     /**
      * 
-     * @type {Context}
+     * @type {string}
      * @memberof StateExecuteDetails
      */
-    'context'?: Context;
+    'stateExecutionId': string;
     /**
      * 
      * @type {string}
      * @memberof StateExecuteDetails
      */
-    'stateExecutionId'?: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof StateExecuteDetails
-     */
-    'stateId'?: string;
+    'stateId': string;
     /**
      * 
      * @type {EncodedObject}
@@ -1520,6 +1526,30 @@ export interface StateExecuteDetails {
      * @memberof StateExecuteDetails
      */
     'response'?: WorkflowStateDecideResponse;
+    /**
+     * 
+     * @type {number}
+     * @memberof StateExecuteDetails
+     */
+    'firstAttemptStartedTimestamp'?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof StateExecuteDetails
+     */
+    'completedAttemptStartedTimestamp'?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof StateExecuteDetails
+     */
+    'completedAttempt'?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof StateExecuteDetails
+     */
+    'completedTimestamp'?: number;
 }
 /**
  * 
@@ -1682,22 +1712,16 @@ export interface StateStartActivityInput {
 export interface StateWaitUntilDetails {
     /**
      * 
-     * @type {Context}
+     * @type {string}
      * @memberof StateWaitUntilDetails
      */
-    'context'?: Context;
+    'stateExecutionId': string;
     /**
      * 
      * @type {string}
      * @memberof StateWaitUntilDetails
      */
-    'stateExecutionId'?: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof StateWaitUntilDetails
-     */
-    'stateId'?: string;
+    'stateId': string;
     /**
      * 
      * @type {EncodedObject}
@@ -1722,6 +1746,30 @@ export interface StateWaitUntilDetails {
      * @memberof StateWaitUntilDetails
      */
     'response'?: WorkflowStateStartResponse;
+    /**
+     * 
+     * @type {number}
+     * @memberof StateWaitUntilDetails
+     */
+    'firstAttemptStartedTimestamp'?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof StateWaitUntilDetails
+     */
+    'completedAttemptStartedTimestamp'?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof StateWaitUntilDetails
+     */
+    'completedAttempt'?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof StateWaitUntilDetails
+     */
+    'completedTimestamp'?: number;
 }
 /**
  * 

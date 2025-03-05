@@ -1237,9 +1237,10 @@ components:
           $ref: '#/components/schemas/WorkflowClosedDetails'
     StateWaitUntilDetails:
       type: object
+      required:
+        - stateExecutionId
+        - stateId
       properties:
-        context:
-          $ref: '#/components/schemas/Context'
         stateExecutionId:
           type: string
         stateId:
@@ -1252,11 +1253,23 @@ components:
           $ref: '#/components/schemas/WorkflowStateOptions'
         response:
           $ref: '#/components/schemas/WorkflowStateStartResponse'
+        firstAttemptStartedTimestamp:
+          type: integer
+          format: int64
+        completedAttemptStartedTimestamp:
+          type: integer
+          format: int64
+        completedAttempt:
+          type: integer
+        completedTimestamp:
+          type: integer
+          format: int64
     StateExecuteDetails:
       type: object
+      required:
+        - stateExecutionId
+        - stateId
       properties:
-        context:
-          $ref: '#/components/schemas/Context'
         stateExecutionId:
           type: string
         stateId:
@@ -1271,11 +1284,25 @@ components:
           $ref: '#/components/schemas/WorkflowStateDecideRequest'
         response:
           $ref: '#/components/schemas/WorkflowStateDecideResponse'
+        firstAttemptStartedTimestamp:
+          type: integer
+          format: int64
+        completedAttemptStartedTimestamp:
+          type: integer
+          format: int64
+        completedAttempt:
+          type: integer
+        completedTimestamp:
+          type: integer
+          format: int64
     RpcExecutionDetails:
       type: object
       properties:
         response:
           $ref: '#/components/schemas/ExecuteRpcSignalRequest'
+        completedTimestamp:
+          type: integer
+          format: int64
     SignalReceivedDetails:
       type: object
       properties:
@@ -1283,6 +1310,9 @@ components:
           type: string
         value:
           $ref: '#/components/schemas/EncodedObject'
+        completedTimestamp:
+          type: integer
+          format: int64
     WorkflowClosedDetails:
       type: object
       properties:
