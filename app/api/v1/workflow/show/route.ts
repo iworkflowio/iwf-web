@@ -1,96 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Connection, WorkflowClient, WorkflowExecutionInfo } from '@temporalio/client';
+import { Connection, WorkflowClient } from '@temporalio/client';
 import { 
-  WorkflowStatus, 
   WorkflowShowRequest, 
   WorkflowShowResponse,
   InterpreterWorkflowInput,
   ContinueAsNewDumpResponse,
   IwfHistoryEvent 
 } from '../../../../ts-api/src/api-gen/api';
+import { temporalConfig, mapTemporalStatus, extractStringValue } from '../utils';
 
-// Configuration for Temporal connection
-const temporalConfig = {
-  // Default connection parameters, can be overridden with environment variables
-  hostPort: process.env.TEMPORAL_HOST_PORT || 'localhost:7233',
-  namespace: process.env.TEMPORAL_NAMESPACE || 'default',
-};
-
-// Map Temporal workflow status to our API status
-const mapTemporalStatus = (status: string): WorkflowStatus => {
-  // Normalize the status by converting to uppercase and removing any prefixes
-  const normalizedStatus = (status || '').toString().toUpperCase().trim();
-  
-  // Sometimes status comes with 'WORKFLOW_EXECUTION_STATUS_' prefix
-  const statusWithoutPrefix = normalizedStatus.replace('WORKFLOW_EXECUTION_STATUS_', '');
-  
-  switch (statusWithoutPrefix) {
-    case 'RUNNING':
-      return 'RUNNING';
-    case 'COMPLETED':
-      return 'COMPLETED';
-    case 'FAILED':
-      return 'FAILED';
-    case 'CANCELED':
-      return 'CANCELED';
-    case 'TERMINATED':
-      return 'TERMINATED';
-    case 'CONTINUED_AS_NEW':
-      return 'CONTINUED_AS_NEW';
-    case 'TIMED_OUT':
-      return 'TIMEOUT';
-    case '1': // Sometimes Temporal returns numeric status codes
-      return 'RUNNING';
-    case '2':
-      return 'COMPLETED';
-    case '3':
-      return 'FAILED';
-    case '4':
-      return 'CANCELED';
-    case '5':
-      return 'TERMINATED';
-    case '6':
-      return 'CONTINUED_AS_NEW';
-    case '7':
-      return 'TIMEOUT';
-    default:
-      throw new Error(`Unknown workflow status: ${status} (normalized: ${statusWithoutPrefix})`);
-  }
-};
-
-// Extract workflow input from history events
-const extractWorkflowInput = (workflow: any): InterpreterWorkflowInput => {
-  // This would need to be implemented based on how the input is stored
-  // For now, we'll return a minimal object to satisfy the type
-  
-  // Default empty input
-  const emptyInput: InterpreterWorkflowInput = {
-    iwfWorkflowType: workflow?.searchAttributes?.IwfWorkflowType || workflow?.type || '',
-    iwfWorkerUrl: workflow?.searchAttributes?.IwfWorkerUrl || '',
-  };
-  
-  try {
-    // In a real implementation, we would extract the input from the workflow history
-    // or from special search attributes/memo fields
-    
-    // For now, just check if there are relevant search attributes
-    if (workflow?.searchAttributes) {
-      // Extract whatever workflow input details we can find
-      if (workflow.searchAttributes.IwfWorkflowType) {
-        emptyInput.iwfWorkflowType = workflow.searchAttributes.IwfWorkflowType;
-      }
-      
-      if (workflow.searchAttributes.IwfWorkerUrl) {
-        emptyInput.iwfWorkerUrl = workflow.searchAttributes.IwfWorkerUrl;
-      }
-    }
-    
-    return emptyInput;
-  } catch (error) {
-    console.error("Error extracting workflow input:", error);
-    return emptyInput;
-  }
-};
 
 // Handler for GET requests
 export async function GET(request: NextRequest) {
