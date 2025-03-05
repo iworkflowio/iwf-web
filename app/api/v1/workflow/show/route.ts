@@ -212,7 +212,54 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           stateExecutionIdToWaitUntilIndex[req.context.stateExecutionId] = eventIndex
           historyEvents.push(iwfEvent)
         }else if(event.activityTaskScheduledEventAttributes.activityType.name == "StateApiExecute"){
-          // implement the processing of StateApiExecute for activityTaskScheduled
+          // Process StateApiExecute for activityTaskScheduled
+          const activityInput = activityInputs[1] as StateDecideActivityInput;
+          const req = activityInput.Request
+          
+          // Look up the stateExecutionId in the waitUntil index map first
+          let fromEvent: number;
+          let stateOption: WorkflowStateOptions | undefined;
+          
+          if (stateExecutionIdToWaitUntilIndex.has(req.context.stateExecutionId)) {
+            // If it's coming from a waitUntil event, use that index
+            fromEvent = stateExecutionIdToWaitUntilIndex.get(req.context.stateExecutionId);
+            // Get the stateOptions from the referenced waitUntil event
+            const waitUntilEvent = historyEvents[fromEvent];
+            stateOption = waitUntilEvent.stateWaitUntil?.stateOptions;
+          } else {
+            // Otherwise use historyActivityIdLookup like in waitUntil processing
+            let lookup: IndexAndStateOption[] = fromStateLookup.get(req.workflowStateId);
+            const from: IndexAndStateOption = lookup[0];
+            lookup.shift();
+            if (lookup.length === 0) {
+              fromStateLookup.delete(req.workflowStateId);
+            } else {
+              fromStateLookup.set(req.workflowStateId, lookup);
+            }
+            fromEvent = from.index;
+            stateOption = from.option;
+          }
+
+          // Build the StateExecuteDetails object
+          const executeDetail = {
+            stateExecutionId: req.context.stateExecutionId,
+            stateId: req.workflowStateId,
+            input: req.stateInput,
+            fromEventId: fromEvent,
+            stateOptions: stateOption,
+            activityId: activityId,
+            firstAttemptStartedTimestamp: firstAttemptStartedTimestamp.toNumber()
+          };
+          
+          // Create and add the IwfHistoryEvent
+          const iwfEvent: IwfHistoryEvent = {
+            eventType: "StateExecute",
+            stateExecute: executeDetail
+          };
+          
+          const eventIndex = historyEvents.length;
+          historyActivityIdLookup[activityId] = eventIndex;
+          historyEvents.push(iwfEvent);
         }else{
           // TODO for continueAsNew, or rpc locking
         }
