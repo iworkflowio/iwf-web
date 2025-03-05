@@ -100,7 +100,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
             runId: params.runId
           }
     });
-    
+
     // Access the workflowExecutionInfo from the response
     const workflowInfo = workflow.workflowExecutionInfo;
     

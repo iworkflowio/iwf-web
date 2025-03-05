@@ -1405,12 +1405,12 @@ components:
     StateDecideActivityInput:
       type: object
       required:
-        - iwfWorkerUrl
-        - request
+        - IwfWorkerUrl
+        - Request
       properties:
-        iwfWorkerUrl:
+        IwfWorkerUrl:
           type: string
-        request:
+        Request:
           $ref: '#/components/schemas/WorkflowStateDecideRequest'
     GetDataAttributesQueryRequest:
       type: object
@@ -1543,43 +1543,43 @@ components:
     ContinueAsNewDumpResponse:
       type: object
       properties:
-        statesToStartFromBeginning:
+        StatesToStartFromBeginning:
           type: array
           items:
             $ref: '#/components/schemas/StateMovement'
           description: "StatesToStartFromBeginning means they haven't started in the previous run"
-        stateExecutionsToResume:
+        StateExecutionsToResume:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/StateExecutionResumeInfo'
           description: "stateExeId to StateExecutionResumeInfo"
-        interStateChannelReceived:
+        InterStateChannelReceived:
           type: object
           additionalProperties:
             type: array
             items:
               $ref: '#/components/schemas/EncodedObject'
-        signalsReceived:
+        SignalsReceived:
           type: object
           additionalProperties:
             type: array
             items:
               $ref: '#/components/schemas/EncodedObject'
-        stateExecutionCounterInfo:
+        StateExecutionCounterInfo:
           $ref: '#/components/schemas/StateExecutionCounterInfo'
-        stateOutputs:
+        StateOutputs:
           type: array
           items:
             $ref: '#/components/schemas/StateCompletionOutput'
-        staleSkipTimerSignals:
+        StaleSkipTimerSignals:
           type: array
           items:
             $ref: '#/components/schemas/StaleSkipTimerSignal'
-        dataObjects:
+        DataObjects:
           type: array
           items:
             $ref: '#/components/schemas/KeyValue'
-        searchAttributes:
+        SearchAttributes:
           type: array
           items:
             $ref: '#/components/schemas/SearchAttribute'

@@ -227,55 +227,55 @@ export interface ContinueAsNewDumpResponse {
      * @type {Array<StateMovement>}
      * @memberof ContinueAsNewDumpResponse
      */
-    'statesToStartFromBeginning'?: Array<StateMovement>;
+    'StatesToStartFromBeginning'?: Array<StateMovement>;
     /**
      * stateExeId to StateExecutionResumeInfo
      * @type {{ [key: string]: StateExecutionResumeInfo; }}
      * @memberof ContinueAsNewDumpResponse
      */
-    'stateExecutionsToResume'?: { [key: string]: StateExecutionResumeInfo; };
+    'StateExecutionsToResume'?: { [key: string]: StateExecutionResumeInfo; };
     /**
      * 
      * @type {{ [key: string]: Array<EncodedObject>; }}
      * @memberof ContinueAsNewDumpResponse
      */
-    'interStateChannelReceived'?: { [key: string]: Array<EncodedObject>; };
+    'InterStateChannelReceived'?: { [key: string]: Array<EncodedObject>; };
     /**
      * 
      * @type {{ [key: string]: Array<EncodedObject>; }}
      * @memberof ContinueAsNewDumpResponse
      */
-    'signalsReceived'?: { [key: string]: Array<EncodedObject>; };
+    'SignalsReceived'?: { [key: string]: Array<EncodedObject>; };
     /**
      * 
      * @type {StateExecutionCounterInfo}
      * @memberof ContinueAsNewDumpResponse
      */
-    'stateExecutionCounterInfo'?: StateExecutionCounterInfo;
+    'StateExecutionCounterInfo'?: StateExecutionCounterInfo;
     /**
      * 
      * @type {Array<StateCompletionOutput>}
      * @memberof ContinueAsNewDumpResponse
      */
-    'stateOutputs'?: Array<StateCompletionOutput>;
+    'StateOutputs'?: Array<StateCompletionOutput>;
     /**
      * 
      * @type {Array<StaleSkipTimerSignal>}
      * @memberof ContinueAsNewDumpResponse
      */
-    'staleSkipTimerSignals'?: Array<StaleSkipTimerSignal>;
+    'StaleSkipTimerSignals'?: Array<StaleSkipTimerSignal>;
     /**
      * 
      * @type {Array<KeyValue>}
      * @memberof ContinueAsNewDumpResponse
      */
-    'dataObjects'?: Array<KeyValue>;
+    'DataObjects'?: Array<KeyValue>;
     /**
      * 
      * @type {Array<SearchAttribute>}
      * @memberof ContinueAsNewDumpResponse
      */
-    'searchAttributes'?: Array<SearchAttribute>;
+    'SearchAttributes'?: Array<SearchAttribute>;
 }
 /**
  * 
@@ -1453,13 +1453,13 @@ export interface StateDecideActivityInput {
      * @type {string}
      * @memberof StateDecideActivityInput
      */
-    'iwfWorkerUrl': string;
+    'IwfWorkerUrl': string;
     /**
      * 
      * @type {WorkflowStateDecideRequest}
      * @memberof StateDecideActivityInput
      */
-    'request': WorkflowStateDecideRequest;
+    'Request': WorkflowStateDecideRequest;
 }
 /**
  * 
