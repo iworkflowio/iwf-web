@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, WorkflowClient, WorkflowExecutionInfo } from '@temporalio/client';
-import { temporalConfig, mapTemporalStatus, extractStringValue } from '../utils';
+import {temporalConfig, mapTemporalStatus, extractStringValue, decodeSearchAttributes} from '../utils';
 
 // Convert Temporal workflow info to our API format
 const convertTemporalWorkflow = (workflow: WorkflowExecutionInfo) => {
@@ -163,35 +163,11 @@ export async function POST(request: NextRequest) {
       // Convert the Temporal workflows to our API format
       const mappedWorkflows = (listResponse.executions || []).map(execution => {
         // Extract search attributes
-        const searchAttributes: Record<string, any> = {};
+        let searchAttributes: Record<string, any> = {};
         
         try {
-          // Try to convert indexed fields to a usable format
-          if (execution.searchAttributes?.indexedFields) {
-            Object.entries(execution.searchAttributes.indexedFields).forEach(([key, value]) => {
-              if (value) {
-                // Try to convert Buffer/data to string
-                if (value.data) {
-                  try {
-                    const dataStr = value.data.toString();
-                    try {
-                      // Try to parse as JSON
-                      searchAttributes[key] = JSON.parse(dataStr);
-                    } catch (e) {
-                      // If not valid JSON, use as string
-                      searchAttributes[key] = dataStr;
-                    }
-                  } catch (e) {
-                    // If can't convert to string, store as-is
-                    searchAttributes[key] = value;
-                  }
-                } else {
-                  // No data field, store as-is
-                  searchAttributes[key] = value;
-                }
-              }
-            });
-          }
+          // Use the shared utility function to decode search attributes
+          searchAttributes = decodeSearchAttributes(execution.searchAttributes);
         } catch (e) {
           console.error("Error processing search attributes:", e);
         }

@@ -7,7 +7,7 @@ import {
   ContinueAsNewDumpResponse,
   IwfHistoryEvent 
 } from '../../../../ts-api/src/api-gen/api';
-import { temporalConfig, mapTemporalStatus, extractStringValue } from '../utils';
+import {temporalConfig, mapTemporalStatus, extractStringValue, decodeSearchAttributes} from '../utils';
 
 // Handler for GET requests
 export async function GET(request: NextRequest) {
@@ -105,40 +105,8 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       throw new Error("Workflow execution info not found in the response");
     }
     
-    // Extract search attributes and decode them properly
-    const searchAttributes: Record<string, any> = {};
-    
-    try {
-      // Use the same decoding logic as in the search route
-      if (workflowInfo.searchAttributes?.indexedFields) {
-        Object.entries(workflowInfo.searchAttributes.indexedFields).forEach(([key, value]) => {
-          if (value) {
-            // Try to convert Buffer/data to string
-            if (value.data) {
-              try {
-                const dataStr = value.data.toString();
-                try {
-                  // Try to parse as JSON
-                  searchAttributes[key] = JSON.parse(dataStr);
-                } catch (e) {
-                  // If not valid JSON, use as string
-                  searchAttributes[key] = dataStr;
-                }
-              } catch (e) {
-                // If can't convert to string, store as-is
-                searchAttributes[key] = value;
-              }
-            } else {
-              // No data field, store as-is
-              searchAttributes[key] = value;
-            }
-          }
-        });
-      }
-    } catch (e) {
-      console.error("Error processing search attributes:", e);
-    }
-    
+    // Extract search attributes and decode them properly using the utility function
+    const searchAttributes = decodeSearchAttributes(workflowInfo.searchAttributes);
     console.log("Decoded search attributes:", searchAttributes);
     
     // Get workflow type - preferring IwfWorkflowType search attribute 

@@ -1,4 +1,6 @@
 import { WorkflowStatus } from '../../../ts-api/src/api-gen/api';
+import {temporal} from "@temporalio/proto";
+import ISearchAttributes = temporal.api.common.v1.ISearchAttributes;
 
 // Configuration for Temporal connection
 export const temporalConfig = {
@@ -84,4 +86,47 @@ export function extractStringValue(value: any): string {
   }
   
   return 'Unknown Value';
+}
+
+/**
+ * Decodes Temporal search attributes from the Temporal API format
+ * @param searchAttributes The searchAttributes from workflow info (temporal.api.common.v1.ISearchAttributes)
+ * @returns A decoded object with search attributes in a usable format
+ */
+export function decodeSearchAttributes(searchAttributes: ISearchAttributes): Record<string, any> {
+  const decodedAttributes: Record<string, any> = {};
+  
+  if (!searchAttributes || !searchAttributes.indexedFields) {
+    return decodedAttributes;
+  }
+  
+  try {
+    Object.entries(searchAttributes.indexedFields).forEach(([key, value]) => {
+      if (value) {
+        // Try to convert Buffer/data to string
+        if (value.data) {
+          try {
+            const dataStr = value.data.toString();
+            try {
+              // Try to parse as JSON
+              decodedAttributes[key] = JSON.parse(dataStr);
+            } catch (e) {
+              // If not valid JSON, use as string
+              decodedAttributes[key] = dataStr;
+            }
+          } catch (e) {
+            // If can't convert to string, store as-is
+            decodedAttributes[key] = value;
+          }
+        } else {
+          // No data field, store as-is
+          decodedAttributes[key] = value;
+        }
+      }
+    });
+  } catch (e) {
+    console.error("Error decoding search attributes:", e);
+  }
+  
+  return decodedAttributes;
 }
