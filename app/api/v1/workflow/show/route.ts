@@ -118,15 +118,15 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
         : extractStringValue(searchAttributes.IwfWorkflowType);
     }
     
-    // Extract timestamp from the Temporal format
-    let startTimeMs = 0;
+    // Extract timestamp from the Temporal format (keeping in seconds)
+    let startTimeSeconds = 0;
     if (workflowInfo.startTime?.seconds) {
-      // Convert seconds to milliseconds (handling both number and Long)
+      // Extract seconds (handling both number and Long)
       const seconds = typeof workflowInfo.startTime.seconds === 'number' 
         ? workflowInfo.startTime.seconds 
         : Number(workflowInfo.startTime.seconds);
-      const nanos = workflowInfo.startTime.nanos || 0;
-      startTimeMs = seconds * 1000 + Math.floor(nanos / 1000000);
+      // Keep as seconds, not converting to milliseconds
+      startTimeSeconds = seconds;
     }
     
     // Map numeric status code to status enum
@@ -134,7 +134,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     
     // Build the response
     const response: WorkflowShowResponse = {
-      workflowStartedTimestamp: startTimeMs,
+      workflowStartedTimestamp: startTimeSeconds,
       workflowType: workflowType,
       status: statusCode ? mapTemporalStatus(String(statusCode)):undefined,
       // Per requirements, set these fields to undefined
