@@ -9,7 +9,6 @@ import {
 } from '../../../../ts-api/src/api-gen/api';
 import { temporalConfig, mapTemporalStatus, extractStringValue } from '../utils';
 
-
 // Handler for GET requests
 export async function GET(request: NextRequest) {
   try {
@@ -88,26 +87,22 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     });
 
     // Get the workflow details
-    const workflow = await client.describe(params.workflowId, params.runId);
+    const workflow = await client.workflowService.describeWorkflowExecution(
+        {
+          namespace: temporalConfig.namespace,
+          execution:{
+            workflowId: params.workflowId,
+            runId: params.runId
+          }
+    });
     
-    // Check if this is an iWF workflow
-    const isIwf = !!(workflow.searchAttributes && workflow.searchAttributes['IwfWorkflowType']);
-    
-    // Get workflow type - from IwfWorkflowType search attribute or fallback to Temporal workflow type
-    let workflowType = workflow.type;
-    if (isIwf && workflow.searchAttributes && workflow.searchAttributes['IwfWorkflowType']) {
-      const iwfType = workflow.searchAttributes['IwfWorkflowType'];
-      workflowType = typeof iwfType === 'string' ? iwfType : String(iwfType);
-    }
-    
-    // Extract the workflow input
-    const input = extractWorkflowInput(workflow);
+    console.log("Retrieved workflow details:", workflow);
     
     // Build the response
     const response: WorkflowShowResponse = {
-      workflowStartedTimestamp: workflow.startTime.getTime(),
+      workflowStartedTimestamp: startTimeMs,
       workflowType: workflowType,
-      input: input,
+      input: undefined,
       status: mapTemporalStatus(workflow.status.name),
       // For the initial implementation, we won't populate these fields
       // which would require more complex processing
@@ -117,28 +112,13 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     
     return NextResponse.json(response, { status: 200 });
     
-  } catch (temporalError) {
+  } catch (error) {
     // Handle specific Temporal errors
-    console.error('Temporal API error:', temporalError);
-    
-    // Create a user-friendly error message
-    const errorMessage = temporalError instanceof Error 
-      ? temporalError.message 
-      : "Unknown Temporal error occurred";
-    
-    // Check if the error is "Workflow not found"
-    if (errorMessage.includes("Workflow execution not found") || 
-        errorMessage.includes("Entity not found")) {
-      return NextResponse.json({
-        detail: "Workflow not found",
-        error: errorMessage,
-        errorType: "WORKFLOW_NOT_FOUND"
-      }, { status: 404 });
-    }
-    
+    console.error('Temporal API error:', error);
+
     return NextResponse.json({
       detail: "Error retrieving workflow details",
-      error: errorMessage,
+      error: error.message,
       errorType: "TEMPORAL_API_ERROR"
     }, { status: 400 });
   }
