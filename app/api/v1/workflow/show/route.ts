@@ -1,6 +1,7 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {Connection, WorkflowClient} from '@temporalio/client';
 import {
+  EncodedObject,
   InterpreterWorkflowInput,
   IwfHistoryEvent, IwfHistoryEventType, StateDecideActivityInput, StateStartActivityInput, StateWaitUntilDetails,
   WorkflowShowRequest,
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
 interface IndexAndStateOption{
   index: number,
   option? : WorkflowStateOptions
+  input? : EncodedObject
 }
 
 // Common handler implementation for both GET and POST
@@ -147,15 +149,16 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     const startInputs = arrayFromPayloads(dataConverter.payloadConverter, rawHistories.events[0].workflowExecutionStartedEventAttributes.input.payloads)
 
     // Convert the raw input to InterpreterWorkflowInput type
-    const input: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
+    const workflowInput: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
     // stateId -> a list of indexes of iWF history events that decide to this stateId
     // when the index is -1, it's the starting states, or states from continueAsNew
     // TODO support continueAsNew
     let fromStateLookup = new Map<string, IndexAndStateOption[]>([
-      [input.startStateId, [
+      [workflowInput.startStateId, [
           {
             index: -1,
-            option: input.stateOptions
+            option: workflowInput.stateOptions,
+            input: workflowInput.stateInput
           }
       ]],
     ]);
@@ -196,7 +199,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           const waitUntilDetail: StateWaitUntilDetails = {
             stateExecutionId: req.context.stateExecutionId,
             stateId: req.workflowStateId,
-            input: req.stateInput,
+            input: from.input,
             fromEventId: from.index,
             stateOptions: from.option,
 
@@ -219,6 +222,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           // Look up the stateExecutionId in the waitUntil index map first
           let fromEvent: number;
           let stateOption: WorkflowStateOptions | undefined;
+          let stateInput: EncodedObject | undefined;
           
           if (stateExecutionIdToWaitUntilIndex.has(req.context.stateExecutionId)) {
             // If it's coming from a waitUntil event, use that index
@@ -226,6 +230,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
             // Get the stateOptions from the referenced waitUntil event
             const waitUntilEvent = historyEvents[fromEvent];
             stateOption = waitUntilEvent.stateWaitUntil?.stateOptions;
+            stateInput = waitUntilEvent.stateWaitUntil?.input;
           } else {
             // Otherwise use historyActivityIdLookup like in waitUntil processing
             let lookup: IndexAndStateOption[] = fromStateLookup.get(req.workflowStateId);
@@ -238,13 +243,14 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
             }
             fromEvent = from.index;
             stateOption = from.option;
+            stateInput = from.input;
           }
 
           // Build the StateExecuteDetails object
           const executeDetail = {
             stateExecutionId: req.context.stateExecutionId,
             stateId: req.workflowStateId,
-            input: req.stateInput,
+            input: stateInput,
             fromEventId: fromEvent,
             stateOptions: stateOption,
             activityId: activityId,
@@ -265,7 +271,17 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
         }
 
       } else if (event.activityTaskCompletedEventAttributes) {
-        console.log(`  Activity completed=${event}`);
+        const firstAttemptStartedTimestamp = event.eventTime?.seconds
+        const activityId = event.activityTaskScheduledEventAttributes.activityId
+
+        const activityInputs = arrayFromPayloads(dataConverter.payloadConverter, event.activityTaskScheduledEventAttributes.input.payloads)
+        if(event.activityTaskScheduledEventAttributes.activityType.name == "StateApiWaitUntil"){
+
+        }else if(event.activityTaskScheduledEventAttributes.activityType.name == "StateApiExecute"){
+
+        }else{
+          // TODO for continueAsNew, or rpc locking
+        }
       } else if (event.workflowExecutionSignaledEventAttributes) {
         console.log(`  signal received=${event}`);
       } else if (event.activityTaskFailedEventAttributes) {
@@ -287,7 +303,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       workflowType: workflowType,
       status: statusCode ? mapTemporalStatus(String(statusCode)):undefined,
       // Include the decoded input in the response
-      input: input,
+      input: workflowInput,
       continueAsNewSnapshot: undefined,
       historyEvents: historyEvents
     };

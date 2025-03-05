@@ -1558,6 +1558,12 @@ export interface StateExecuteDetails {
      * @memberof StateExecuteDetails
      */
     'activityId': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateExecuteDetails
+     */
+    'lastFailedAttemptError'?: string;
 }
 /**
  * 
@@ -1784,6 +1790,12 @@ export interface StateWaitUntilDetails {
      * @memberof StateWaitUntilDetails
      */
     'activityId': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof StateWaitUntilDetails
+     */
+    'lastFailedAttemptError'?: string;
 }
 /**
  * 

@@ -1267,6 +1267,8 @@ components:
           format: int64
         activityId: # for internal details of temporal
           type: string
+        lastFailedAttemptError:
+          type: string
     StateExecuteDetails:
       type: object
       required:
@@ -1300,6 +1302,8 @@ components:
           type: integer
           format: int64
         activityId: # for internal details of temporal
+          type: string
+        lastFailedAttemptError:
           type: string
     RpcExecutionDetails:
       type: object
