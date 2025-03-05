@@ -276,6 +276,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
         console.log(`  Workflow failed`);
       }
       // TODO local activity
+      // TODO activity task started event for last failure details
     }
     
     // For now, we'll return an empty array as we're just logging the events
