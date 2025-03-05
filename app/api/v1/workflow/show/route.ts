@@ -270,16 +270,23 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
         }
 
       } else if (event.activityTaskCompletedEventAttributes) {
-        const firstAttemptStartedTimestamp = event.eventTime?.seconds
-        const activityId = event.activityTaskScheduledEventAttributes.activityId
-
-        const activityInputs = arrayFromPayloads(dataConverter.payloadConverter, event.activityTaskScheduledEventAttributes.input.payloads)
         const scheduledId = event.activityTaskCompletedEventAttributes.scheduledEventId.toNumber()
         const indexToUpdate = historyLookupByScheduledId.get(scheduledId)
         if(historyEvents[indexToUpdate].eventType == "StateWaitUntil"){
           let waitUntilDetails = historyEvents[indexToUpdate].stateWaitUntil
           // process StateApiWaitUntil for activityTaskCompleted
+          // Extract the response data from the activity result
+          // Get the activity result payload
+          const result = event.activityTaskCompletedEventAttributes.result?.payloads;
+          // Decode the response from the payload
+          const responseData = arrayFromPayloads(dataConverter.payloadConverter, result);
+          // The first element contains the activity output which is the WorkflowStateStartResponse
+          waitUntilDetails.response = responseData[0];
 
+          // Add the completedTimestamp from the event time
+          waitUntilDetails.completedTimestamp = event.eventTime.seconds.toNumber();
+          // Update the event in the array with the added details
+          historyEvents[indexToUpdate].stateWaitUntil = waitUntilDetails;
         }else{
           // process StateApiExecute for activityTaskCompleted
         }
