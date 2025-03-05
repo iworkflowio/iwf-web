@@ -181,7 +181,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
 
         const activityInputs = arrayFromPayloads(dataConverter.payloadConverter, event.activityTaskScheduledEventAttributes.input.payloads)
         if(event.activityTaskScheduledEventAttributes.activityType.name == "StateApiWaitUntil"){
-
+          // process StateApiWaitUntil for activityTaskScheduled
           const activityInput = activityInputs[1] as StateStartActivityInput;
           const req = activityInput.Request
           let lookup: IndexAndStateOption[] = fromStateLookup.get(req.workflowStateId)
@@ -212,7 +212,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           stateExecutionIdToWaitUntilIndex[req.context.stateExecutionId] = eventIndex
           historyEvents.push(iwfEvent)
         }else if(event.activityTaskScheduledEventAttributes.activityType.name == "StateApiExecute"){
-          // implement the processing of StateApiExecute
+          // implement the processing of StateApiExecute for activityTaskScheduled
         }else{
           // TODO for continueAsNew, or rpc locking
         }
