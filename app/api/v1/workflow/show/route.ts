@@ -159,10 +159,15 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           }
       ]],
     ]);
-    // activityId -> index of iWF history event. This is for activity task started/completed event
+    // activityId -> index of iWF history event.
+    // This is for processing activity task started/completed event
     // to look up the scheduled event, which inserted the iwfHistory event. So that activity task started/completed
     // can read it back and update it.
     let historyActivityIdLookup = new Map<string, number>();
+    // stateExecutionId -> index of the waitUntil event.
+    // This is for processing activity task scheduled event for stateExecute, which is from a waitUntil
+    // (Note, if the stateExecute is not from waitUntil, it should use fromStateLookup to find the eventId)
+    let stateExecutionIdToWaitUntilIndex = new Map<string, number>();
     
     // Extract and process history events
     const historyEvents: IwfHistoryEvent[] = [];
@@ -202,12 +207,12 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
             eventType: "StateWaitUntil",
             stateWaitUntil: waitUntilDetail
           }
-          historyActivityIdLookup[activityId] = historyEvents.length
+          const eventIndex = historyEvents.length;
+          historyActivityIdLookup[activityId] = eventIndex
+          stateExecutionIdToWaitUntilIndex[req.context.stateExecutionId] = eventIndex
           historyEvents.push(iwfEvent)
-
-          break;
         }else if(event.activityTaskScheduledEventAttributes.activityType.name == "StateApiExecute"){
-          const activityInput = activityInputs[0] as StateDecideActivityInput;
+          // implement the processing of StateApiExecute
         }else{
           // TODO for continueAsNew, or rpc locking
         }
