@@ -379,7 +379,12 @@ export default function WorkflowShow() {
                    workflowData.input?.continueAsNewInput?.previousInternalRunId && (
                     <div className="mt-2 text-gray-900 break-all font-mono text-xs">
                       <span className="inline-block px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded mr-1">Previous</span> 
-                      {workflowData.input.continueAsNewInput.previousInternalRunId}
+                      <Link 
+                        href={`/workflow/show?workflowId=${encodeURIComponent(workflowId)}&runId=${encodeURIComponent(workflowData.input.continueAsNewInput.previousInternalRunId)}`}
+                        className="text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {workflowData.input.continueAsNewInput.previousInternalRunId}
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -416,6 +421,7 @@ export default function WorkflowShow() {
                 <WorkflowConfigPopup 
                   workflowInput={workflowData.input} 
                   continueAsNewSnapshot={workflowData.continueAsNewSnapshot} 
+                  workflowId={workflowId}
                 />
               </div>
             </div>
