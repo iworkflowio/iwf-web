@@ -366,17 +366,19 @@ export default function WorkflowShow() {
                   <div className="text-sm font-medium text-gray-500">Workflow ID</div>
                   <div className="mt-1 text-gray-900 truncate">{workflowId}</div>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <div className="text-sm font-medium text-gray-500">Run ID</div>
                   {runId && (
-                    <div className="mt-1 text-gray-900 truncate">
-                      <span className="font-medium text-gray-600">Current:</span> {runId}
+                    <div className="mt-1 text-gray-900 break-all font-mono text-xs">
+                      <span className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded mr-1">Current</span> 
+                      {runId}
                     </div>
                   )}
                   {workflowData.input?.isResumeFromContinueAsNew && 
                    workflowData.input?.continueAsNewInput?.previousInternalRunId && (
-                    <div className="mt-1 text-gray-900 truncate">
-                      <span className="font-medium text-gray-600">Previous:</span> {workflowData.input.continueAsNewInput.previousInternalRunId}
+                    <div className="mt-2 text-gray-900 break-all font-mono text-xs">
+                      <span className="inline-block px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded mr-1">Previous</span> 
+                      {workflowData.input.continueAsNewInput.previousInternalRunId}
                     </div>
                   )}
                 </div>
@@ -408,7 +410,10 @@ export default function WorkflowShow() {
               </div>
               
               <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
-                <WorkflowConfigPopup workflowInput={workflowData.input} />
+                <WorkflowConfigPopup 
+                  workflowInput={workflowData.input} 
+                  continueAsNewSnapshot={workflowData.continueAsNewSnapshot} 
+                />
               </div>
             </div>
             
