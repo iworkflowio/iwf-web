@@ -240,7 +240,6 @@ export default function WorkflowShow() {
                   formatTimestamp(event.stateExecute.completedTimestamp * 1000, timezone) : 'Unknown',
                 'From Event': event.stateExecute.fromEventId !== undefined ? 
                   event.stateExecute.fromEventId : 'Unknown',
-                'Activity ID': event.stateExecute.activityId || 'Unknown'
               };
               
               // Add state decision details if present
@@ -443,8 +442,7 @@ export default function WorkflowShow() {
                       }}
                     >
                       <Controls position="top-right" />
-                      <Background color="#aaa" gap={16} variant="dots" />
-                      <MiniMap 
+                      <MiniMap
                         nodeStrokeWidth={3}
                         zoomable 
                         pannable
