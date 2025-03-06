@@ -235,12 +235,22 @@ const WorkflowList = ({
           <tbody>
             {results.length > 0 ? (
               results.map((workflow) => (
-                <tr key={`${workflow.workflowId}-${workflow.workflowRunId}`} className="hover:bg-gray-50">
+                <tr 
+                  key={`${workflow.workflowId}-${workflow.workflowRunId}`} 
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => {
+                    // Navigate to workflow show page
+                    window.location.href = `/workflow/show?workflowId=${encodeURIComponent(workflow.workflowId)}${workflow.workflowRunId ? `&runId=${encodeURIComponent(workflow.workflowRunId)}` : ''}`;
+                  }}
+                >
                   {visibleColumns.map(column => (
                     <td key={column.id} className="py-2 px-4 border">
                       {column.id === 'customSearchAttributes' ? (
                         <button
-                          onClick={() => showSearchAttributes(workflow.customSearchAttributes)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent row click navigation
+                            showSearchAttributes(workflow.customSearchAttributes);
+                          }}
                           className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
                         >
                           {workflow.customSearchAttributes?.length || 0} attributes
