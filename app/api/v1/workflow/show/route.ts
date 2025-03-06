@@ -429,9 +429,10 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
            // TODO: for RPC locking. We need another lookup for RPC locking
         }
       } else if (event.workflowExecutionSignaledEventAttributes) {
+        // TODO processing RPC (regular) and signal
         console.log(`  signal received=${event}`);
       } else if (event.activityTaskFailedEventAttributes) {
-        // TODO do we need to process for the stateApiFailure policy?
+        // TODO process the stateApiFailure policy
       } else if (event.workflowExecutionCompletedEventAttributes ||
           event.workflowExecutionFailedEventAttributes ||
           event.workflowExecutionCanceledEventAttributes ||
