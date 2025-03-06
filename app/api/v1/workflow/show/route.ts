@@ -194,7 +194,14 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           const activityInput = activityInputs[1] as StateStartActivityInput;
           const req = activityInput.Request
           let lookup: IndexAndStateOption[] = fromStateLookup.get(req.workflowStateId)
-          const from:IndexAndStateOption = lookup[0]
+          let from:IndexAndStateOption;
+          if(!lookup || lookup.length == 0){
+            console.log(`ERROR: No source states found for workflowStateId: ${req.workflowStateId}`, fromStateLookup);
+            from = {
+              index: -2 // means unknown & bug
+            }
+          }
+          from = lookup[0]
           lookup.shift()
           if(lookup.length === 0){
             fromStateLookup.delete(req.workflowStateId)
@@ -217,7 +224,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           }
           const eventIndex = historyEvents.length;
           historyLookupByScheduledId.set(event.eventId.toNumber(), eventIndex)
-          stateExecutionIdToWaitUntilIndex[req.context.stateExecutionId] = eventIndex
+          stateExecutionIdToWaitUntilIndex.set(req.context.stateExecutionId, eventIndex)
           historyEvents.push(iwfEvent)
         }else if(event.activityTaskScheduledEventAttributes.activityType.name == "StateApiExecute"){
           // Process StateApiExecute for activityTaskScheduled
@@ -239,16 +246,28 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           } else {
             // Otherwise use historyActivityIdLookup like in waitUntil processing
             let lookup: IndexAndStateOption[] = fromStateLookup.get(req.workflowStateId);
-            const from: IndexAndStateOption = lookup[0];
-            lookup.shift();
-            if (lookup.length === 0) {
-              fromStateLookup.delete(req.workflowStateId);
+            
+            // Fix: Check if lookup is undefined or empty
+            if (!lookup || lookup.length === 0) {
+              console.log(`ERROR: No source states found for workflowStateId: ${req.workflowStateId}`, fromStateLookup);
+              // Use default values if no lookup found
+              fromEvent = -2; // mean unknown & bug
+              stateOption = undefined;
+              stateInput = undefined;
             } else {
-              fromStateLookup.set(req.workflowStateId, lookup);
+              const from: IndexAndStateOption = lookup[0];
+              lookup.shift();
+              
+              if (lookup.length === 0) {
+                fromStateLookup.delete(req.workflowStateId);
+              } else {
+                fromStateLookup.set(req.workflowStateId, lookup);
+              }
+              
+              fromEvent = from.index;
+              stateOption = from.option;
+              stateInput = from.input;
             }
-            fromEvent = from.index;
-            stateOption = from.option;
-            stateInput = from.input;
           }
 
           // Build the StateExecuteDetails object
