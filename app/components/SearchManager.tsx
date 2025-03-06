@@ -1,9 +1,13 @@
 'use client';
 
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import {WorkflowSearchResponseEntry} from "../ts-api/src/api-gen";
 import {FilterSpec, SavedQuery} from "./types";
 import {updateUrlWithParams} from "./utils";
+
+// Keys for localStorage
+const STORAGE_KEY_PAGE_HISTORY = 'iwf_page_history';
+const STORAGE_KEY_CURRENT_QUERY = 'iwf_current_query';
 
 // Initialize query state from URL if present (for sharing/bookmarking)
 export const initialQueryParams = (() => {
@@ -35,7 +39,29 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
     const [nextPageToken, setNextPageToken] = useState<string>(initialQueryParams.token);
     const [currentPage, setCurrentPage] = useState<number>(initialQueryParams.page);
     const [pageHistory, setPageHistory] = useState<string[]>(() => {
-        // Initialize page history array with the correct token in place
+        // Try to get page history from localStorage first
+        if (typeof window !== 'undefined') {
+            try {
+                const savedQuery = localStorage.getItem(STORAGE_KEY_CURRENT_QUERY);
+                const savedHistory = localStorage.getItem(STORAGE_KEY_PAGE_HISTORY);
+                
+                // Only restore from localStorage if the current query matches the saved query
+                if (savedQuery === initialQueryParams.query && savedHistory) {
+                    const parsedHistory = JSON.parse(savedHistory);
+                    
+                    // Make sure it's valid
+                    if (Array.isArray(parsedHistory) && parsedHistory.length >= initialQueryParams.page) {
+                        console.log('Restored page history from localStorage:', parsedHistory);
+                        return parsedHistory;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load page history from localStorage:', e);
+                // Continue to fallback
+            }
+        }
+        
+        // Fallback: Initialize page history array with the correct token in place
         const history = Array(initialQueryParams.page).fill('');
         if (initialQueryParams.page > 1 && initialQueryParams.token) {
             history[initialQueryParams.page - 1] = initialQueryParams.token;
@@ -104,6 +130,15 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
                 // Set the input field value to match the selected query
                 setQuery(searchInput.query);
             }
+            
+            // If the query has changed, clear page history in localStorage
+            if (typeof window !== 'undefined' && searchQuery !== localStorage.getItem(STORAGE_KEY_CURRENT_QUERY)) {
+                localStorage.setItem(STORAGE_KEY_CURRENT_QUERY, searchQuery);
+                // Only clear if we're searching the first page
+                if (!pageToken) {
+                    localStorage.setItem(STORAGE_KEY_PAGE_HISTORY, JSON.stringify(['']));
+                }
+            }
 
             // Use specified page size or current page size with fallback
             const currentPageSize = pageSize || 20;
@@ -135,6 +170,33 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
 
             // Update pagination state
             setNextPageToken(data.nextPageToken || '');
+            
+            // If this was a fetch using a page token, make sure it's properly stored
+            if (pageToken && typeof window !== 'undefined') {
+                try {
+                    // Get our current history from state
+                    const updatedHistory = [...pageHistory];
+                    
+                    // Ensure the current page token is in the right place
+                    if (currentPage > 0) {
+                        // Update the next-page token for the current page
+                        while (updatedHistory.length <= currentPage) {
+                            updatedHistory.push('');
+                        }
+                        updatedHistory[currentPage] = data.nextPageToken || '';
+                        
+                        // Save the updated history
+                        console.log('Updating page history with fetched token:', updatedHistory);
+                        localStorage.setItem(STORAGE_KEY_PAGE_HISTORY, JSON.stringify(updatedHistory));
+                        localStorage.setItem(STORAGE_KEY_CURRENT_QUERY, searchQuery);
+                        
+                        // Update state
+                        setPageHistory(updatedHistory);
+                    }
+                } catch (e) {
+                    console.error('Failed to update page history with fetched token:', e);
+                }
+            }
 
             // Save and sync filters with query if it's successful
             saveRecentSearch(searchQuery);
@@ -152,9 +214,21 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
         }
     };
 
+    // Save page history to localStorage whenever it changes
+    useEffect(() => {
+        if (typeof window !== 'undefined' && query) {
+            try {
+                localStorage.setItem(STORAGE_KEY_PAGE_HISTORY, JSON.stringify(pageHistory));
+                localStorage.setItem(STORAGE_KEY_CURRENT_QUERY, query);
+            } catch (e) {
+                console.error('Failed to save page history to localStorage:', e);
+            }
+        }
+    }, [pageHistory, query]);
+
     // Navigate to the next page of results
     const goToNextPage = () => {
-        if ( !nextPageToken) return;
+        if (!nextPageToken) return;
 
         // Add the current token to history before moving to the next page
         const newHistory = [...pageHistory];
@@ -165,8 +239,22 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
         }
 
         const nextPage = currentPage + 1;
+        
+        // Update state
         setPageHistory(newHistory);
         setCurrentPage(nextPage);
+        
+        // Save to localStorage immediately
+        if (typeof window !== 'undefined' && query) {
+            try {
+                console.log('Saving page history to localStorage after next page:', newHistory);
+                localStorage.setItem(STORAGE_KEY_PAGE_HISTORY, JSON.stringify(newHistory));
+                localStorage.setItem(STORAGE_KEY_CURRENT_QUERY, query);
+            } catch (e) {
+                console.error('Failed to save page history to localStorage:', e);
+            }
+        }
+        
         // Update URL with new page number and token
         updateUrlWithParams(query, nextPage, pageSize, nextPageToken);
         // Use an empty string as the token for safety with JSON serialization
@@ -186,7 +274,20 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
         if(!prevToken && prevPage>1){
             prevPage = 1
         }
+        
         setCurrentPage(prevPage);
+        
+        // Save to localStorage immediately
+        if (typeof window !== 'undefined' && query) {
+            try {
+                console.log('Saving page history to localStorage after prev page:', pageHistory);
+                localStorage.setItem(STORAGE_KEY_PAGE_HISTORY, JSON.stringify(pageHistory));
+                localStorage.setItem(STORAGE_KEY_CURRENT_QUERY, query);
+            } catch (e) {
+                console.error('Failed to save page history to localStorage:', e);
+            }
+        }
+        
         // Update URL with new page number and token
         updateUrlWithParams(query, prevPage, pageSize, prevToken);
         // Use an empty string as the token for safety with JSON serialization
@@ -198,6 +299,18 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
         if (currentPage === 1) return;
 
         setCurrentPage(1);
+        
+        // Clear page history in localStorage when going to first page
+        if (typeof window !== 'undefined' && query) {
+            try {
+                console.log('Resetting page history in localStorage for first page');
+                localStorage.setItem(STORAGE_KEY_PAGE_HISTORY, JSON.stringify(['']));
+                localStorage.setItem(STORAGE_KEY_CURRENT_QUERY, query);
+            } catch (e) {
+                console.error('Failed to reset page history in localStorage:', e);
+            }
+        }
+        
         // Update URL with new page number and empty token
         updateUrlWithParams(query, 1, pageSize, '');
         fetchWorkflows(query, '', pageSize);
@@ -209,7 +322,19 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
 
         setPageSize(newSize);
         setCurrentPage(1);
-        setPageHistory(['']);
+        
+        const newHistory = [''];
+        setPageHistory(newHistory);
+        
+        // Clear saved history since we're resetting pagination
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem(STORAGE_KEY_PAGE_HISTORY, JSON.stringify(newHistory));
+            } catch (e) {
+                console.error('Failed to clear page history in localStorage:', e);
+            }
+        }
+        
         // Update URL with new page size and empty token
         updateUrlWithParams(query, 1, newSize, '');
         fetchWorkflows(query, '', newSize);
