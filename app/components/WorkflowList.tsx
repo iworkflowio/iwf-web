@@ -190,9 +190,9 @@ const WorkflowList = ({
         </div>
       </div>
       
-      {/* Workflow data table */}
+      {/* Workflow data table with nowrap */}
       <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border">
+        <table className="min-w-full bg-white border whitespace-nowrap">
           {/* Table header with column titles */}
           <thead>
             <tr className="bg-gray-100">
@@ -238,40 +238,55 @@ const WorkflowList = ({
           {/* Table body with workflow data rows */}
           <tbody>
             {results.length > 0 ? (
-              results.map((workflow) => (
-                <tr 
-                  key={`${workflow.workflowId}-${workflow.workflowRunId}`} 
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => {
-                    // Different navigation based on whether it's an iWF workflow or a raw Temporal workflow
-                    if (workflow.isIwf) {
-                      // Navigate to our custom workflow show page for iWF workflows in a new tab
-                      const showUrl = `/workflow/show?workflowId=${encodeURIComponent(workflow.workflowId)}${workflow.workflowRunId ? `&runId=${encodeURIComponent(workflow.workflowRunId)}` : ''}`;
-                      window.open(showUrl, '_blank');
-                    } else {
-                      // Navigate to Temporal WebUI for raw Temporal workflows in a new tab
-                      const temporalUrl = `${temporalWebUI}/namespaces/${temporalNamespace}/workflows/${encodeURIComponent(workflow.workflowId)}/${encodeURIComponent(workflow.workflowRunId)}/history`;
-                      window.open(temporalUrl, '_blank');
-                    }
-                  }}
-                >
-                  {visibleColumns.map(column => (
-                    <td key={column.id} className="py-2 px-4 border">
-                      {column.id === 'customSearchAttributes' ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent row click navigation
-                            showSearchAttributes(workflow.customSearchAttributes);
-                          }}
-                          className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
-                        >
-                          {workflow.customSearchAttributes?.length || 0} attributes
-                        </button>
-                      ) : column.accessor(workflow)}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              results.map((workflow) => {
+                // Create the URL for workflow navigation
+                const getWorkflowUrl = () => {
+                  if (workflow.isIwf) {
+                    // URL for iWF workflows
+                    return `/workflow/show?workflowId=${encodeURIComponent(workflow.workflowId)}${workflow.workflowRunId ? `&runId=${encodeURIComponent(workflow.workflowRunId)}` : ''}`;
+                  } else {
+                    // URL for raw Temporal workflows
+                    return `${temporalWebUI}/namespaces/${temporalNamespace}/workflows/${encodeURIComponent(workflow.workflowId)}/${encodeURIComponent(workflow.workflowRunId)}/history`;
+                  }
+                };
+                
+                // Determine if a column should be clickable
+                const isClickableColumn = (columnId: string) => {
+                  return columnId === 'workflowId' || columnId === 'workflowRunId' || columnId === 'workflowType';
+                };
+                
+                return (
+                  <tr 
+                    key={`${workflow.workflowId}-${workflow.workflowRunId}`} 
+                    className="hover:bg-gray-50"
+                  >
+                    {visibleColumns.map(column => (
+                      <td key={column.id} className={`py-2 px-4 border ${isClickableColumn(column.id) ? 'cursor-pointer' : ''}`}>
+                        {column.id === 'customSearchAttributes' ? (
+                          <button
+                            onClick={() => showSearchAttributes(workflow.customSearchAttributes)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs"
+                          >
+                            {workflow.customSearchAttributes?.length || 0} attributes
+                          </button>
+                        ) : isClickableColumn(column.id) ? (
+                          // Clickable link for workflowId, runId, and workflowType using anchor tag
+                          <a 
+                            href={getWorkflowUrl()}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 hover:underline inline-block"
+                          >
+                            {column.accessor(workflow)}
+                          </a>
+                        ) : (
+                          column.accessor(workflow)
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td colSpan={visibleColumns.length} className="text-center py-12 text-gray-500">
