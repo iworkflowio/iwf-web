@@ -366,18 +366,20 @@ export default function WorkflowShow() {
                   <div className="text-sm font-medium text-gray-500">Workflow ID</div>
                   <div className="mt-1 text-gray-900 truncate">{workflowId}</div>
                 </div>
-                {runId && (
-                  <div>
-                    <div className="text-sm font-medium text-gray-500">Run ID</div>
-                    <div className="mt-1 text-gray-900 truncate">{runId}</div>
-                  </div>
-                )}
-                {workflowData.input?.continuedAsNewInput?.previousInternalRunId && (
-                  <div>
-                    <div className="text-sm font-medium text-gray-500">Continued From Run ID</div>
-                    <div className="mt-1 text-gray-900 truncate">{workflowData.input.continuedAsNewInput.previousInternalRunId}</div>
-                  </div>
-                )}
+                <div>
+                  <div className="text-sm font-medium text-gray-500">Run ID</div>
+                  {runId && (
+                    <div className="mt-1 text-gray-900 truncate">
+                      <span className="font-medium text-gray-600">Current:</span> {runId}
+                    </div>
+                  )}
+                  {workflowData.input?.isResumeFromContinueAsNew && 
+                   workflowData.input?.continueAsNewInput?.previousInternalRunId && (
+                    <div className="mt-1 text-gray-900 truncate">
+                      <span className="font-medium text-gray-600">Previous:</span> {workflowData.input.continueAsNewInput.previousInternalRunId}
+                    </div>
+                  )}
+                </div>
                 <div>
                   <div className="text-sm font-medium text-gray-500">Type</div>
                   <div className="mt-1 text-gray-900">{workflowData.workflowType}</div>

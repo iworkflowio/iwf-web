@@ -150,9 +150,12 @@ export function InitialPersistenceDisplay({ searchAttributes, dataAttributes }: 
   );
 }
 
-export default function WorkflowConfigPopup({ workflowInput }: { workflowInput: InterpreterWorkflowInput }) {
-  const [activePopup, setActivePopup] = useState<'config' | 'waitForCompletion' | 'persistence' | null>(null);
-  
+export default function WorkflowConfigPopup({ workflowInput, continueAsNewSnapshot }: {
+  workflowInput: InterpreterWorkflowInput;
+  continueAsNewSnapshot?: any;
+}) {
+  const [activePopup, setActivePopup] = useState<'config' | 'waitForCompletion' | 'persistence' | 'continueAsNew' | null>(null);
+
   return (
     <div className="flex flex-wrap gap-2">
       {workflowInput?.config && (
