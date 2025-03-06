@@ -110,7 +110,7 @@ const ColumnSelector = ({
     // Create a new column for this attribute
     const newColumn: ColumnDef = {
       id: `attr_${attributeKey}`,
-      label: valueTypeLabel ? `${attributeKey} (${valueTypeLabel})` : attributeKey,
+      label: attributeKey,
       accessor: (workflow) => {
         const attr = workflow.customSearchAttributes?.find((a: SearchAttribute) => a.key === attributeKey);
         if (!attr) return 'N/A';

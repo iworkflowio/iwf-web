@@ -277,31 +277,3 @@ export const createSearchAttributeAccessor = (attributeKey: string, timezone: an
     return formatAttributeValue(attr);
   };
 };
-
-/**
- * Gets all columns including base columns and custom search attribute columns
- * 
- * @param timezone - The current timezone for formatting time values
- * @param searchAttributeColumns - Array of search attribute column definitions
- * @returns Complete array of column definitions with accessors
- */
-export const getColumnsWithAccessors = (
-  timezone: any, 
-  searchAttributeColumns: Omit<ColumnDef, 'accessor'>[] = []
-): ColumnDef[] => {
-  // Get base columns
-  const baseColumnsWithAccessors = getBaseColumnsWithAccessors(timezone);
-  
-  // Create accessors for search attribute columns
-  const searchAttrColumnsWithAccessors = searchAttributeColumns.map(col => {
-    // Extract attribute key from column ID (remove 'attr_' prefix)
-    const attributeKey = col.id.substring(5);
-    return {
-      ...col,
-      accessor: createSearchAttributeAccessor(attributeKey, timezone)
-    };
-  });
-  
-  // Combine base columns and search attribute columns
-  return [...baseColumnsWithAccessors, ...searchAttrColumnsWithAccessors];
-};
