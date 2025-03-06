@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface AppConfig {
+  temporalHostPort: string;
   temporalNamespace: string;
   temporalWebUI: string;
   isLoading: boolean;
@@ -10,6 +11,7 @@ interface AppConfig {
 }
 
 const defaultConfig: AppConfig = {
+  temporalHostPort: 'localhost:7233',
   temporalNamespace: 'default',
   temporalWebUI: 'http://localhost:8233',
   isLoading: true,
@@ -34,8 +36,9 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
         }
         const data = await response.json();
         setConfig({
-          temporalNamespace: data.temporalNamespace || defaultConfig.temporalNamespace,
-          temporalWebUI: data.temporalWebUI || defaultConfig.temporalWebUI,
+          temporalHostPort: data.hostPort || defaultConfig.temporalHostPort,
+          temporalNamespace: data.namespace || defaultConfig.temporalNamespace,
+          temporalWebUI: data.webUI || defaultConfig.temporalWebUI,
           isLoading: false,
           error: null
         });

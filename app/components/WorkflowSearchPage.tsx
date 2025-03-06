@@ -10,6 +10,7 @@ import {
 } from './utils';
 import { useColumnManager} from './ColumnManager';
 import { useTimezoneManager } from './TimezoneManager';
+import { useAppConfig } from './ConfigContext';
 
 // Import our components
 import SearchBox from './SearchBox';
@@ -86,11 +87,8 @@ export default function WorkflowSearchPage() {
     goToFirstPage, changePageSize
   } = useSearchManager(saveRecentSearch, setAppliedFilters)
   
-  // App configuration state
-  const [config, setConfig] = useState<AppConfig>({
-    temporalHostPort: '',
-    temporalNamespace: ''
-  });
+  // Get app configuration from context
+  const appConfig = useAppConfig();
   
   // Use the timezone manager hook
   const { 
@@ -389,30 +387,8 @@ export default function WorkflowSearchPage() {
   };
   
   
-  // Fetch configuration and initial workflows
+  // Initialize workflows
   useEffect(() => {
-    // Fetch configuration
-    const fetchConfig = async () => {
-      try {
-        const response = await fetch('/api/v1/config');
-        if (response.ok) {
-          const configData = await response.json();
-          setConfig({
-            temporalHostPort: configData.temporalHostPort || 'localhost:7233',
-            temporalNamespace: configData.temporalNamespace || 'default'
-          });
-        }
-      } catch (err) {
-        console.error('Error fetching config:', err);
-        // Use defaults if we can't fetch
-        setConfig({
-          temporalHostPort: 'localhost:7233',
-          temporalNamespace: 'default'
-        });
-      }
-    };
-
-    fetchConfig();
     // Initialize with URL parameters
     if (initialQueryParams.token) {
       // If we have a token in URL, use it directly
@@ -436,7 +412,11 @@ export default function WorkflowSearchPage() {
     <div className="container mx-auto p-4">
       {/* App header component with title and controls */}
       <AppHeader 
-        config={config}
+        config={{
+          temporalHostPort: appConfig.temporalHostPort || '', 
+          temporalNamespace: appConfig.temporalNamespace || '',
+          temporalWebUI: appConfig.temporalWebUI || '',
+        }}
         timezone={timezone}
         setShowConfigPopup={setShowConfigPopup}
         setShowTimezoneSelector={setShowTimezoneSelector}
@@ -529,7 +509,11 @@ export default function WorkflowSearchPage() {
       {/* Popup for configuration */}
       {showConfigPopup && (
         <ConfigPopup 
-          config={config}
+          config={{
+            temporalHostPort: appConfig.temporalHostPort || '', 
+            temporalNamespace: appConfig.temporalNamespace || '',
+            temporalWebUI: appConfig.temporalWebUI || '',
+          }}
           onClose={() => setShowConfigPopup(false)}
         />
       )}

@@ -51,10 +51,12 @@ export interface SavedQuery {
  * Current settings:
  * - temporalHostPort: The Temporal server host and port
  * - temporalNamespace: The Temporal namespace to use
+ * - temporalWebUI: The URL of the Temporal Web UI
  */
 export interface AppConfig {
   temporalHostPort: string;
   temporalNamespace: string;
+  temporalWebUI: string;
 }
 
 /**

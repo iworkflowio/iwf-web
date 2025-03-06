@@ -59,9 +59,35 @@ const ConfigPopup = ({ config, onClose }: ConfigPopupProps) => {
             </div>
           </div>
           
+          {/* Web UI setting */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-1">Temporal Web UI</h4>
+            <div className="bg-gray-50 p-2 rounded border text-sm font-mono">
+              {config.temporalWebUI}
+            </div>
+            <div className="text-xs mt-1">
+              <a 
+                href={config.temporalWebUI} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                Open Temporal Web UI
+              </a>
+            </div>
+          </div>
+          
           {/* Help text about changing settings */}
           <div className="pt-2 text-xs text-gray-500">
             <p>These settings can be changed by updating the .env.local file.</p>
+            <div className="mt-1">
+              <div>Environment variables:</div>
+              <ul className="list-disc ml-4 mt-1">
+                <li>TEMPORAL_HOST_PORT</li>
+                <li>TEMPORAL_NAMESPACE</li>
+                <li>TEMPORAL_WEB_UI_URL</li>
+              </ul>
+            </div>
             <p className="mt-1">See README.md for more information.</p>
           </div>
         </div>
