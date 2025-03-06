@@ -151,7 +151,7 @@ The UI is built with React and uses Tailwind CSS for styling. You can customize 
 
 If you need to update the API schema:
 
-1. Update the API schema in `/api-schema/api.yaml`
+1. Update the API schema in `/api-schema/iwf-web.yaml`
 2. Run `make gen` to regenerate the TypeScript client
 
 ## Contributing
