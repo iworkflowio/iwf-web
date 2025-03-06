@@ -21,6 +21,7 @@ import { formatTimestamp } from '../../components/utils';
 import { WorkflowShowResponse, IwfHistoryEvent, IwfHistoryEventType } from '../../ts-api/src/api-gen/api';
 import WorkflowTimeline from './WorkflowTimeline';
 import WorkflowConfigPopup from './WorkflowConfigPopup';
+import StatusBadge from '../../components/StatusBadge';
 
 // Custom node for workflow events
 const WorkflowEventNode = ({ data }: NodeProps) => (
@@ -366,7 +367,7 @@ export default function WorkflowShow() {
                   <div className="text-sm font-medium text-gray-500">Workflow ID</div>
                   <div className="mt-1 text-gray-900 truncate">{workflowId}</div>
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <div className="text-sm font-medium text-gray-500">Run ID</div>
                   {runId && (
                     <div className="mt-1 text-gray-900 break-all font-mono text-xs">
@@ -383,12 +384,14 @@ export default function WorkflowShow() {
                   )}
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-gray-500">Type</div>
-                  <div className="mt-1 text-gray-900">{workflowData.workflowType}</div>
+                  <div className="text-sm font-medium text-gray-500">Status</div>
+                  <div className="mt-1">
+                    <StatusBadge status={workflowData.status} />
+                  </div>
                 </div>
                 <div>
-                  <div className="text-sm font-medium text-gray-500">Status</div>
-                  <div className="mt-1 text-gray-900">{workflowData.status}</div>
+                  <div className="text-sm font-medium text-gray-500">Type</div>
+                  <div className="mt-1 text-gray-900">{workflowData.workflowType}</div>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-500">Started</div>
