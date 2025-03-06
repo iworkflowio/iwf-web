@@ -22,6 +22,10 @@ import { WorkflowShowResponse, IwfHistoryEvent, IwfHistoryEventType } from '../.
 import WorkflowTimeline from './WorkflowTimeline';
 import WorkflowConfigPopup from './WorkflowConfigPopup';
 import StatusBadge from '../../components/StatusBadge';
+import AppHeader from '../../components/AppHeader';
+import TimezoneSelector from '../../components/TimezoneSelector';
+import ConfigPopup from '../../components/ConfigPopup';
+import { useAppConfig } from '../../components/ConfigContext';
 
 // Custom node for workflow events
 const WorkflowEventNode = ({ data }: NodeProps) => (
@@ -84,7 +88,12 @@ export default function WorkflowShow() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   
+  // App header state
+  const [showConfigPopup, setShowConfigPopup] = useState(false);
+  const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
+  
   const { timezone } = useTimezoneManager();
+  const appConfig = useAppConfig();
 
   // Fetch workflow data
   useEffect(() => {
@@ -347,21 +356,43 @@ export default function WorkflowShow() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-4">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Workflow Details
-            </h1>
-          </div>
-        </div>
-      </div>
+      <div className="container mx-auto p-4">
+        {/* App header component with title and controls */}
+        <AppHeader 
+          config={{
+            temporalHostPort: appConfig.temporalHostPort || '', 
+            temporalNamespace: appConfig.temporalNamespace || '',
+            temporalWebUI: appConfig.temporalWebUI || '',
+          }}
+          timezone={timezone}
+          setShowConfigPopup={setShowConfigPopup}
+          setShowTimezoneSelector={setShowTimezoneSelector}
+        />
+        
+        {/* Config popup */}
+        {showConfigPopup && (
+          <ConfigPopup 
+            config={appConfig}
+            onClose={() => setShowConfigPopup(false)}
+          />
+        )}
+        
+        {/* Timezone selector popup */}
+        {showTimezoneSelector && (
+          <TimezoneSelector 
+            onClose={() => setShowTimezoneSelector(false)}
+          />
+        )}
       
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         {workflowData && (
           <>
             <div className="bg-white shadow rounded-lg p-6 mb-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Workflow Summary</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium text-gray-900">Workflow Summary</h2>
+                <Link href="/" className="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                  ← Back to Search
+                </Link>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <div className="text-sm font-medium text-gray-500">Workflow ID</div>
