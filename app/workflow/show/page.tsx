@@ -20,6 +20,7 @@ import { useTimezoneManager } from '../../components/TimezoneManager';
 import { formatTimestamp } from '../../components/utils';
 import { WorkflowShowResponse, IwfHistoryEvent, IwfHistoryEventType } from '../../ts-api/src/api-gen/api';
 import WorkflowTimeline from './WorkflowTimeline';
+import WorkflowConfigPopup from './WorkflowConfigPopup';
 
 // Custom node for workflow events
 const WorkflowEventNode = ({ data }: NodeProps) => (
@@ -359,7 +360,8 @@ export default function WorkflowShow() {
         {workflowData && (
           <>
             <div className="bg-white shadow rounded-lg p-6 mb-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Workflow Summary</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                 <div>
                   <div className="text-sm font-medium text-gray-500">Workflow ID</div>
                   <div className="mt-1 text-gray-900 truncate">{workflowId}</div>
@@ -368,6 +370,12 @@ export default function WorkflowShow() {
                   <div>
                     <div className="text-sm font-medium text-gray-500">Run ID</div>
                     <div className="mt-1 text-gray-900 truncate">{runId}</div>
+                  </div>
+                )}
+                {workflowData.input?.continuedAsNewInput?.previousInternalRunId && (
+                  <div>
+                    <div className="text-sm font-medium text-gray-500">Continued From Run ID</div>
+                    <div className="mt-1 text-gray-900 truncate">{workflowData.input.continuedAsNewInput.previousInternalRunId}</div>
                   </div>
                 )}
                 <div>
@@ -384,6 +392,21 @@ export default function WorkflowShow() {
                     {formatTimestamp(workflowData.workflowStartedTimestamp * 1000, timezone)}
                   </div>
                 </div>
+                {workflowData.status === 'COMPLETED' && workflowData.historyEvents?.some(e => e.eventType === 'WorkflowClosed') && (
+                  <div>
+                    <div className="text-sm font-medium text-gray-500">Closed</div>
+                    <div className="mt-1 text-gray-900">
+                      {formatTimestamp(
+                        workflowData.historyEvents.find(e => e.eventType === 'WorkflowClosed')?.workflowClosed?.workflowClosedTimestamp * 1000,
+                        timezone
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
+                <WorkflowConfigPopup workflowInput={workflowData.input} />
               </div>
             </div>
             
