@@ -50,10 +50,6 @@ export function WorkflowConfigDisplay({ workflowConfig }: WorkflowConfigDisplayP
     <div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <div className="text-sm font-medium text-gray-500">Disable System Search Attribute</div>
-          <div className="mt-1 text-gray-900">{workflowConfig.disableSystemSearchAttribute?.toString() || 'false'}</div>
-        </div>
-        <div>
           <div className="text-sm font-medium text-gray-500">Executing State ID Mode</div>
           <div className="mt-1 text-gray-900">{workflowConfig.executingStateIdMode || 'Default'}</div>
         </div>
@@ -73,12 +69,6 @@ export function WorkflowConfigDisplay({ workflowConfig }: WorkflowConfigDisplayP
           <div className="text-sm font-medium text-gray-500">Optimize Timer</div>
           <div className="mt-1 text-gray-900">{workflowConfig.optimizeTimer?.toString() || 'false'}</div>
         </div>
-      </div>
-      <div className="mt-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-2">Raw Config</h4>
-        <pre className="bg-gray-50 p-3 rounded-lg overflow-auto max-h-60 text-sm">
-          {JSON.stringify(workflowConfig, null, 2)}
-        </pre>
       </div>
     </div>
   );
