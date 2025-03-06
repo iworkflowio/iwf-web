@@ -1,5 +1,6 @@
 import './globals.css';
 import './styles.css';
+import { ConfigProvider } from './components/ConfigContext';
 
 export const metadata = {
   title: 'iWF Workflows',
@@ -22,11 +23,13 @@ export default function RootLayout({
         <link rel="icon" href="/iwf-logo.svg" type="image/svg+xml" />
       </head>
       <body>
-        <div className="min-h-screen bg-gray-50">
-          <main>
-            {children}
-          </main>
-        </div>
+        <ConfigProvider>
+          <div className="min-h-screen bg-gray-50">
+            <main>
+              {children}
+            </main>
+          </div>
+        </ConfigProvider>
       </body>
     </html>
   );

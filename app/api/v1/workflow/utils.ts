@@ -8,6 +8,8 @@ export const temporalConfig = {
   // Default connection parameters, can be overridden with environment variables
   hostPort: process.env.TEMPORAL_HOST_PORT || 'localhost:7233',
   namespace: process.env.TEMPORAL_NAMESPACE || 'default',
+  // Web UI URL for direct links to workflows
+  webUI: process.env.TEMPORAL_WEB_UI_URL || 'http://localhost:8233',
 };
 
 // Map Temporal workflow status to our API status

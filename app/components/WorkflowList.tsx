@@ -2,6 +2,7 @@
 
 import { WorkflowSearchResponseEntry } from '../ts-api/src/api-gen/api';
 import { ColumnDef, FilterSpec } from './types';
+import { useAppConfig } from './ConfigContext';
 
 /**
  * WorkflowList Component - Displays the workflows in a table format
@@ -142,6 +143,9 @@ const WorkflowList = ({
   goToNextPage,
   clearAllFilters
 }: WorkflowListProps) => {
+  // Get configuration from context
+  const { temporalWebUI, temporalNamespace } = useAppConfig();
+  
   // Calculate visible columns (those marked as visible)
   const visibleColumns = columns.filter(col => col.visible);
 
@@ -239,8 +243,16 @@ const WorkflowList = ({
                   key={`${workflow.workflowId}-${workflow.workflowRunId}`} 
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => {
-                    // Navigate to workflow show page
-                    window.location.href = `/workflow/show?workflowId=${encodeURIComponent(workflow.workflowId)}${workflow.workflowRunId ? `&runId=${encodeURIComponent(workflow.workflowRunId)}` : ''}`;
+                    // Different navigation based on whether it's an iWF workflow or a raw Temporal workflow
+                    if (workflow.isIwf) {
+                      // Navigate to our custom workflow show page for iWF workflows in a new tab
+                      const showUrl = `/workflow/show?workflowId=${encodeURIComponent(workflow.workflowId)}${workflow.workflowRunId ? `&runId=${encodeURIComponent(workflow.workflowRunId)}` : ''}`;
+                      window.open(showUrl, '_blank');
+                    } else {
+                      // Navigate to Temporal WebUI for raw Temporal workflows in a new tab
+                      const temporalUrl = `${temporalWebUI}/namespaces/${temporalNamespace}/workflows/${encodeURIComponent(workflow.workflowId)}/${encodeURIComponent(workflow.workflowRunId)}/history`;
+                      window.open(temporalUrl, '_blank');
+                    }
                   }}
                 >
                   {visibleColumns.map(column => (
