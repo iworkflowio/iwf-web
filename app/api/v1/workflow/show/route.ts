@@ -1,6 +1,7 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {Connection, WorkflowClient} from '@temporalio/client';
 import {
+  ContinueAsNewDumpResponse,
   EncodedObject,
   InterpreterWorkflowInput,
   IwfHistoryEvent,
@@ -8,7 +9,7 @@ import {
   StateDecideActivityInput,
   StateExecuteDetails,
   StateStartActivityInput,
-  StateWaitUntilDetails,
+  StateWaitUntilDetails, WorkflowDumpResponse,
   WorkflowShowRequest,
   WorkflowShowResponse,
   WorkflowStateOptions
@@ -154,20 +155,6 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     const rawHistories = await handle.fetchHistory()
     const startInputs = arrayFromPayloads(dataConverter.payloadConverter, rawHistories.events[0].workflowExecutionStartedEventAttributes.input.payloads)
 
-    // Convert the raw input to InterpreterWorkflowInput type
-    const workflowInput: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
-    // stateId -> a list of indexes of iWF history events that decide to this stateId
-    // when the index is -1, it's the starting states, or states from continueAsNew
-    // TODO support continueAsNew
-    let fromStateLookup = new Map<string, IndexAndStateOption[]>([
-      [workflowInput.startStateId, [
-          {
-            index: -1,
-            option: workflowInput.stateOptions,
-            input: workflowInput.stateInput
-          }
-      ]],
-    ]);
     // scheduledId -> index of iWF history event.
     // This is for processing activity task started/completed event
     // to look up the event based on scheduledEventId, which inserted the iwfHistory event. So that activity task started/completed
@@ -177,11 +164,88 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     // This is for processing activity task scheduled event for stateExecute, which is from a waitUntil
     // (Note, if the stateExecute is not from waitUntil, it should use fromStateLookup to find the eventId)
     let stateExecutionIdToWaitUntilIndex = new Map<string, number>();
+    // stateId -> a list of indexes of iWF history events that decide to this stateId
+    // when the index is -1, it's the workflow starting states, or starting states from continueAsNew
+    // when it's >=0, it's starting from other states, where the number is the index of historyEvents
+    let startingStateLookup: Map<string, IndexAndStateOption[]> = new Map();
+    let continueAsNewSnapshot: ContinueAsNewDumpResponse|undefined;
+    const continueAsNewActivityScheduleIds = new Map<number, boolean>();
+
+    // Convert the raw input to InterpreterWorkflowInput type
+    const workflowInput: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
+    if(workflowInput.isResumeFromContinueAsNew){
+      let currentChecksum = ""
+      let jsonData = ""
+      for (let i = 1; i < rawHistories.events.length; i++) {
+        const event = rawHistories.events[i];
+        if (event.activityTaskScheduledEventAttributes) {
+          if(event.activityTaskScheduledEventAttributes.activityType.name!="DumpWorkflowInternal"){
+            break;
+          }
+          continueAsNewActivityScheduleIds.set(event.eventId.toNumber(), true)
+        }
+        if (event.activityTaskCompletedEventAttributes) {
+          // just assuming it's continueAsNew and try to decode it
+          const result = event.activityTaskCompletedEventAttributes.result?.payloads;
+          // Decode the response from the payload
+          const responseData = arrayFromPayloads(dataConverter.payloadConverter, result);
+          // this must be a continueAsNew dump activity completed event,
+          // because there shouldn't any other activity before continueAsNew dump is completed.
+          const dump = responseData[0] as WorkflowDumpResponse
+          if(dump.checksum != currentChecksum){
+            // always reset when checksum changed
+            currentChecksum = dump.checksum
+            jsonData = ""
+          }
+          jsonData += dump.jsonData
+        }
+      }
+      continueAsNewSnapshot = JSON.parse(jsonData) as ContinueAsNewDumpResponse
+      // update stateExecutionIdToWaitUntilIndex
+      continueAsNewSnapshot.StateExecutionsToResume
+      for(const key in continueAsNewSnapshot.StateExecutionsToResume){
+        stateExecutionIdToWaitUntilIndex.set(key, -1)
+      }
+
+      // update startingStateLookup
+      for (let i = 0; i < continueAsNewSnapshot.StatesToStartFromBeginning.length; i++) {
+        const stateMovement = continueAsNewSnapshot.StatesToStartFromBeginning[i]
+        const stateId = stateMovement.stateId
+        let lookup: IndexAndStateOption[] = startingStateLookup.get(stateId);
+        // Fix: Check if lookup is undefined or empty
+        if (!lookup || lookup.length === 0) {
+          startingStateLookup.set(stateId,
+              [{
+                index: -1,
+                option: stateMovement.stateOptions,
+                input: stateMovement.stateInput
+              }])
+        } else {
+          lookup.push({
+            index: -1,
+            option: stateMovement.stateOptions,
+            input: stateMovement.stateInput
+          })
+        }
+      }
+    }else{
+      // for non continueAsNew, there can be at most only one starting state
+      if(workflowInput.startStateId){
+        startingStateLookup.set(workflowInput.startStateId,
+            [{
+              index: -1,
+              option: workflowInput.stateOptions,
+              input: workflowInput.stateInput
+            }])
+      }
+    }
     
     // Extract and process history events
     const historyEvents: IwfHistoryEvent[] = [];
     
     // Step 1: Iterate through raw Temporal events starting from the second event
+    // Note that we always start from 1, even it could include continueAsNew.
+    // Because there could be some signals during continueAsNew activity
     for (let i = 1; i < rawHistories.events.length; i++) {
       const event = rawHistories.events[i];
       if (event.activityTaskScheduledEventAttributes) {
@@ -193,10 +257,10 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           // process StateApiWaitUntil for activityTaskScheduled
           const activityInput = activityInputs[1] as StateStartActivityInput;
           const req = activityInput.Request
-          let lookup: IndexAndStateOption[] = fromStateLookup.get(req.workflowStateId)
+          let lookup: IndexAndStateOption[] = startingStateLookup.get(req.workflowStateId)
           let from:IndexAndStateOption;
           if(!lookup || lookup.length == 0){
-            console.log(`ERROR: No source states found for workflowStateId: ${req.workflowStateId}`, fromStateLookup);
+            console.log(`ERROR: No source states found for workflowStateId: ${req.workflowStateId}`, startingStateLookup);
             from = {
               index: -2 // means unknown & bug
             }
@@ -204,9 +268,9 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           from = lookup[0]
           lookup.shift()
           if(lookup.length === 0){
-            fromStateLookup.delete(req.workflowStateId)
+            startingStateLookup.delete(req.workflowStateId)
           }else{
-            fromStateLookup.set(req.workflowStateId, lookup)
+            startingStateLookup.set(req.workflowStateId, lookup)
           }
 
           const waitUntilDetail: StateWaitUntilDetails = {
@@ -244,12 +308,12 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
             stateOption = waitUntilEvent.stateWaitUntil?.stateOptions;
             stateInput = waitUntilEvent.stateWaitUntil?.input;
           } else {
-            // Otherwise use historyActivityIdLookup like in waitUntil processing
-            let lookup: IndexAndStateOption[] = fromStateLookup.get(req.workflowStateId);
+            // Otherwise use startingStateLookup
+            let lookup: IndexAndStateOption[] = startingStateLookup.get(req.workflowStateId);
             
-            // Fix: Check if lookup is undefined or empty
+            // Check if lookup is undefined or empty
             if (!lookup || lookup.length === 0) {
-              console.log(`ERROR: No source states found for workflowStateId: ${req.workflowStateId}`, fromStateLookup);
+              console.log(`ERROR: No source states found for workflowStateId: ${req.workflowStateId}`, startingStateLookup);
               // Use default values if no lookup found
               fromEvent = -2; // mean unknown & bug
               stateOption = undefined;
@@ -259,9 +323,9 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
               lookup.shift();
               
               if (lookup.length === 0) {
-                fromStateLookup.delete(req.workflowStateId);
+                startingStateLookup.delete(req.workflowStateId);
               } else {
-                fromStateLookup.set(req.workflowStateId, lookup);
+                startingStateLookup.set(req.workflowStateId, lookup);
               }
               
               fromEvent = from.index;
@@ -293,11 +357,14 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           historyLookupByScheduledId.set(event.eventId.toNumber(), eventIndex)
           historyEvents.push(iwfEvent);
         }else{
-          //  rpc locking
+          //  TODO: build up a map for rpc locking
         }
-
       } else if (event.activityTaskCompletedEventAttributes) {
         const scheduledId = event.activityTaskCompletedEventAttributes.scheduledEventId.toNumber()
+        if(continueAsNewActivityScheduleIds.has(scheduledId)){
+          // skip continueAsNew activity
+          continue;
+        }
         const indexToUpdate = historyLookupByScheduledId.get(scheduledId)
         if(historyEvents[indexToUpdate].eventType == "StateWaitUntil"){
           let waitUntilDetails = historyEvents[indexToUpdate].stateWaitUntil
@@ -347,17 +414,19 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
                 };
                 
                 // Check if the state already exists in the lookup
-                if (fromStateLookup.has(stateMovement.stateId)) {
+                if (startingStateLookup.has(stateMovement.stateId)) {
                   // Append to existing array
-                  const existingOptions = fromStateLookup.get(stateMovement.stateId);
+                  const existingOptions = startingStateLookup.get(stateMovement.stateId);
                   existingOptions.push(indexOption);
-                  fromStateLookup.set(stateMovement.stateId, existingOptions);
+                  startingStateLookup.set(stateMovement.stateId, existingOptions);
                 } else {
                   // Create new array with this option
-                  fromStateLookup.set(stateMovement.stateId, [indexOption]);
+                  startingStateLookup.set(stateMovement.stateId, [indexOption]);
                 }
               }
             }
+        }else{
+           // TODO: for RPC locking. We need another lookup for RPC locking
         }
       } else if (event.workflowExecutionSignaledEventAttributes) {
         console.log(`  signal received=${event}`);
@@ -391,7 +460,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       status: statusCode ? mapTemporalStatus(String(statusCode)):undefined,
       // Include the decoded input in the response
       input: workflowInput,
-      continueAsNewSnapshot: undefined,
+      continueAsNewSnapshot: continueAsNewSnapshot,
       historyEvents: historyEvents
     };
 
