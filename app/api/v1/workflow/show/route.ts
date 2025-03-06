@@ -363,10 +363,20 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
         console.log(`  signal received=${event}`);
       } else if (event.activityTaskFailedEventAttributes) {
         // TODO do we need to process for the stateApiFailure policy?
-      } else if (event.workflowExecutionCompletedEventAttributes) {
-        console.log(`  Workflow completed`);
-      } else if (event.workflowExecutionFailedEventAttributes) {
-        console.log(`  Workflow failed`);
+      } else if (event.workflowExecutionCompletedEventAttributes ||
+          event.workflowExecutionFailedEventAttributes ||
+          event.workflowExecutionCanceledEventAttributes ||
+          event.workflowExecutionContinuedAsNewEventAttributes ||
+          event.workflowExecutionTerminatedEventAttributes ||
+          event.workflowExecutionTimedOutEventAttributes) {
+        // Create and add the IwfHistoryEvent
+        const iwfEvent: IwfHistoryEvent = {
+          eventType: "WorkflowClosed",
+          workflowClosed: {
+            workflowClosedTimestamp: event.eventTime.seconds.toNumber()
+          }
+        };
+        historyEvents.push(iwfEvent)
       }
       // TODO local activity
       // TODO activity task started event for last failure details
