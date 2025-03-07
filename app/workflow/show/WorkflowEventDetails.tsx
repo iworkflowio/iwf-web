@@ -127,7 +127,11 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
       );
     }
 
-    return null;
+    return (
+      <div className="mt-2 pl-2 text-sm border-l-2 border-gray-300">
+        <div className="italic text-gray-500">No detailed information available</div>
+      </div>
+    );
   };
 
   return (

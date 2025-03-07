@@ -27,6 +27,12 @@ export default function WorkflowTimeline(
     if (event.stateExecute?.firstAttemptStartedTimestamp) {
       return event.stateExecute.firstAttemptStartedTimestamp;
     }
+    if( event.workflowStarted?.workflowStartedTimestamp){
+      return event.workflowStarted.workflowStartedTimestamp;
+    }
+    if(event.workflowClosed?.workflowClosedTimestamp){
+      return event.workflowClosed.workflowClosedTimestamp
+    }
     return undefined;
   };
 
@@ -62,19 +68,6 @@ export default function WorkflowTimeline(
 
   return (
     <div>
-      <div className="flex mb-6">
-        <div className="w-36 pr-4 font-medium text-right">
-          {formatWithTimezone(workflowStartedTimestamp)}
-        </div>
-        <div className="flex-1">
-          <div className="bg-blue-100 border border-blue-300 rounded-md p-3 shadow-sm">
-            <div className="font-medium">
-              Workflow Started
-            </div>
-          </div>
-        </div>
-      </div>
-
       {historyEvents.map((event, index) => {
         const timestamp = getEventTimestamp(event);
         const relativePosition = timestamp 
