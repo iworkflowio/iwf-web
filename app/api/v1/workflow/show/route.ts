@@ -165,11 +165,22 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     // (Note, if the stateExecute is not from waitUntil, it should use fromStateLookup to find the eventId)
     let stateExecutionIdToWaitUntilIndex = new Map<string, number>();
     // stateId -> a list of indexes of iWF history events that decide to this stateId
-    // when the index is -1, it's the workflow starting states, or starting states from continueAsNew
+    // when the index is 0, it's the workflow starting states, or starting states from continueAsNew
     // when it's >=0, it's starting from other states, where the number is the index of historyEvents
     let startingStateLookup: Map<string, IndexAndStateOption[]> = new Map();
     let continueAsNewSnapshot: ContinueAsNewDumpResponse|undefined;
     const continueAsNewActivityScheduleIds = new Map<number, boolean>();
+    // Extract and process history events
+    // 0 is always the started event
+    // -1 (or <0) is unknown.
+    const historyEvents: IwfHistoryEvent[] = [
+      {
+        eventType: "WorkflowStarted",
+        workflowStarted: {
+          workflowStartedTimestamp: startTimeSeconds
+        }
+      }
+    ];
 
     // Convert the raw input to InterpreterWorkflowInput type
     const workflowInput: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
@@ -204,7 +215,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       // update stateExecutionIdToWaitUntilIndex
       continueAsNewSnapshot.StateExecutionsToResume
       for(const key in continueAsNewSnapshot.StateExecutionsToResume){
-        stateExecutionIdToWaitUntilIndex.set(key, -1)
+        stateExecutionIdToWaitUntilIndex.set(key, 0)
       }
 
       // update startingStateLookup
@@ -216,13 +227,13 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
         if (!lookup || lookup.length === 0) {
           startingStateLookup.set(stateId,
               [{
-                index: -1,
+                index: 0,
                 option: stateMovement.stateOptions,
                 input: stateMovement.stateInput
               }])
         } else {
           lookup.push({
-            index: -1,
+            index: 0,
             option: stateMovement.stateOptions,
             input: stateMovement.stateInput
           })
@@ -233,15 +244,12 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       if(workflowInput.startStateId){
         startingStateLookup.set(workflowInput.startStateId,
             [{
-              index: -1,
+              index: 0,
               option: workflowInput.stateOptions,
               input: workflowInput.stateInput
             }])
       }
     }
-    
-    // Extract and process history events
-    const historyEvents: IwfHistoryEvent[] = [];
     
     // Step 1: Iterate through raw Temporal events starting from the second event
     // Note that we always start from 1, even it could include continueAsNew.
@@ -262,7 +270,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           if(!lookup || lookup.length == 0){
             console.log(`ERROR: No source states found for workflowStateId: ${req.workflowStateId}`, startingStateLookup);
             from = {
-              index: -2 // means unknown & bug
+              index: -1 // means unknown & bug
             }
           }
           from = lookup[0]

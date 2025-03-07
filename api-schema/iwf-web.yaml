@@ -1215,7 +1215,8 @@ components:
             $ref: '#/components/schemas/IwfHistoryEvent'
     IwfHistoryEventType:
       type: string
-      enum: 
+      enum:
+        - WorkflowStarted
         - StateWaitUntil
         - StateExecute
         - RpcExecution
@@ -1226,6 +1227,8 @@ components:
       properties:
         eventType:
           $ref: '#/components/schemas/IwfHistoryEventType'
+        workflowStarted:
+          $ref: '#/components/schemas/WorkflowStartedDetails'
         stateWaitUntil:
           $ref: '#/components/schemas/StateWaitUntilDetails'
         stateExecute:
@@ -1328,6 +1331,12 @@ components:
       type: object
       properties:
         workflowClosedTimestamp:
+          type: integer
+          format: int64
+    WorkflowStartedDetails:
+      type: object
+      properties:
+        workflowStartedTimestamp:
           type: integer
           format: int64
     # below is additional data models translated from iwf-server

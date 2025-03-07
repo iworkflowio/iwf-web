@@ -920,6 +920,12 @@ export interface IwfHistoryEvent {
     'eventType'?: IwfHistoryEventType;
     /**
      * 
+     * @type {WorkflowStartedDetails}
+     * @memberof IwfHistoryEvent
+     */
+    'workflowStarted'?: WorkflowStartedDetails;
+    /**
+     * 
      * @type {StateWaitUntilDetails}
      * @memberof IwfHistoryEvent
      */
@@ -958,6 +964,7 @@ export interface IwfHistoryEvent {
  */
 
 export const IwfHistoryEventType = {
+    WorkflowStarted: 'WorkflowStarted',
     StateWaitUntil: 'StateWaitUntil',
     StateExecute: 'StateExecute',
     RpcExecution: 'RpcExecution',
@@ -2988,6 +2995,19 @@ export interface WorkflowStartResponse {
      * @memberof WorkflowStartResponse
      */
     'workflowRunId'?: string;
+}
+/**
+ * 
+ * @export
+ * @interface WorkflowStartedDetails
+ */
+export interface WorkflowStartedDetails {
+    /**
+     * 
+     * @type {number}
+     * @memberof WorkflowStartedDetails
+     */
+    'workflowStartedTimestamp'?: number;
 }
 /**
  * 

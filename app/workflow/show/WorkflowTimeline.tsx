@@ -68,9 +68,8 @@ export default function WorkflowTimeline(
         </div>
         <div className="flex-1">
           <div className="bg-blue-100 border border-blue-300 rounded-md p-3 shadow-sm">
-            <div className="font-medium">Workflow Started</div>
-            <div className="text-sm text-gray-600">
-              Start timestamp: {workflowStartedTimestamp}
+            <div className="font-medium">
+              Workflow Started
             </div>
           </div>
         </div>
