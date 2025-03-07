@@ -182,7 +182,7 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
           </span>
           <span className="text-gray-800">{event.eventType}</span>
         </div>
-        <button className="text-gray-500 hover:text-gray-700">
+        <button className={`${expanded ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'} hover:opacity-80 w-6 h-6 flex items-center justify-center rounded-full font-bold text-sm transition-colors`}>
           {expanded ? '−' : '+'}
         </button>
       </div>
