@@ -38,6 +38,42 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
         return 'bg-gray-100 border-gray-300';
     }
   };
+  
+  // Function to determine badge color based on event type
+  const getBadgeColor = () => {
+    switch (event.eventType) {
+      case 'StateWaitUntil':
+        return 'bg-yellow-600';
+      case 'StateExecute':
+        return 'bg-green-600';
+      case 'RpcExecution':
+        return 'bg-purple-600';
+      case 'SignalReceived':
+        return 'bg-blue-600';
+      case 'WorkflowClosed':
+        return 'bg-gray-600';
+      default:
+        return 'bg-gray-700';
+    }
+  };
+  
+  // Function to get an appropriate icon for each event type
+  const getEventIcon = () => {
+    switch (event.eventType) {
+      case 'StateWaitUntil':
+        return '⏳'; // Hourglass
+      case 'StateExecute':
+        return '▶️'; // Play button
+      case 'RpcExecution':
+        return '🔄'; // Cycle arrows
+      case 'SignalReceived':
+        return '📡'; // Satellite antenna
+      case 'WorkflowClosed':
+        return '🏁'; // Checkered flag
+      default:
+        return '📋'; // Clipboard
+    }
+  };
 
   // Function to render event details based on its type
   const renderEventDetails = () => {
@@ -140,8 +176,11 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
         className="flex justify-between items-center cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="font-medium">
-          Event {index}: {event.eventType}
+        <div className="font-medium flex items-center">
+          <span className={`${getBadgeColor()} text-white px-2 py-0.5 rounded-md text-xs font-bold mr-2 inline-flex items-center shadow-sm`}>
+            <span className="mr-0.5">{getEventIcon()}</span> Event {index}
+          </span>
+          <span className="text-gray-800">{event.eventType}</span>
         </div>
         <button className="text-gray-500 hover:text-gray-700">
           {expanded ? '−' : '+'}
