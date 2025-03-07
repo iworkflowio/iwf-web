@@ -4,15 +4,22 @@ import { useState } from 'react';
 import { IwfHistoryEvent } from '../../ts-api/src/api-gen/api';
 import { formatTimestamp } from '../../components/utils';
 import { useTimezoneManager } from '../../components/TimezoneManager';
+import {TimezoneOption} from "../../components/types";
 
 interface EventDetailsProps {
   event: IwfHistoryEvent;
   index: number;
+  timezone: TimezoneOption
 }
 
-export default function WorkflowEventDetails({ event, index }: EventDetailsProps) {
+export default function WorkflowEventDetails({ event, index, timezone }: EventDetailsProps) {
   const [expanded, setExpanded] = useState(false);
-  const { timezone } = useTimezoneManager();
+
+  // Create a direct formatter function that will always use the current timezone value
+  const formatWithTimezone = (timestamp: number) => {
+    // We force recalculation each time to ensure we have the latest timezone
+    return formatTimestamp(timestamp * 1000, timezone);
+  };
 
   // Function to determine event color based on event type
   const getEventTypeColor = () => {
@@ -47,13 +54,13 @@ export default function WorkflowEventDetails({ event, index }: EventDetailsProps
           {details.firstAttemptStartedTimestamp && (
             <div>
               <span className="font-semibold">Started:</span> 
-              {formatTimestamp(details.firstAttemptStartedTimestamp * 1000, timezone)}
+              {formatWithTimezone(details.firstAttemptStartedTimestamp)}
             </div>
           )}
           {details.completedTimestamp && (
             <div>
               <span className="font-semibold">Completed:</span> 
-              {formatTimestamp(details.completedTimestamp * 1000, timezone)}
+              {formatWithTimezone(details.completedTimestamp)}
             </div>
           )}
           {details.fromEventId !== undefined && (
@@ -88,13 +95,13 @@ export default function WorkflowEventDetails({ event, index }: EventDetailsProps
           {details.firstAttemptStartedTimestamp && (
             <div>
               <span className="font-semibold">Started:</span> 
-              {formatTimestamp(details.firstAttemptStartedTimestamp * 1000, timezone)}
+              {formatWithTimezone(details.firstAttemptStartedTimestamp)}
             </div>
           )}
           {details.completedTimestamp && (
             <div>
               <span className="font-semibold">Completed:</span> 
-              {formatTimestamp(details.completedTimestamp * 1000, timezone)}
+              {formatWithTimezone(details.completedTimestamp)}
             </div>
           )}
           {details.fromEventId !== undefined && (

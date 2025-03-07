@@ -90,10 +90,21 @@ export default function WorkflowShow() {
   
   // App header state
   const [showConfigPopup, setShowConfigPopup] = useState(false);
-  const [showTimezoneSelector, setShowTimezoneSelector] = useState(false);
+  // Use the timezone manager hook
+  const {
+    timezone,
+    setTimezone,
+    showTimezoneSelector,
+    setShowTimezoneSelector
+  } = useTimezoneManager();
+  const [timezoneTrigger, setTimezoneTrigger] = useState(0); // Force re-renders when timezone changes
   
-  const { timezone } = useTimezoneManager();
   const appConfig = useAppConfig();
+  
+  // Update the timezoneTrigger when timezone changes to force re-renders
+  useEffect(() => {
+    setTimezoneTrigger(prev => prev + 1);
+  }, [timezone]);
 
   // Fetch workflow data
   useEffect(() => {
@@ -325,6 +336,9 @@ export default function WorkflowShow() {
     // Update the nodes and edges
     setNodes(newNodes);
     setEdges(newEdges);
+    
+    // Note: This effect already has timezone in its dependency array,
+    // which ensures it reruns when timezone changes
   }, [workflowData, timezone, expandedNodes, toggleNodeExpanded]);
 
   if (loading) {
@@ -380,6 +394,8 @@ export default function WorkflowShow() {
         {/* Timezone selector popup */}
         {showTimezoneSelector && (
           <TimezoneSelector 
+            timezone={timezone}
+            setTimezone={setTimezone}
             onClose={() => setShowTimezoneSelector(false)}
           />
         )}
@@ -486,9 +502,11 @@ export default function WorkflowShow() {
               
               {viewMode === 'timeline' && workflowData.historyEvents && (
                 <div className="border border-gray-200 rounded-lg p-4">
+                  {/* Using timezoneTrigger in key to force complete remounting of component when timezone changes */}
                   <WorkflowTimeline 
                     workflowStartedTimestamp={workflowData.workflowStartedTimestamp}
                     historyEvents={workflowData.historyEvents}
+                    timezone={timezone}
                   />
                 </div>
               )}
@@ -497,6 +515,7 @@ export default function WorkflowShow() {
                 <div className="h-[700px] border border-gray-200 rounded-lg">
                   {(workflowData.historyEvents && workflowData.historyEvents.length > 0) ? (
                     <ReactFlow
+                      key={`reactflow-${timezoneTrigger}`} // Force re-render when timezone changes
                       nodes={nodes}
                       edges={edges}
                       onNodesChange={onNodesChange}

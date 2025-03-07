@@ -4,14 +4,20 @@ import { IwfHistoryEvent } from '../../ts-api/src/api-gen/api';
 import { formatTimestamp } from '../../components/utils';
 import { useTimezoneManager } from '../../components/TimezoneManager';
 import WorkflowEventDetails from './WorkflowEventDetails';
+import {TimezoneOption} from "../../components/types";
 
 interface TimelineProps {
   workflowStartedTimestamp: number;
   historyEvents: IwfHistoryEvent[];
+  timezone: TimezoneOption
 }
 
-export default function WorkflowTimeline({ workflowStartedTimestamp, historyEvents }: TimelineProps) {
-  const { timezone } = useTimezoneManager();
+export default function WorkflowTimeline(
+    { workflowStartedTimestamp, historyEvents , timezone }: TimelineProps) {
+  // Create a direct formatter function to ensure we use the latest timezone
+  const formatWithTimezone = (timestamp: number) => {
+    return formatTimestamp(timestamp * 1000, timezone);
+  };
 
   // Function to get timestamp for an event
   const getEventTimestamp = (event: IwfHistoryEvent): number | undefined => {
@@ -58,7 +64,7 @@ export default function WorkflowTimeline({ workflowStartedTimestamp, historyEven
     <div>
       <div className="flex mb-6">
         <div className="w-36 pr-4 font-medium text-right">
-          {formatTimestamp(workflowStartedTimestamp * 1000, timezone)}
+          {formatWithTimezone(workflowStartedTimestamp)}
         </div>
         <div className="flex-1">
           <div className="bg-blue-100 border border-blue-300 rounded-md p-3 shadow-sm">
@@ -77,11 +83,11 @@ export default function WorkflowTimeline({ workflowStartedTimestamp, historyEven
           : null;
           
         return (
-          <div className="flex mb-6" key={`event-${index}`}>
+          <div className="flex mb-6" key={`event-${index}-${timezone.value}`}>
             <div className="w-36 pr-4 text-right">
               {timestamp ? (
                 <div className="font-medium">
-                  {formatTimestamp(timestamp * 1000, timezone)}
+                  {formatWithTimezone(timestamp)}
                 </div>
               ) : (
                 <div className="text-gray-400 italic">No timestamp</div>
@@ -93,7 +99,12 @@ export default function WorkflowTimeline({ workflowStartedTimestamp, historyEven
               )}
             </div>
             <div className="flex-1">
-              <WorkflowEventDetails event={event} index={index} />
+              {/* New instance of WorkflowEventDetails every time to ensure it gets the latest timezone */}
+              <WorkflowEventDetails 
+                event={event} 
+                index={index} 
+                timezone={timezone}
+              />
             </div>
           </div>
         );
