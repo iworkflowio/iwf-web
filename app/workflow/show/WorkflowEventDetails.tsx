@@ -24,6 +24,8 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
   // Function to determine event color based on event type
   const getEventTypeColor = () => {
     switch (event.eventType) {
+      case 'WorkflowStarted':
+        return 'bg-blue-100 border-blue-300';
       case 'StateWaitUntil':
         return 'bg-yellow-100 border-yellow-300';
       case 'StateExecute':
@@ -42,6 +44,8 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
   // Function to determine badge color based on event type
   const getBadgeColor = () => {
     switch (event.eventType) {
+      case 'WorkflowStarted':
+        return 'bg-blue-600';
       case 'StateWaitUntil':
         return 'bg-yellow-600';
       case 'StateExecute':
@@ -60,6 +64,8 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
   // Function to get an appropriate icon for each event type
   const getEventIcon = () => {
     switch (event.eventType) {
+      case 'WorkflowStarted':
+        return '🚀'; // Rocket
       case 'StateWaitUntil':
         return '⏳'; // Hourglass
       case 'StateExecute':
@@ -79,6 +85,37 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
   const renderEventDetails = () => {
     if (!expanded) {
       return null;
+    }
+
+    if (event.workflowStarted) {
+      const details = event.workflowStarted;
+      return (
+        <div className="mt-2 pl-2 text-sm border-l-2 border-blue-300">
+          <div><span className="font-semibold">Workflow Type:</span> {details.workflowType}</div>
+          {details.workflowStartedTimestamp && (
+            <div>
+              <span className="font-semibold">Started:</span> 
+              {formatWithTimezone(details.workflowStartedTimestamp)}
+            </div>
+          )}
+          {details.input && (
+            <div>
+              <div className="font-semibold mt-1">Input:</div>
+              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
+                {JSON.stringify(details.input, null, 2)}
+              </pre>
+            </div>
+          )}
+          {details.continueAsNewSnapshot && (
+            <div>
+              <div className="font-semibold mt-1">Continue As New:</div>
+              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
+                {JSON.stringify(details.continueAsNewSnapshot, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      );
     }
 
     if (event.stateWaitUntil) {
