@@ -260,7 +260,15 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
           <span className={`${getBadgeColor()} text-white px-2 py-0.5 rounded-md text-xs font-bold mr-2 inline-flex items-center shadow-sm`}>
             <span className="mr-0.5">{getEventIcon()}</span> Event {index}
           </span>
-          <span className="text-gray-800">{event.eventType}</span>
+          <span className="text-gray-800">
+            {event.eventType}
+            {event.eventType === 'StateWaitUntil' && event.stateWaitUntil?.stateExecutionId && (
+              <span className="text-xs text-gray-500 ml-2">({event.stateWaitUntil.stateExecutionId})</span>
+            )}
+            {event.eventType === 'StateExecute' && event.stateExecute?.stateExecutionId && (
+              <span className="text-xs text-gray-500 ml-2">({event.stateExecute.stateExecutionId})</span>
+            )}
+          </span>
         </div>
         <button className={`${expanded ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'} hover:opacity-80 w-6 h-6 flex items-center justify-center rounded-full font-bold text-sm transition-colors`}>
           {expanded ? '−' : '+'}
