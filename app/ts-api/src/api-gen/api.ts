@@ -1981,6 +1981,12 @@ export interface WorkflowClosedDetails {
      * @memberof WorkflowClosedDetails
      */
     'workflowClosedTimestamp'?: number;
+    /**
+     * 
+     * @type {InterpreterWorkflowOutput}
+     * @memberof WorkflowClosedDetails
+     */
+    'output'?: InterpreterWorkflowOutput;
 }
 /**
  * 

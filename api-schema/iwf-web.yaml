@@ -1323,12 +1323,14 @@ components:
         completedTimestamp:
           type: integer
           format: int64
-    WorkflowClosedDetails:
+    back:
       type: object
       properties:
         workflowClosedTimestamp:
           type: integer
           format: int64
+        output:
+          $ref: '#/components/schemas/InterpreterWorkflowOutput'
     WorkflowStartedDetails:
       type: object
       properties:

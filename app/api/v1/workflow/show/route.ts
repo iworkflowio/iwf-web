@@ -459,6 +459,8 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
             workflowClosedTimestamp: event.eventTime.seconds.toNumber()
           }
         };
+        // TODO: add InterpreterWorkflowOutput for workflowExecutionCompletedEventAttributes
+
         historyEvents.push(iwfEvent)
       }
       // TODO local activity
