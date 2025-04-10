@@ -118,6 +118,28 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
       );
     }
 
+    if (event.workflowClosed) {
+      const details = event.workflowClosed;
+      return (
+        <div className="mt-2 pl-2 text-sm border-l-2 border-gray-300">
+          {details.workflowClosedTimestamp && (
+            <div>
+              <span className="font-semibold">Closed:</span> 
+              {formatWithTimezone(details.workflowClosedTimestamp)}
+            </div>
+          )}
+          {details.output && (
+            <div>
+              <div className="font-semibold mt-1">Output:</div>
+              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
+                {JSON.stringify(details.output, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (event.stateWaitUntil) {
       const details = event.stateWaitUntil;
       return (

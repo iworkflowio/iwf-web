@@ -459,7 +459,22 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
             workflowClosedTimestamp: event.eventTime.seconds.toNumber()
           }
         };
-        // TODO: add InterpreterWorkflowOutput for workflowExecutionCompletedEventAttributes
+        
+        // Extract output from workflowExecutionCompletedEventAttributes if available
+        if (event.workflowExecutionCompletedEventAttributes && 
+            event.workflowExecutionCompletedEventAttributes.result?.payloads) {
+          // Decode the output from the payload
+          const resultPayloads = event.workflowExecutionCompletedEventAttributes.result.payloads;
+          try {
+            const outputData = arrayFromPayloads(dataConverter.payloadConverter, resultPayloads);
+            // The first element should contain the workflow output
+            if (outputData && outputData.length > 0) {
+              iwfEvent.workflowClosed.output = outputData[0];
+            }
+          } catch (error) {
+            console.error('Error decoding workflow output:', error);
+          }
+        }
 
         historyEvents.push(iwfEvent)
       }
