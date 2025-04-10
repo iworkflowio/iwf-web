@@ -9,11 +9,26 @@ import {TimezoneOption} from "../../components/types";
 interface EventDetailsProps {
   event: IwfHistoryEvent;
   index: number;
-  timezone: TimezoneOption
+  timezone: TimezoneOption;
+  initialExpanded?: boolean;
+  globalExpandState?: boolean;
 }
 
-export default function WorkflowEventDetails({ event, index, timezone }: EventDetailsProps) {
-  const [expanded, setExpanded] = useState(false);
+export default function WorkflowEventDetails({ 
+  event, 
+  index, 
+  timezone, 
+  initialExpanded = false,
+  globalExpandState
+}: EventDetailsProps) {
+  const [expanded, setExpanded] = useState(initialExpanded);
+  
+  // Respond to global expand/collapse state changes
+  useEffect(() => {
+    if (globalExpandState !== undefined) {
+      setExpanded(globalExpandState);
+    }
+  }, [globalExpandState]);
 
   // Create a direct formatter function that will always use the current timezone value
   const formatWithTimezone = (timestamp: number) => {

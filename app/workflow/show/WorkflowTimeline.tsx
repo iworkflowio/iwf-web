@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { IwfHistoryEvent } from '../../ts-api/src/api-gen/api';
 import { formatTimestamp } from '../../components/utils';
 import { useTimezoneManager } from '../../components/TimezoneManager';
@@ -14,6 +15,8 @@ interface TimelineProps {
 
 export default function WorkflowTimeline(
     { workflowStartedTimestamp, historyEvents , timezone }: TimelineProps) {
+  const [allExpanded, setAllExpanded] = useState(false);
+  
   // Create a direct formatter function to ensure we use the latest timezone
   const formatWithTimezone = (timestamp: number) => {
     return formatTimestamp(timestamp * 1000, timezone);
@@ -66,8 +69,22 @@ export default function WorkflowTimeline(
   const endTimestamp = getLastTimestamp();
   const totalDuration = endTimestamp - startTimestamp;
 
+  const toggleAllEvents = () => {
+    setAllExpanded(!allExpanded);
+  };
+
   return (
     <div>
+      <div className="flex justify-end mb-4">
+        <button 
+          onClick={toggleAllEvents}
+          className="px-3 py-1 text-sm bg-blue-50 hover:bg-blue-100 text-blue-600 rounded border border-blue-200 flex items-center transition-colors"
+        >
+          <span className="mr-1">{allExpanded ? '−' : '+'}</span>
+          {allExpanded ? 'Collapse All' : 'Expand All'}
+        </button>
+      </div>
+      
       {historyEvents.map((event, index) => {
         const timestamp = getEventTimestamp(event);
         const relativePosition = timestamp 
@@ -96,6 +113,8 @@ export default function WorkflowTimeline(
                 event={event} 
                 index={index} 
                 timezone={timezone}
+                initialExpanded={allExpanded}
+                globalExpandState={allExpanded}
               />
             </div>
           </div>
