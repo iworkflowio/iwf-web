@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { IwfHistoryEvent } from '../../ts-api/src/api-gen/api';
 import { formatTimestamp } from '../../components/utils';
 import { useTimezoneManager } from '../../components/TimezoneManager';
@@ -101,17 +101,23 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
           {details.input && (
             <div>
               <div className="font-semibold mt-1">Input:</div>
-              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
-                {JSON.stringify(details.input, null, 2)}
-              </pre>
+              <div className="relative">
+                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
+                  {JSON.stringify(details.input, null, 2)}
+                </pre>
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+              </div>
             </div>
           )}
           {details.continueAsNewSnapshot && (
             <div>
               <div className="font-semibold mt-1">Continue As New:</div>
-              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
-                {JSON.stringify(details.continueAsNewSnapshot, null, 2)}
-              </pre>
+              <div className="relative">
+                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
+                  {JSON.stringify(details.continueAsNewSnapshot, null, 2)}
+                </pre>
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+              </div>
             </div>
           )}
         </div>
@@ -131,9 +137,12 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
           {details.output && (
             <div>
               <div className="font-semibold mt-1">Output:</div>
-              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
-                {JSON.stringify(details.output, null, 2)}
-              </pre>
+              <div className="relative">
+                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
+                  {JSON.stringify(details.output, null, 2)}
+                </pre>
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+              </div>
             </div>
           )}
         </div>
@@ -164,17 +173,23 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
           {details.input && (
             <div>
               <div className="font-semibold mt-1">Input:</div>
-              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
-                {JSON.stringify(details.input, null, 2)}
-              </pre>
+              <div className="relative">
+                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
+                  {JSON.stringify(details.input, null, 2)}
+                </pre>
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+              </div>
             </div>
           )}
           {details.response && (
             <div>
               <div className="font-semibold mt-1">Response:</div>
-              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
-                {JSON.stringify(details.response, null, 2)}
-              </pre>
+              <div className="relative">
+                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
+                  {JSON.stringify(details.response, null, 2)}
+                </pre>
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+              </div>
             </div>
           )}
         </div>
@@ -205,17 +220,23 @@ export default function WorkflowEventDetails({ event, index, timezone }: EventDe
           {details.input && (
             <div>
               <div className="font-semibold mt-1">Input:</div>
-              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
-                {JSON.stringify(details.input, null, 2)}
-              </pre>
+              <div className="relative">
+                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
+                  {JSON.stringify(details.input, null, 2)}
+                </pre>
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+              </div>
             </div>
           )}
           {details.response && details.response.stateDecision && (
             <div>
               <div className="font-semibold mt-1">State Decision:</div>
-              <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-24">
-                {JSON.stringify(details.response.stateDecision, null, 2)}
-              </pre>
+              <div className="relative">
+                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
+                  {JSON.stringify(details.response.stateDecision, null, 2)}
+                </pre>
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
+              </div>
             </div>
           )}
         </div>
