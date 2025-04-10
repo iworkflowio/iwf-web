@@ -422,15 +422,15 @@ export default function WorkflowShow() {
                       {runId}
                     </div>
                   )}
-                  {workflowData.input?.isResumeFromContinueAsNew && 
-                   workflowData.input?.continueAsNewInput?.previousInternalRunId && (
+                  {workflowData.historyEvents[0].workflowStarted.input?.isResumeFromContinueAsNew &&
+                   workflowData.historyEvents[0].workflowStarted.input?.continueAsNewInput?.previousInternalRunId && (
                     <div className="mt-2 text-gray-900 break-all font-mono text-xs">
                       <span className="inline-block px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded mr-1">Previous</span> 
                       <Link 
-                        href={`/workflow/show?workflowId=${encodeURIComponent(workflowId)}&runId=${encodeURIComponent(workflowData.input.continueAsNewInput.previousInternalRunId)}`}
+                        href={`/workflow/show?workflowId=${encodeURIComponent(workflowId)}&runId=${encodeURIComponent(workflowData.historyEvents[0].workflowStarted.input.continueAsNewInput.previousInternalRunId)}`}
                         className="text-blue-600 hover:text-blue-800 hover:underline"
                       >
-                        {workflowData.input.continueAsNewInput.previousInternalRunId}
+                        {workflowData.historyEvents[0].workflowStarted.input.continueAsNewInput.previousInternalRunId}
                       </Link>
                     </div>
                   )}
@@ -466,9 +466,8 @@ export default function WorkflowShow() {
               
               <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
                 <WorkflowConfigPopup 
-                  workflowInput={workflowData.input} 
-                  continueAsNewSnapshot={workflowData.continueAsNewSnapshot} 
-                  workflowId={workflowId}
+                  workflowInput={workflowData.historyEvents[0].workflowStarted.input}
+                  continueAsNewSnapshot={workflowData.historyEvents[0].workflowStarted.continueAsNewSnapshot}
                 />
               </div>
             </div>
@@ -553,15 +552,6 @@ export default function WorkflowShow() {
                 </div>
               )}
             </div>
-            
-            {workflowData.input && (
-              <div className="bg-white shadow rounded-lg p-6 mb-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Workflow Input</h2>
-                <pre className="bg-gray-50 p-3 rounded-lg overflow-auto max-h-96 text-sm">
-                  {JSON.stringify(workflowData.input, null, 2)}
-                </pre>
-              </div>
-            )}
           </>
         )}
       </div>

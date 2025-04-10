@@ -2754,18 +2754,6 @@ export interface WorkflowShowResponse {
     'workflowType'?: string;
     /**
      * 
-     * @type {InterpreterWorkflowInput}
-     * @memberof WorkflowShowResponse
-     */
-    'input': InterpreterWorkflowInput;
-    /**
-     * 
-     * @type {ContinueAsNewDumpResponse}
-     * @memberof WorkflowShowResponse
-     */
-    'continueAsNewSnapshot'?: ContinueAsNewDumpResponse;
-    /**
-     * 
      * @type {WorkflowStatus}
      * @memberof WorkflowShowResponse
      */
@@ -3008,6 +2996,24 @@ export interface WorkflowStartedDetails {
      * @memberof WorkflowStartedDetails
      */
     'workflowStartedTimestamp'?: number;
+    /**
+     * 
+     * @type {string}
+     * @memberof WorkflowStartedDetails
+     */
+    'workflowType'?: string;
+    /**
+     * 
+     * @type {InterpreterWorkflowInput}
+     * @memberof WorkflowStartedDetails
+     */
+    'input'?: InterpreterWorkflowInput;
+    /**
+     * 
+     * @type {ContinueAsNewDumpResponse}
+     * @memberof WorkflowStartedDetails
+     */
+    'continueAsNewSnapshot'?: ContinueAsNewDumpResponse;
 }
 /**
  * 

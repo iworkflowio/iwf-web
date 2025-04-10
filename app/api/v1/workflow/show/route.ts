@@ -170,18 +170,12 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     let startingStateLookup: Map<string, IndexAndStateOption[]> = new Map();
     let continueAsNewSnapshot: ContinueAsNewDumpResponse|undefined;
     const continueAsNewActivityScheduleIds = new Map<number, boolean>();
-    // Extract and process history events
+
     // 0 is always the started event
     // -1 (or <0) is unknown.
-    const historyEvents: IwfHistoryEvent[] = [
-      {
-        eventType: "WorkflowStarted",
-        workflowStarted: {
-          workflowStartedTimestamp: startTimeSeconds
-        }
-      }
-    ];
+    const historyEvents: IwfHistoryEvent[] = []
 
+    // Extract and process history events
     // Convert the raw input to InterpreterWorkflowInput type
     const workflowInput: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
     if(workflowInput.isResumeFromContinueAsNew){
@@ -250,8 +244,19 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
             }])
       }
     }
+
+    const startEvent:IwfHistoryEvent = {
+      eventType: "WorkflowStarted",
+      workflowStarted: {
+        workflowStartedTimestamp: startTimeSeconds,
+        workflowType: workflowType,
+        input: workflowInput,
+        continueAsNewSnapshot: continueAsNewSnapshot
+      }
+    }
+    historyEvents.push(startEvent);
     
-    // Step 1: Iterate through raw Temporal events starting from the second event
+    // Iterate through raw Temporal events starting from the second event
     // Note that we always start from 1, even it could include continueAsNew.
     // Because there could be some signals during continueAsNew activity
     for (let i = 1; i < rawHistories.events.length; i++) {
@@ -468,8 +473,8 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       workflowType: workflowType,
       status: statusCode ? mapTemporalStatus(String(statusCode)):undefined,
       // Include the decoded input in the response
-      input: workflowInput,
-      continueAsNewSnapshot: continueAsNewSnapshot,
+      // input: workflowInput,
+      // continueAsNewSnapshot: continueAsNewSnapshot,
       historyEvents: historyEvents
     };
 

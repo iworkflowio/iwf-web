@@ -1203,10 +1203,6 @@ components:
           format: int64
         workflowType:
           type: string
-        input:
-          $ref: '#/components/schemas/InterpreterWorkflowInput'
-        continueAsNewSnapshot:
-          $ref: '#/components/schemas/ContinueAsNewDumpResponse'
         status:
           $ref: '#/components/schemas/WorkflowStatus'
         historyEvents:
@@ -1336,9 +1332,16 @@ components:
     WorkflowStartedDetails:
       type: object
       properties:
+        # NOTE: workflowStartedTimestamp and workflowType are the same as the values in WorkflowShowResponse
         workflowStartedTimestamp:
           type: integer
           format: int64
+        workflowType:
+          type: string
+        input:
+          $ref: '#/components/schemas/InterpreterWorkflowInput'
+        continueAsNewSnapshot:
+          $ref: '#/components/schemas/ContinueAsNewDumpResponse'
     # below is additional data models translated from iwf-server
     # https://github.com/indeedeng/iwf/blob/main/service/interfaces.go TODO        
     InterpreterWorkflowInput:
