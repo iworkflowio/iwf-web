@@ -456,7 +456,8 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
         const iwfEvent: IwfHistoryEvent = {
           eventType: "WorkflowClosed",
           workflowClosed: {
-            workflowClosedTimestamp: event.eventTime.seconds.toNumber()
+            workflowClosedTimestamp: event.eventTime.seconds.toNumber(),
+            closedType: mapTemporalStatus(String(statusCode)),
           }
         };
         

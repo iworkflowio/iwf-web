@@ -143,7 +143,7 @@ export default function EventDetailsRenderer({
         return (
           <div className={`p-4 text-sm ${className}`}>
             <div><span className="font-semibold">State ID:</span> {eventData.stateId}</div>
-            <div><span className="font-semibold">State Execution ID:</span> {eventData.stateExecutionId}</div>
+            <div><span className="font-semibold">State WExecution ID:</span> {eventData.stateExecutionId}</div>
             {eventData.firstAttemptStartedTimestamp && (
               <div>
                 <span className="font-semibold">Started:</span> 
