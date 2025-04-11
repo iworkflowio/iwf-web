@@ -20,6 +20,7 @@ import { IwfHistoryEvent, IwfHistoryEventType, WorkflowShowResponse } from '../.
 import { formatTimestamp } from '../../components/utils';
 import { TimezoneOption } from '../../components/types';
 import WorkflowEventNode, { WorkflowEventNodeData } from './WorkflowEventNode';
+import EventDetailsRenderer from './EventDetailsRenderer';
 
 // Define the custom node type with its data
 type CustomNode = Node<WorkflowEventNodeData>;
@@ -110,6 +111,7 @@ interface WorkflowGraphProps {
 export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger }: WorkflowGraphProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [selectedEvent, setSelectedEvent] = useState<{eventType: IwfHistoryEventType, eventData: any} | null>(null);
 
   // Initialize ReactFlow graph when workflowData changes
   useEffect(() => {
@@ -248,38 +250,76 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
   // Add some debug output for the nodes and edges
   console.log('Current nodes state:', nodes.length);
   console.log('Current edges state:', edges.length);
+  
+  // Handle node click to show details in side panel
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    const nodeData = node.data as WorkflowEventNodeData;
+    setSelectedEvent({
+      eventType: nodeData.eventType,
+      eventData: nodeData.eventData
+    });
+  }, []);
 
   return (
-    <div className="h-[700px] border border-gray-200 rounded-lg">
-      {(workflowData.historyEvents && workflowData.historyEvents.length > 0) ? (
-        <ReactFlow
-          key={`xyflow-${timezoneTrigger}`} // Force re-render when timezone changes
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          nodeTypes={nodeTypes}
-          fitView
-          minZoom={0.1}
-          maxZoom={2}
-          defaultEdgeOptions={{
-            type: 'smoothstep',
-            style: { strokeWidth: 2 },
-          }}
-        >
-          <Controls position="top-right" />
-          <MiniMap
-            nodeStrokeWidth={3}
-            zoomable 
-            pannable
-            nodeBorderRadius={8}
-            maskColor="rgba(240, 240, 240, 0.3)"
-          />
-          <Background />
-        </ReactFlow>
-      ) : (
-        <div className="h-full flex items-center justify-center">
-          <p className="text-gray-500">No workflow history events available for graph visualization</p>
+    <div className="h-[700px] border border-gray-200 rounded-lg flex">
+      <div className={`flex-1 ${selectedEvent ? 'border-r border-gray-200' : ''}`}>
+        {(workflowData.historyEvents && workflowData.historyEvents.length > 0) ? (
+          <ReactFlow
+            key={`xyflow-${timezoneTrigger}`} // Force re-render when timezone changes
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeClick={onNodeClick}
+            nodeTypes={nodeTypes}
+            fitView
+            minZoom={0.1}
+            maxZoom={2}
+            defaultEdgeOptions={{
+              type: 'smoothstep',
+              style: { strokeWidth: 2 },
+            }}
+          >
+            <Controls position="top-right" />
+            <MiniMap
+              nodeStrokeWidth={3}
+              zoomable 
+              pannable
+              nodeBorderRadius={8}
+              maskColor="rgba(240, 240, 240, 0.3)"
+            />
+            <Background />
+          </ReactFlow>
+        ) : (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-gray-500">No workflow history events available for graph visualization</p>
+          </div>
+        )}
+      </div>
+      
+      {/* Side Panel for Event Details */}
+      {selectedEvent && (
+        <div className="w-1/3 overflow-auto border-l border-gray-200">
+          <div className="sticky top-0 bg-white border-b border-gray-200 p-3 flex justify-between items-center">
+            <h3 className="text-lg font-medium">
+              {selectedEvent.eventType}
+            </h3>
+            <button 
+              onClick={() => setSelectedEvent(null)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-4">
+            <EventDetailsRenderer 
+              eventType={selectedEvent.eventType}
+              eventData={selectedEvent.eventData}
+              timezone={timezone}
+            />
+          </div>
         </div>
       )}
     </div>
