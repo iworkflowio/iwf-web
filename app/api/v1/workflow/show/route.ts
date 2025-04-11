@@ -371,7 +371,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           historyLookupByScheduledId.set(event.eventId.toNumber(), eventIndex)
           historyEvents.push(iwfEvent);
         }else if(event.activityTaskScheduledEventAttributes.activityType.name == "InvokeWorkerRpc"){
-          g
+          throw new Error("RPC locking is not supported");
         }else{
           // NOTE: this must be continueAsNew
         }
