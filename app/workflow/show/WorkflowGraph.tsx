@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import ReactFlow, { 
+import { 
+  ReactFlow, 
   Background, 
   Controls, 
   MiniMap, 
@@ -11,9 +12,10 @@ import ReactFlow, {
   Edge, 
   MarkerType,
   NodeProps,
-  Position
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+  Position,
+  Panel
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { IwfHistoryEvent, IwfHistoryEventType, WorkflowShowResponse } from '../../ts-api/src/api-gen/api';
 import { formatTimestamp } from '../../components/utils';
 import { TimezoneOption } from '../../components/types';
@@ -290,7 +292,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
     <div className="h-[700px] border border-gray-200 rounded-lg">
       {(workflowData.historyEvents && workflowData.historyEvents.length > 0) ? (
         <ReactFlow
-          key={`reactflow-${timezoneTrigger}`} // Force re-render when timezone changes
+          key={`xyflow-${timezoneTrigger}`} // Force re-render when timezone changes
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
@@ -299,7 +301,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           fitView
           minZoom={0.1}
           maxZoom={2}
-          attributionPosition="bottom-right"
+          proOptions={{ attributionPosition: 'bottom-right' }}
           defaultEdgeOptions={{
             type: 'step',
             style: { strokeWidth: 2 },
@@ -313,6 +315,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
             nodeBorderRadius={8}
             maskColor="rgba(240, 240, 240, 0.3)"
           />
+          <Background />
         </ReactFlow>
       ) : (
         <div className="h-full flex items-center justify-center">
