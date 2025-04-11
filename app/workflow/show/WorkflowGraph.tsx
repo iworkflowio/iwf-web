@@ -11,7 +11,6 @@ import {
   Node, 
   Edge, 
   MarkerType,
-  NodeProps,
   Position,
   Panel
 } from '@xyflow/react';
@@ -19,31 +18,10 @@ import '@xyflow/react/dist/style.css';
 import { IwfHistoryEvent, IwfHistoryEventType, WorkflowShowResponse } from '../../ts-api/src/api-gen/api';
 import { formatTimestamp } from '../../components/utils';
 import { TimezoneOption } from '../../components/types';
+import WorkflowEventNode, { WorkflowEventNodeData } from './WorkflowEventNode';
 
-// Custom node for workflow events
-const WorkflowEventNode = ({ data }: NodeProps) => (
-  <div className={`p-4 border rounded-md shadow-md ${data.className} mb-2`}>
-    <div className="font-semibold mb-2">{data.label}</div>
-    {data.details && (
-      <div className="text-xs text-gray-600">
-        {Object.entries(data.details).map(([key, value]) => (
-          <div key={key} className="flex">
-            <span className="font-medium mr-1">{key}:</span>
-            <span>{String(value)}</span>
-          </div>
-        ))}
-      </div>
-    )}
-    {data.expandable && (
-      <button 
-        className="text-xs mt-3 text-blue-500 hover:text-blue-700"
-        onClick={data.onExpand}
-      >
-        {data.expanded ? 'Show less' : 'Show more'}
-      </button>
-    )}
-  </div>
-);
+// Define the custom node type with its data
+type CustomNode = Node<WorkflowEventNodeData>;
 
 // Custom node types mapping
 const nodeTypes = {
@@ -100,7 +78,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
       return;
     }
 
-    const newNodes: Node[] = [];
+    const newNodes: CustomNode[] = [];
     const newEdges: Edge[] = [];
     
     // Start node for workflow
@@ -301,7 +279,6 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           fitView
           minZoom={0.1}
           maxZoom={2}
-          proOptions={{ attributionPosition: 'bottom-right' }}
           defaultEdgeOptions={{
             type: 'step',
             style: { strokeWidth: 2 },
