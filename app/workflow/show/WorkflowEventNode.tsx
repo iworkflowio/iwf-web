@@ -85,10 +85,13 @@ const WorkflowEventNode = ({ data }: NodeProps) => {
         position={Position.Top} 
         id="input"
         style={{ 
-          background: '#555',
-          width: 8,
-          height: 8,
-          top: -4,
+          background: '#fff',
+          border: '1px solid #2563eb', // blue-600
+          width: 3,
+          height: 3,
+          top: -1,
+          boxShadow: '0 0 3px rgba(0, 0, 0, 0.2)',
+          zIndex: 1,
         }}
       />
 
@@ -110,10 +113,13 @@ const WorkflowEventNode = ({ data }: NodeProps) => {
         position={Position.Bottom} 
         id="output"
         style={{ 
-          background: '#555',
-          width: 8,
-          height: 8, 
-          bottom: -4,
+          background: '#fff',
+          border: '2px solid #2563eb', // blue-600
+          width: 3,
+          height: 3,
+          bottom: 6,
+          boxShadow: '0 0 3px rgba(0, 0, 0, 0.2)',
+          zIndex: 1,
         }}
       />
       

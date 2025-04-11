@@ -151,21 +151,15 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           id: `edge-${sourceNodeId}-${nodeId}`,
           source: sourceNodeId,
           target: nodeId,
-          sourceHandle: 'output', // Use the output handle
-          targetHandle: 'input', // Use the input handle
           type: 'smoothstep', // Use smoothstep for better appearance
           animated: true,
-          style: { stroke: '#555', strokeWidth: 2 }, // Add explicit styling
+          style: { stroke: '#2563eb', strokeWidth: 2 }, // Use blue-600 for better appearance
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            width: 20,
-            height: 20,
-            color: '#555',
+            width: 10,
+            height: 10,
+            color: '#2563eb', // blue-600
           },
-          // Add some edge labels for events that have specific relationships
-          label: event.eventType === 'StateExecute' && event.stateExecute?.stateExecutionId ? 'executes' : '',
-          labelStyle: { fontSize: 12, fill: '#555' },
-          labelBgStyle: { fill: 'rgba(255, 255, 255, 0.75)', fillOpacity: 0.8 },
         });
       } else if (lastNodeId && index > 0) {
         // Fallback: If no specific source node is defined but we have a previous node,
@@ -174,16 +168,14 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           id: `edge-${lastNodeId}-${nodeId}`,
           source: lastNodeId,
           target: nodeId,
-          sourceHandle: 'output', // Use the output handle
-          targetHandle: 'input', // Use the input handle
           type: 'smoothstep',
           animated: false, // Non-animated for fallback connections
-          style: { stroke: '#aaa', strokeWidth: 1, strokeDasharray: '5,5' }, // Dotted line for fallback
+          style: { stroke: '#94a3b8', strokeWidth: 1.5, strokeDasharray: '5,5' }, // Dotted line in slate-400
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            width: 15,
-            height: 15,
-            color: '#aaa',
+            width: 10,
+            height: 10,
+            color: '#94a3b8', // slate-400
           },
         });
       }
