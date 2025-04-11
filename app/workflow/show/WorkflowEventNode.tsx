@@ -1,55 +1,20 @@
 'use client';
 
 import { NodeProps, Handle, Position } from '@xyflow/react';
-import { IwfHistoryEventType } from '../../ts-api/src/api-gen/api';
-import { TimezoneOption } from '../../components/types';
+import {IwfHistoryEvent} from '../../ts-api/src/api-gen/api';
+import {getBadgeColor, getEventIcon, getEventTypeColor} from "./EventDetailsRenderer";
 
 // Define custom node data type
 export type WorkflowEventNodeData = {
-  label: string;
-  eventType: IwfHistoryEventType;
-  eventData: any; // Raw event data (stateWaitUntil, stateExecute, etc.)
-  className?: string;
-  timezone: TimezoneOption;
+  index: number;
+  event: IwfHistoryEvent;
 }
 
 // Custom node for workflow events
 const WorkflowEventNode = ({ data }: NodeProps) => {
-  // Import event icon function from EventDetailsRenderer
-  const getEventIcon = (eventType: IwfHistoryEventType) => {
-    switch (eventType) {
-      case 'WorkflowStarted':
-        return '🚀'; // Rocket
-      case 'StateWaitUntil':
-        return '⏳'; // Hourglass
-      case 'StateExecute':
-        return '▶️'; // Play button
-      case 'RpcExecution':
-        return '🔄'; // Cycle arrows
-      case 'SignalReceived':
-        return '📡'; // Satellite antenna
-      case 'WorkflowClosed':
-        return '🏁'; // Checkered flag
-      default:
-        return '📋'; // Clipboard
-    }
-  };
 
-  // Get the event icon
-  const icon = getEventIcon(data.eventType);
-  
-  // Get event ID based on event type
-  const getEventId = () => {
-    switch(data.eventType) {
-      case 'StateWaitUntil':
-      case 'StateExecute':
-        return data.eventData?.stateExecutionId ? `ID: ${data.eventData.stateExecutionId}` : '';
-      default:
-        return '';
-    }
-  };
-  
-  const eventId = getEventId();
+    const event = data.event as IwfHistoryEvent;
+    const index = data.index as number;
 
   return (
     <>
@@ -69,13 +34,19 @@ const WorkflowEventNode = ({ data }: NodeProps) => {
         }}
       />
 
-      <div className={`p-4 border rounded-md shadow-md ${data.className} mb-2 relative cursor-pointer`}>
-        <div className="flex items-center gap-2">
-          <span className="text-lg" role="img" aria-label={data.eventType}>{icon}</span>
-          <div className="font-semibold">{data.label}</div>
-        </div>
-        {eventId && <div className="text-xs font-medium mt-1">{eventId}</div>}
-        <div className="text-xs text-gray-500 mt-1">Click for details</div>
+      <div className={`p-4 border rounded-md shadow-md ${getEventTypeColor(event.eventType)} mb-2 relative cursor-pointer`}>
+        <span className={`${getBadgeColor(event.eventType)} text-white px-2 py-0.5 rounded-md text-xs font-bold mr-2 inline-flex items-center shadow-sm`}>
+            <span className="mr-0.5">{getEventIcon(event.eventType)}</span> Event {index}
+          </span>
+          <span className="text-gray-800">
+            {event.eventType}
+              {event.eventType === 'StateWaitUntil' && event.stateWaitUntil?.stateExecutionId && (
+                  <span className="text-xs text-gray-500 ml-2">({event.stateWaitUntil.stateExecutionId})</span>
+              )}
+              {event.eventType === 'StateExecute' && event.stateExecute?.stateExecutionId && (
+                  <span className="text-xs text-gray-500 ml-2">({event.stateExecute.stateExecutionId})</span>
+              )}
+          </span>
       </div>
 
       {/* Output handle at the bottom of the node */}

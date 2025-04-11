@@ -20,7 +20,7 @@ import { IwfHistoryEvent, IwfHistoryEventType, WorkflowShowResponse } from '../.
 import { formatTimestamp } from '../../components/utils';
 import { TimezoneOption } from '../../components/types';
 import WorkflowEventNode, { WorkflowEventNodeData } from './WorkflowEventNode';
-import EventDetailsRenderer from './EventDetailsRenderer';
+import EventDetailsRenderer, {getEventIcon} from './EventDetailsRenderer';
 
 // Define the custom node type with its data
 type CustomNode = Node<WorkflowEventNodeData>;
@@ -28,26 +28,6 @@ type CustomNode = Node<WorkflowEventNodeData>;
 // Custom node types mapping
 const nodeTypes = {
   workflowEvent: WorkflowEventNode,
-};
-
-// Function to get an appropriate icon for each event type
-const getEventIcon = (eventType: IwfHistoryEventType) => {
-  switch (eventType) {
-    case 'WorkflowStarted':
-      return '🚀'; // Rocket
-    case 'StateWaitUntil':
-      return '⏳'; // Hourglass
-    case 'StateExecute':
-      return '▶️'; // Play button
-    case 'RpcExecution':
-      return '🔄'; // Cycle arrows
-    case 'SignalReceived':
-      return '📡'; // Satellite antenna
-    case 'WorkflowClosed':
-      return '🏁'; // Checkered flag
-    default:
-      return '📋'; // Clipboard
-  }
 };
 
 // This helper function uses the dagre library to automatically layout the nodes in a tree structure
@@ -102,26 +82,6 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
   return { nodes: layoutedNodes, edges };
 };
 
-// Get color for event type
-const getEventColor = (eventType: IwfHistoryEventType): string => {
-  switch (eventType) {
-    case 'StateWaitUntil':
-      return 'bg-yellow-50 border-yellow-300';
-    case 'StateExecute':
-      return 'bg-green-50 border-green-300';
-    case 'RpcExecution':
-      return 'bg-purple-50 border-purple-300';
-    case 'SignalReceived':
-      return 'bg-blue-50 border-blue-300';
-    case 'WorkflowClosed':
-      return 'bg-gray-50 border-gray-300';
-    case 'WorkflowStarted':
-      return 'bg-blue-50 border-blue-300';
-    default:
-      return 'bg-gray-50 border-gray-300';
-  }
-};
-
 interface WorkflowGraphProps {
   workflowData: WorkflowShowResponse;
   timezone: TimezoneOption;
@@ -131,7 +91,7 @@ interface WorkflowGraphProps {
 export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger }: WorkflowGraphProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [selectedEvent, setSelectedEvent] = useState<{eventType: IwfHistoryEventType, eventData: any} | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<{index: number, event: IwfHistoryEvent} | null>(null);
 
   // Initialize ReactFlow graph when workflowData changes
   useEffect(() => {
@@ -144,8 +104,6 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
 
     // Track the last node ID to create a default flow
     let lastNodeId = '';
-    
-    // We'll let Dagre handle the positioning later
 
     // Create nodes and edges for each history event
     workflowData.historyEvents.forEach((event, index) => {
@@ -155,88 +113,30 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
       
       // Get event type and details based on event type
       switch (event.eventType) {
-        case 'WorkflowStarted':
-          label = 'Workflow Started';
-          if (event.workflowStarted?.workflowType) {
-            label += `: ${event.workflowStarted.workflowType}`;
-          }
-          break;
         case 'StateWaitUntil':
           if (event.stateWaitUntil) {
-            label = 'Wait Until';
-            if (event.stateWaitUntil.stateId) {
-              label += `: ${event.stateWaitUntil.stateId}`;
-            }
-            
             if (event.stateWaitUntil.fromEventId !== undefined && event.stateWaitUntil.fromEventId >= 0) {
               sourceNodeId = `event-${event.stateWaitUntil.fromEventId}`;
-              console.log(`StateWaitUntil node ${nodeId} has source: ${sourceNodeId} (from event ID: ${event.stateWaitUntil.fromEventId})`);
-            } else {
-              console.log(`StateWaitUntil node ${nodeId} has invalid fromEventId: ${event.stateWaitUntil.fromEventId}`);
             }
           }
           break;
-          
         case 'StateExecute':
           if (event.stateExecute) {
-            label = 'Execute';
-            if (event.stateExecute.stateId) {
-              label += `: ${event.stateExecute.stateId}`;
-            }
-            
             if (event.stateExecute.fromEventId !== undefined && event.stateExecute.fromEventId >= 0) {
               sourceNodeId = `event-${event.stateExecute.fromEventId}`;
-              console.log(`StateExecute node ${nodeId} has source: ${sourceNodeId} (from event ID: ${event.stateExecute.fromEventId})`);
-            } else {
-              console.log(`StateExecute node ${nodeId} has invalid fromEventId: ${event.stateExecute.fromEventId}`);
             }
           }
           break;
-          
-        case 'WorkflowClosed':
-          label = 'Workflow Completed';
-          // TODO fix this
-          //  sourceNodeId = `event-${event.workflowClosed.fromEventId}`;
-          break;
-          
-        case 'SignalReceived':
-          label = 'Signal Received';
-          if (event.signalReceived?.signalName) {
-            label += `: ${event.signalReceived.signalName}`;
-          }
-          break;
-          
-        case 'RpcExecution':
-          label = 'RPC Execution';
-          if (event.rpcExecution?.rpcName) {
-            label += `: ${event.rpcExecution.rpcName}`;
-          }
-          break;
-          
-        default:
-          label = `${event.eventType || 'Unknown Event'}`;
       }
       
-      // Create node with initial position (will be updated by Dagre)
       newNodes.push({
         id: nodeId,
         type: 'workflowEvent',
         position: { x: 0, y: 0 }, // Initial position doesn't matter, Dagre will update it
         data: {
-          label,
-          eventType: event.eventType,
-          eventData:
-            event.eventType === 'WorkflowStarted' ? event.workflowStarted :
-            event.eventType === 'StateWaitUntil' ? event.stateWaitUntil :
-            event.eventType === 'StateExecute' ? event.stateExecute :
-            event.eventType === 'WorkflowClosed' ? event.workflowClosed :
-            event.eventType === 'SignalReceived' ? event.signalReceived :
-            event.eventType === 'RpcExecution' ? event.rpcExecution :
-            event,
-          className: getEventColor(event.eventType),
-          timezone: timezone
+          index: index,
+          event: event,
         },
-        // Source/target positions will be set by Dagre based on the layout direction
       });
       
       // Create edge from source node to this node
@@ -279,10 +179,6 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
       lastNodeId = nodeId;
     });
 
-    // Debug: Log information about nodes and edges
-    console.log('Nodes created:', newNodes.length);
-    console.log('Edges created:', newEdges.length);
-    
     // Apply the Dagre layout to our nodes and edges
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(newNodes, newEdges, 'TB');
     
@@ -292,16 +188,12 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
     
   }, [workflowData, timezone]);
 
-  // Add some debug output for the nodes and edges
-  console.log('Current nodes state:', nodes.length);
-  console.log('Current edges state:', edges.length);
-  
   // Handle node click to show details in side panel
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     const nodeData = node.data as WorkflowEventNodeData;
     setSelectedEvent({
-      eventType: nodeData.eventType,
-      eventData: nodeData.eventData
+      index: nodeData.index,
+      event: nodeData.event
     });
   }, []);
 
@@ -347,11 +239,11 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
         <div className="w-1/3 overflow-auto border-l border-gray-200">
           <div className="sticky top-0 bg-white border-b border-gray-200 p-3 flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <span className="text-xl" role="img" aria-label={selectedEvent.eventType}>
-                {getEventIcon(selectedEvent.eventType)}
+              <span className="text-xl" role="img" aria-label={selectedEvent.event.eventType}>
+                {getEventIcon(selectedEvent.event.eventType)}
               </span>
               <h3 className="text-lg font-medium">
-                {selectedEvent.eventType}
+                {selectedEvent.event.eventType}
               </h3>
             </div>
             <button 
@@ -365,8 +257,8 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           </div>
           <div className="p-4">
             <EventDetailsRenderer 
-              eventType={selectedEvent.eventType}
-              eventData={selectedEvent.eventData}
+              eventType={selectedEvent.event.eventType}
+              eventData={selectedEvent.event}
               timezone={timezone}
             />
           </div>
