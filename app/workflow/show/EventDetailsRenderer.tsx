@@ -228,8 +228,23 @@ export default function EventDetailsRenderer({
       case 'WorkflowClosed':
         return (
           <div className={`p-4 text-sm ${className}`}>
-            {eventData.workflowClosedTimestamp && (
+            {eventData.closedType && (
               <div>
+                <span className="font-semibold">Closed Type:</span> 
+                <span className={`ml-2 px-2 py-1 text-xs rounded ${
+                  eventData.closedType === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
+                  eventData.closedType === 'CANCELLED' ? 'bg-orange-100 text-orange-800' :
+                  eventData.closedType === 'FAILED' ? 'bg-red-100 text-red-800' :
+                  eventData.closedType === 'TERMINATED' ? 'bg-gray-100 text-gray-800' :
+                  eventData.closedType === 'CONTINUED_AS_NEW' ? 'bg-blue-100 text-blue-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {eventData.closedType}
+                </span>
+              </div>
+            )}
+            {eventData.workflowClosedTimestamp && (
+              <div className="mt-2">
                 <span className="font-semibold">Closed At:</span> 
                 {formatWithTimezone(eventData.workflowClosedTimestamp, timezone)}
               </div>
@@ -240,6 +255,16 @@ export default function EventDetailsRenderer({
                 <div className="relative">
                   <pre className="text-xs mt-1 bg-gray-50 p-2 rounded overflow-auto max-h-60 border border-gray-200">
                     {JSON.stringify(eventData.output, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+            {eventData.failure && (
+              <div>
+                <div className="font-semibold mt-3 text-red-600">Failure:</div>
+                <div className="relative">
+                  <pre className="text-xs mt-1 bg-red-50 p-2 rounded overflow-auto max-h-60 border border-red-200 text-red-800">
+                    {JSON.stringify(eventData.failure, null, 2)}
                   </pre>
                 </div>
               </div>

@@ -170,6 +170,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     let startingStateLookup: Map<string, IndexAndStateOption[]> = new Map();
     let continueAsNewSnapshot: ContinueAsNewDumpResponse|undefined;
     const continueAsNewActivityScheduleIds = new Map<number, boolean>();
+    const invokedRPCActivityScheduleIds = new Map<number, boolean>();
 
     // 0 is always the started event
     // -1 (or <0) is unknown.
@@ -213,7 +214,8 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       }
 
       // update startingStateLookup
-      for (let i = 0; i < continueAsNewSnapshot.StatesToStartFromBeginning.length; i++) {
+      const length:number = continueAsNewSnapshot.StatesToStartFromBeginning ? continueAsNewSnapshot.StatesToStartFromBeginning.length:0;
+      for (let i = 0; i < length; i++) {
         const stateMovement = continueAsNewSnapshot.StatesToStartFromBeginning[i]
         const stateId = stateMovement.stateId
         let lookup: IndexAndStateOption[] = startingStateLookup.get(stateId);
@@ -369,16 +371,22 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           const eventIndex = historyEvents.length;
           historyLookupByScheduledId.set(event.eventId.toNumber(), eventIndex)
           historyEvents.push(iwfEvent);
+        }else if(event.activityTaskScheduledEventAttributes.activityType.name == "InvokeWorkerRpc"){
+          invokedRPCActivityScheduleIds.set(event.eventId.toNumber(), true)
         }else{
-          //  TODO: build up a map for rpc locking
+          // NOTE: this must be continueAsNew
         }
       } else if (event.activityTaskCompletedEventAttributes) {
         const scheduledId = event.activityTaskCompletedEventAttributes.scheduledEventId.toNumber()
-        if(continueAsNewActivityScheduleIds.has(scheduledId)){
-          // skip continueAsNew activity
+        if(continueAsNewActivityScheduleIds.has(scheduledId) || invokedRPCActivityScheduleIds.has(scheduledId)){
+          // skip continueAsNew and invokeRPC activity
           continue;
         }
         const indexToUpdate = historyLookupByScheduledId.get(scheduledId)
+        if (!historyEvents[indexToUpdate]){
+          console.log(`ERROR: No scheduled event id ${scheduledId}`);
+          continue;
+        }
         if(historyEvents[indexToUpdate].eventType == "StateWaitUntil"){
           let waitUntilDetails = historyEvents[indexToUpdate].stateWaitUntil
           // process StateApiWaitUntil for activityTaskCompleted
