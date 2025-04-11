@@ -66,31 +66,8 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
 
     const newNodes: CustomNode[] = [];
     const newEdges: Edge[] = [];
-    
-    // Start node for workflow
-    const startNodeId = 'workflow-start';
-    newNodes.push({
-      id: startNodeId,
-      type: 'workflowEvent',
-      position: { x: 250, y: 0 },
-      data: {
-        label: 'Workflow Started',
-        eventType: 'WorkflowStarted',
-        eventData: {
-          workflowType: workflowData.workflowType,
-          workflowStartedTimestamp: workflowData.workflowStartedTimestamp
-        },
-        className: 'bg-blue-50 border-blue-300',
-        timezone: timezone
-      },
-      // Add source position to improve edge routing
-      sourcePosition: Position.Bottom,
-      targetPosition: Position.Top,
-    });
 
-    let lastNodeId = startNodeId;
-    // Track execution IDs for proper edge connections
-    let stateExecutionIdMap = new Map<string, string>();
+
     let yPosition = 100;
     const xPosition = 250;
     const yStep = 160; // Increased vertical spacing between nodes
@@ -99,73 +76,35 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
     workflowData.historyEvents.forEach((event, index) => {
       const nodeId = `event-${index}`;
       let label = '';
-      let details: Record<string, any> = {};
-      let sourceNodeId = lastNodeId;
+      let sourceNodeId = "";
       
       // Get event type and details based on event type
       switch (event.eventType) {
+        case 'WorkflowStarted':
+          label = 'Workflow Started: '+event.workflowStarted.workflowType;
+          break;
         case 'StateWaitUntil':
           if (event.stateWaitUntil) {
-            label = `WaitUntil: ${event.stateWaitUntil.stateId}`;
-            
-            // Basic details for collapsed view
-            details = {
-              'State ID': event.stateWaitUntil.stateId,
-              'Execution ID': event.stateWaitUntil.stateExecutionId?.substring(0, 8) + '...',
-            };
-
-            // Store the node ID for this execution ID for future reference
-            if (event.stateWaitUntil.stateExecutionId) {
-              stateExecutionIdMap.set(event.stateWaitUntil.stateExecutionId, nodeId);
-            }
-            
-            // If this event has a fromEventId reference, connect from that event instead
-            if (event.stateWaitUntil.fromEventId !== undefined && event.stateWaitUntil.fromEventId >= 0) {
-              sourceNodeId = `event-${event.stateWaitUntil.fromEventId}`;
-            }
-            
-            // No need for expanded details with popup approach
+            label = `StateWaitUntil: ${event.stateWaitUntil.stateExecutionId}`;
+            sourceNodeId = `event-${event.stateWaitUntil.fromEventId}`;
           }
           break;
           
         case 'StateExecute':
           if (event.stateExecute) {
-            label = `Execute: ${event.stateExecute.stateId}`;
-            
-            // Basic details for collapsed view
-            details = {
-              'State ID': event.stateExecute.stateId,
-              'Execution ID': event.stateExecute.stateExecutionId?.substring(0, 8) + '...',
-            };
-
-            // If this event came from a waitUntil event, connect from that node
-            if (event.stateExecute.stateExecutionId && stateExecutionIdMap.has(event.stateExecute.stateExecutionId)) {
-              sourceNodeId = stateExecutionIdMap.get(event.stateExecute.stateExecutionId) as string;
-            } 
-            // Otherwise if it has a fromEventId, use that
-            else if (event.stateExecute.fromEventId !== undefined && event.stateExecute.fromEventId >= 0) {
-              sourceNodeId = `event-${event.stateExecute.fromEventId}`;
-            }
-            
-            // No need for expanded details with popup approach
+            label = `Execute: ${event.stateExecute.stateExecutionId}`;
+            sourceNodeId = `event-${event.stateExecute.fromEventId}`;
           }
           break;
           
         case 'WorkflowClosed':
-          if (event.workflowClosed) {
-            label = 'Workflow Completed';
-            details = {
-              'Closed At': event.workflowClosed.workflowClosedTimestamp ? 
-                formatTimestamp(event.workflowClosed.workflowClosedTimestamp * 1000, timezone) : 'Unknown'
-            };
-            
-            // No need for expanded details with popup approach
-          }
+          label = 'Workflow Completed';
+          // TODO fix this
+          //  sourceNodeId = `event-${event.workflowClosed.fromEventId}`;
           break;
           
         default:
           label = `${event.eventType || 'Unknown Event'}`;
-          details = { 'Event Index': index };
       }
       
       // Create node
@@ -176,7 +115,8 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
         data: {
           label,
           eventType: event.eventType,
-          eventData: 
+          eventData:
+            event.eventType === 'WorkflowStarted' ? event.workflowStarted :
             event.eventType === 'StateWaitUntil' ? event.stateWaitUntil :
             event.eventType === 'StateExecute' ? event.stateExecute :
             event.eventType === 'WorkflowClosed' ? event.workflowClosed :
@@ -213,7 +153,6 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
         });
       }
       
-      lastNodeId = nodeId;
       yPosition += yStep;
     });
 
