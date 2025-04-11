@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { IwfHistoryEvent } from '../../ts-api/src/api-gen/api';
-import { formatTimestamp } from '../../components/utils';
-import { useTimezoneManager } from '../../components/TimezoneManager';
-import {TimezoneOption} from "../../components/types";
+import { TimezoneOption } from "../../components/types";
+import EventDetailsRenderer, { 
+  getBadgeColor, 
+  getEventIcon, 
+  getEventTypeColor 
+} from './EventDetailsRenderer';
 
 interface EventDetailsProps {
   event: IwfHistoryEvent;
@@ -30,250 +33,35 @@ export default function WorkflowEventDetails({
     }
   }, [globalExpandState]);
 
-  // Create a direct formatter function that will always use the current timezone value
-  const formatWithTimezone = (timestamp: number) => {
-    // We force recalculation each time to ensure we have the latest timezone
-    return formatTimestamp(timestamp * 1000, timezone);
-  };
-
-  // Function to determine event color based on event type
-  const getEventTypeColor = () => {
+  // Get event detail data based on event type
+  const getEventData = () => {
     switch (event.eventType) {
       case 'WorkflowStarted':
-        return 'bg-blue-100 border-blue-300';
-      case 'StateWaitUntil':
-        return 'bg-yellow-100 border-yellow-300';
-      case 'StateExecute':
-        return 'bg-green-100 border-green-300';
-      case 'RpcExecution':
-        return 'bg-purple-100 border-purple-300';
-      case 'SignalReceived':
-        return 'bg-blue-100 border-blue-300';
+        return event.workflowStarted;
       case 'WorkflowClosed':
-        return 'bg-gray-100 border-gray-300';
-      default:
-        return 'bg-gray-100 border-gray-300';
-    }
-  };
-  
-  // Function to determine badge color based on event type
-  const getBadgeColor = () => {
-    switch (event.eventType) {
-      case 'WorkflowStarted':
-        return 'bg-blue-600';
+        return event.workflowClosed;
       case 'StateWaitUntil':
-        return 'bg-yellow-600';
+        return event.stateWaitUntil;
       case 'StateExecute':
-        return 'bg-green-600';
-      case 'RpcExecution':
-        return 'bg-purple-600';
+        return event.stateExecute;
       case 'SignalReceived':
-        return 'bg-blue-600';
-      case 'WorkflowClosed':
-        return 'bg-gray-600';
-      default:
-        return 'bg-gray-700';
-    }
-  };
-  
-  // Function to get an appropriate icon for each event type
-  const getEventIcon = () => {
-    switch (event.eventType) {
-      case 'WorkflowStarted':
-        return '🚀'; // Rocket
-      case 'StateWaitUntil':
-        return '⏳'; // Hourglass
-      case 'StateExecute':
-        return '▶️'; // Play button
+        return event.signalReceived;
       case 'RpcExecution':
-        return '🔄'; // Cycle arrows
-      case 'SignalReceived':
-        return '📡'; // Satellite antenna
-      case 'WorkflowClosed':
-        return '🏁'; // Checkered flag
+        return event.rpcExecution;
       default:
-        return '📋'; // Clipboard
+        return event;
     }
-  };
-
-  // Function to render event details based on its type
-  const renderEventDetails = () => {
-    if (!expanded) {
-      return null;
-    }
-
-    if (event.workflowStarted) {
-      const details = event.workflowStarted;
-      return (
-        <div className="mt-2 pl-2 text-sm border-l-2 border-blue-300">
-          <div><span className="font-semibold">Workflow Type:</span> {details.workflowType}</div>
-          {details.workflowStartedTimestamp && (
-            <div>
-              <span className="font-semibold">Started:</span> 
-              {formatWithTimezone(details.workflowStartedTimestamp)}
-            </div>
-          )}
-          {details.input && (
-            <div>
-              <div className="font-semibold mt-1">Input:</div>
-              <div className="relative">
-                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
-                  {JSON.stringify(details.input, null, 2)}
-                </pre>
-                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
-              </div>
-            </div>
-          )}
-          {details.continueAsNewSnapshot && (
-            <div>
-              <div className="font-semibold mt-1">Continue As New:</div>
-              <div className="relative">
-                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
-                  {JSON.stringify(details.continueAsNewSnapshot, null, 2)}
-                </pre>
-                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (event.workflowClosed) {
-      const details = event.workflowClosed;
-      return (
-        <div className="mt-2 pl-2 text-sm border-l-2 border-gray-300">
-          {details.workflowClosedTimestamp && (
-            <div>
-              <span className="font-semibold">Closed:</span> 
-              {formatWithTimezone(details.workflowClosedTimestamp)}
-            </div>
-          )}
-          {details.output && (
-            <div>
-              <div className="font-semibold mt-1">Output:</div>
-              <div className="relative">
-                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
-                  {JSON.stringify(details.output, null, 2)}
-                </pre>
-                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (event.stateWaitUntil) {
-      const details = event.stateWaitUntil;
-      return (
-        <div className="mt-2 pl-2 text-sm border-l-2 border-yellow-300">
-          <div><span className="font-semibold">State ID:</span> {details.stateId}</div>
-          <div><span className="font-semibold">Execution ID:</span> {details.stateExecutionId}</div>
-          {details.firstAttemptStartedTimestamp && (
-            <div>
-              <span className="font-semibold">Started:</span> 
-              {formatWithTimezone(details.firstAttemptStartedTimestamp)}
-            </div>
-          )}
-          {details.completedTimestamp && (
-            <div>
-              <span className="font-semibold">Completed:</span> 
-              {formatWithTimezone(details.completedTimestamp)}
-            </div>
-          )}
-          {details.fromEventId !== undefined && (
-            <div><span className="font-semibold">From Event:</span> {details.fromEventId}</div>
-          )}
-          {details.input && (
-            <div>
-              <div className="font-semibold mt-1">Input:</div>
-              <div className="relative">
-                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
-                  {JSON.stringify(details.input, null, 2)}
-                </pre>
-                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
-              </div>
-            </div>
-          )}
-          {details.response && (
-            <div>
-              <div className="font-semibold mt-1">Response:</div>
-              <div className="relative">
-                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
-                  {JSON.stringify(details.response, null, 2)}
-                </pre>
-                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (event.stateExecute) {
-      const details = event.stateExecute;
-      return (
-        <div className="mt-2 pl-2 text-sm border-l-2 border-green-300">
-          <div><span className="font-semibold">State ID:</span> {details.stateId}</div>
-          <div><span className="font-semibold">Execution ID:</span> {details.stateExecutionId}</div>
-          {details.firstAttemptStartedTimestamp && (
-            <div>
-              <span className="font-semibold">Started:</span> 
-              {formatWithTimezone(details.firstAttemptStartedTimestamp)}
-            </div>
-          )}
-          {details.completedTimestamp && (
-            <div>
-              <span className="font-semibold">Completed:</span> 
-              {formatWithTimezone(details.completedTimestamp)}
-            </div>
-          )}
-          {details.fromEventId !== undefined && (
-            <div><span className="font-semibold">From Event:</span> {details.fromEventId}</div>
-          )}
-          {details.input && (
-            <div>
-              <div className="font-semibold mt-1">Input:</div>
-              <div className="relative">
-                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
-                  {JSON.stringify(details.input, null, 2)}
-                </pre>
-                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
-              </div>
-            </div>
-          )}
-          {details.response && details.response.stateDecision && (
-            <div>
-              <div className="font-semibold mt-1">State Decision:</div>
-              <div className="relative">
-                <pre className="text-xs mt-1 bg-gray-50 p-1 rounded overflow-auto max-h-48 resize-y border border-gray-200">
-                  {JSON.stringify(details.response.stateDecision, null, 2)}
-                </pre>
-                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-50 to-transparent pointer-events-none"></div>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return (
-      <div className="mt-2 pl-2 text-sm border-l-2 border-gray-300">
-        <div className="italic text-gray-500">No detailed information available</div>
-      </div>
-    );
   };
 
   return (
-    <div className={`mb-4 p-3 border rounded-md shadow-sm ${getEventTypeColor()}`}>
+    <div className={`mb-4 p-3 border rounded-md shadow-sm ${getEventTypeColor(event.eventType)}`}>
       <div 
         className="flex justify-between items-center cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="font-medium flex items-center">
-          <span className={`${getBadgeColor()} text-white px-2 py-0.5 rounded-md text-xs font-bold mr-2 inline-flex items-center shadow-sm`}>
-            <span className="mr-0.5">{getEventIcon()}</span> Event {index}
+          <span className={`${getBadgeColor(event.eventType)} text-white px-2 py-0.5 rounded-md text-xs font-bold mr-2 inline-flex items-center shadow-sm`}>
+            <span className="mr-0.5">{getEventIcon(event.eventType)}</span> Event {index}
           </span>
           <span className="text-gray-800">
             {event.eventType}
@@ -289,7 +77,17 @@ export default function WorkflowEventDetails({
           {expanded ? '−' : '+'}
         </button>
       </div>
-      {renderEventDetails()}
+      
+      {/* Use shared renderer when expanded */}
+      {expanded && (
+        <div className="mt-2 pl-2 border-l-2 border-l-blue-200">
+          <EventDetailsRenderer 
+            eventType={event.eventType}
+            eventData={getEventData()}
+            timezone={timezone}
+          />
+        </div>
+      )}
     </div>
   );
 }

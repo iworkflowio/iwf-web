@@ -57,22 +57,8 @@ interface WorkflowGraphProps {
 export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger }: WorkflowGraphProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-  // Toggle expanded state for a node
-  const toggleNodeExpanded = useCallback((nodeId: string) => {
-    setExpandedNodes(prev => {
-      const next = new Set(prev);
-      if (next.has(nodeId)) {
-        next.delete(nodeId);
-      } else {
-        next.add(nodeId);
-      }
-      return next;
-    });
-  }, []);
-
-  // Initialize ReactFlow graph when workflowData changes or when expandedNodes changes
+  // Initialize ReactFlow graph when workflowData changes
   useEffect(() => {
     if (!workflowData || !workflowData.historyEvents || workflowData.historyEvents.length === 0) {
       return;
@@ -89,11 +75,13 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
       position: { x: 250, y: 0 },
       data: {
         label: 'Workflow Started',
-        details: {
-          'Type': workflowData.workflowType || 'Unknown',
-          'Started': formatTimestamp(workflowData.workflowStartedTimestamp * 1000, timezone)
+        eventType: 'WorkflowStarted',
+        eventData: {
+          workflowType: workflowData.workflowType,
+          workflowStartedTimestamp: workflowData.workflowStartedTimestamp
         },
-        className: 'bg-blue-50 border-blue-300'
+        className: 'bg-blue-50 border-blue-300',
+        timezone: timezone
       },
       // Add source position to improve edge routing
       sourcePosition: Position.Bottom,
@@ -136,22 +124,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
               sourceNodeId = `event-${event.stateWaitUntil.fromEventId}`;
             }
             
-            // Add expanded details if node is expanded
-            if (expandedNodes.has(nodeId)) {
-              details = {
-                ...details,
-                'Started': event.stateWaitUntil.firstAttemptStartedTimestamp ? 
-                  formatTimestamp(event.stateWaitUntil.firstAttemptStartedTimestamp * 1000, timezone) : 'Unknown',
-                'Completed': event.stateWaitUntil.completedTimestamp ? 
-                  formatTimestamp(event.stateWaitUntil.completedTimestamp * 1000, timezone) : 'Unknown',
-                'From Event': event.stateWaitUntil.fromEventId !== undefined ? 
-                  event.stateWaitUntil.fromEventId : 'Unknown',
-                'Input': event.stateWaitUntil.input ? 
-                  JSON.stringify(event.stateWaitUntil.input).substring(0, 50) + '...' : 'None',
-                'Response': event.stateWaitUntil.response ? 
-                  JSON.stringify(event.stateWaitUntil.response).substring(0, 50) + '...' : 'None'
-              };
-            }
+            // No need for expanded details with popup approach
           }
           break;
           
@@ -174,25 +147,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
               sourceNodeId = `event-${event.stateExecute.fromEventId}`;
             }
             
-            // Add expanded details if node is expanded
-            if (expandedNodes.has(nodeId)) {
-              details = {
-                ...details,
-                'Started': event.stateExecute.firstAttemptStartedTimestamp ? 
-                  formatTimestamp(event.stateExecute.firstAttemptStartedTimestamp * 1000, timezone) : 'Unknown',
-                'Completed': event.stateExecute.completedTimestamp ? 
-                  formatTimestamp(event.stateExecute.completedTimestamp * 1000, timezone) : 'Unknown',
-                'From Event': event.stateExecute.fromEventId !== undefined ? 
-                  event.stateExecute.fromEventId : 'Unknown',
-              };
-              
-              // Add state decision details if present
-              if (event.stateExecute.response?.stateDecision) {
-                const nextStates = event.stateExecute.response.stateDecision.nextStates || [];
-                details['Next States'] = nextStates.length > 0 ? 
-                  nextStates.map(s => s.stateId).join(', ') : 'None';
-              }
-            }
+            // No need for expanded details with popup approach
           }
           break;
           
@@ -204,10 +159,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
                 formatTimestamp(event.workflowClosed.workflowClosedTimestamp * 1000, timezone) : 'Unknown'
             };
             
-            // Add output if available and node is expanded
-            if (expandedNodes.has(nodeId) && event.workflowClosed.output) {
-              details['Output'] = JSON.stringify(event.workflowClosed.output).substring(0, 50) + '...';
-            }
+            // No need for expanded details with popup approach
           }
           break;
           
@@ -223,11 +175,16 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
         position: { x: xPosition, y: yPosition },
         data: {
           label,
-          details,
+          eventType: event.eventType,
+          eventData: 
+            event.eventType === 'StateWaitUntil' ? event.stateWaitUntil :
+            event.eventType === 'StateExecute' ? event.stateExecute :
+            event.eventType === 'WorkflowClosed' ? event.workflowClosed :
+            event.eventType === 'SignalReceived' ? event.signalReceived :
+            event.eventType === 'RpcExecution' ? event.rpcExecution :
+            event,
           className: getEventColor(event.eventType),
-          expandable: true,
-          expanded: expandedNodes.has(nodeId),
-          onExpand: () => toggleNodeExpanded(nodeId)
+          timezone: timezone
         },
         // Add source and target positions to improve edge routing
         sourcePosition: Position.Bottom,
@@ -264,7 +221,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
     setNodes(newNodes);
     setEdges(newEdges);
     
-  }, [workflowData, timezone, expandedNodes, toggleNodeExpanded]);
+  }, [workflowData, timezone]);
 
   return (
     <div className="h-[700px] border border-gray-200 rounded-lg">
