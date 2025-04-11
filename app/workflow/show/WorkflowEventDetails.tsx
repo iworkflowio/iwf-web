@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { IwfHistoryEvent } from '../../ts-api/src/api-gen/api';
 import { TimezoneOption } from "../../components/types";
-import EventDetailsRenderer, { 
-  getBadgeColor, 
-  getEventIcon, 
-  getEventTypeColor 
+import EventDetailsRenderer, {
+  getBadgeColor, getEventData,
+  getEventIcon,
+  getEventTypeColor
 } from './EventDetailsRenderer';
 
 interface EventDetailsProps {
@@ -34,24 +34,6 @@ export default function WorkflowEventDetails({
   }, [globalExpandState]);
 
   // Get event detail data based on event type
-  const getEventData = () => {
-    switch (event.eventType) {
-      case 'WorkflowStarted':
-        return event.workflowStarted;
-      case 'WorkflowClosed':
-        return event.workflowClosed;
-      case 'StateWaitUntil':
-        return event.stateWaitUntil;
-      case 'StateExecute':
-        return event.stateExecute;
-      case 'SignalReceived':
-        return event.signalReceived;
-      case 'RpcExecution':
-        return event.rpcExecution;
-      default:
-        return event;
-    }
-  };
 
   return (
     <div className={`mb-4 p-3 border rounded-md shadow-sm ${getEventTypeColor(event.eventType)}`}>
@@ -83,7 +65,7 @@ export default function WorkflowEventDetails({
         <div className="mt-2 pl-2 border-l-2 border-l-blue-200">
           <EventDetailsRenderer 
             eventType={event.eventType}
-            eventData={getEventData()}
+            eventData={getEventData(event)}
             timezone={timezone}
           />
         </div>

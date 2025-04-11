@@ -11,6 +11,25 @@ interface EventDetailsRendererProps {
   className?: string;
 }
 
+export const getEventData = (event: IwfHistoryEvent) => {
+  switch (event.eventType) {
+    case 'WorkflowStarted':
+      return event.workflowStarted;
+    case 'WorkflowClosed':
+      return event.workflowClosed;
+    case 'StateWaitUntil':
+      return event.stateWaitUntil;
+    case 'StateExecute':
+      return event.stateExecute;
+    case 'SignalReceived':
+      return event.signalReceived;
+    case 'RpcExecution':
+      return event.rpcExecution;
+    default:
+      return event;
+  }
+};
+
 // Function to determine event color based on event type
 export const getEventTypeColor = (eventType: IwfHistoryEventType) => {
   switch (eventType) {
@@ -124,7 +143,7 @@ export default function EventDetailsRenderer({
         return (
           <div className={`p-4 text-sm ${className}`}>
             <div><span className="font-semibold">State ID:</span> {eventData.stateId}</div>
-            <div><span className="font-semibold">Execution ID:</span> {eventData.stateExecutionId}</div>
+            <div><span className="font-semibold">State Execution ID:</span> {eventData.stateExecutionId}</div>
             {eventData.firstAttemptStartedTimestamp && (
               <div>
                 <span className="font-semibold">Started:</span> 
@@ -167,7 +186,7 @@ export default function EventDetailsRenderer({
         return (
           <div className={`p-4 text-sm ${className}`}>
             <div><span className="font-semibold">State ID:</span> {eventData.stateId}</div>
-            <div><span className="font-semibold">Execution ID:</span> {eventData.stateExecutionId}</div>
+            <div><span className="font-semibold">State Execution ID:</span> {eventData.stateExecutionId}</div>
             {eventData.firstAttemptStartedTimestamp && (
               <div>
                 <span className="font-semibold">Started:</span> 

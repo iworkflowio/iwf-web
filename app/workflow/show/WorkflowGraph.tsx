@@ -20,7 +20,7 @@ import { IwfHistoryEvent, IwfHistoryEventType, WorkflowShowResponse } from '../.
 import { formatTimestamp } from '../../components/utils';
 import { TimezoneOption } from '../../components/types';
 import WorkflowEventNode, { WorkflowEventNodeData } from './WorkflowEventNode';
-import EventDetailsRenderer, {getEventIcon} from './EventDetailsRenderer';
+import EventDetailsRenderer, {getEventData, getEventIcon} from './EventDetailsRenderer';
 
 // Define the custom node type with its data
 type CustomNode = Node<WorkflowEventNodeData>;
@@ -258,7 +258,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           <div className="p-4">
             <EventDetailsRenderer 
               eventType={selectedEvent.event.eventType}
-              eventData={selectedEvent.event}
+              eventData={getEventData(selectedEvent.event)}
               timezone={timezone}
             />
           </div>
