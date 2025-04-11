@@ -170,7 +170,6 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     let startingStateLookup: Map<string, IndexAndStateOption[]> = new Map();
     let continueAsNewSnapshot: ContinueAsNewDumpResponse|undefined;
     const continueAsNewActivityScheduleIds = new Map<number, boolean>();
-    const invokedRPCActivityScheduleIds = new Map<number, boolean>();
 
     // 0 is always the started event
     // -1 (or <0) is unknown.
@@ -372,13 +371,13 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           historyLookupByScheduledId.set(event.eventId.toNumber(), eventIndex)
           historyEvents.push(iwfEvent);
         }else if(event.activityTaskScheduledEventAttributes.activityType.name == "InvokeWorkerRpc"){
-          invokedRPCActivityScheduleIds.set(event.eventId.toNumber(), true)
+          g
         }else{
           // NOTE: this must be continueAsNew
         }
       } else if (event.activityTaskCompletedEventAttributes) {
         const scheduledId = event.activityTaskCompletedEventAttributes.scheduledEventId.toNumber()
-        if(continueAsNewActivityScheduleIds.has(scheduledId) || invokedRPCActivityScheduleIds.has(scheduledId)){
+        if(continueAsNewActivityScheduleIds.has(scheduledId)){
           // skip continueAsNew and invokeRPC activity
           continue;
         }
