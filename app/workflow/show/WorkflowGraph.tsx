@@ -15,6 +15,7 @@ import {
   Panel
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import dagre from 'dagre';
 import { IwfHistoryEvent, IwfHistoryEventType, WorkflowShowResponse } from '../../ts-api/src/api-gen/api';
 import { formatTimestamp } from '../../components/utils';
 import { TimezoneOption } from '../../components/types';
@@ -26,6 +27,58 @@ type CustomNode = Node<WorkflowEventNodeData>;
 // Custom node types mapping
 const nodeTypes = {
   workflowEvent: WorkflowEventNode,
+};
+
+// This helper function uses the dagre library to automatically layout the nodes in a tree structure
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
+  // Create a new dagre graph
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  
+  // Set the direction and spacing
+  const isHorizontal = direction === 'LR';
+  dagreGraph.setGraph({ 
+    rankdir: direction,
+    nodesep: 80, // Horizontal spacing between nodes
+    ranksep: 100, // Vertical spacing between ranks/levels
+  });
+
+  // Add nodes to the dagre graph.
+  // The width and height are required by dagre
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { 
+      width: 220, // Approximate width of our nodes
+      height: 80,  // Approximate height of our nodes
+    });
+  });
+
+  // Add edges to the dagre graph
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  // Let dagre do its layout magic
+  dagre.layout(dagreGraph);
+
+  // Get the new node positions from dagre
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    
+    // We need to preserve properties like width, height, id, type, and data
+    return {
+      ...node,
+      // Position is different based on direction
+      position: {
+        x: nodeWithPosition.x - 110, // Center the node (half of our estimated width)
+        y: nodeWithPosition.y - 40,  // Center the node (half of our estimated height)
+      },
+      // We also preserve source/target positions to ensure edges connect properly
+      sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
+      targetPosition: isHorizontal ? Position.Left : Position.Top,
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
 };
 
 // Get color for event type
@@ -67,13 +120,10 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
     const newNodes: CustomNode[] = [];
     const newEdges: Edge[] = [];
 
-
-    let yPosition = 100;
-    const xPosition = 250;
-    const yStep = 160; // Increased vertical spacing between nodes
-
     // Track the last node ID to create a default flow
     let lastNodeId = '';
+    
+    // We'll let Dagre handle the positioning later
 
     // Create nodes and edges for each history event
     workflowData.historyEvents.forEach((event, index) => {
@@ -120,11 +170,11 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           label = `${event.eventType || 'Unknown Event'}`;
       }
       
-      // Create node
+      // Create node with initial position (will be updated by Dagre)
       newNodes.push({
         id: nodeId,
         type: 'workflowEvent',
-        position: { x: xPosition, y: yPosition },
+        position: { x: 0, y: 0 }, // Initial position doesn't matter, Dagre will update it
         data: {
           label,
           eventType: event.eventType,
@@ -139,9 +189,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           className: getEventColor(event.eventType),
           timezone: timezone
         },
-        // Add source and target positions to improve edge routing
-        sourcePosition: Position.Bottom,
-        targetPosition: Position.Top,
+        // Source/target positions will be set by Dagre based on the layout direction
       });
       
       // Create edge from source node to this node
@@ -151,7 +199,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           id: `edge-${sourceNodeId}-${nodeId}`,
           source: sourceNodeId,
           target: nodeId,
-          type: 'smoothstep', // Use smoothstep for better appearance
+          type: 'bezier', 
           animated: true,
           style: { stroke: '#2563eb', strokeWidth: 2 }, // Use blue-600 for better appearance
           markerEnd: {
@@ -168,7 +216,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           id: `edge-${lastNodeId}-${nodeId}`,
           source: lastNodeId,
           target: nodeId,
-          type: 'smoothstep',
+          type: 'bezier',
           animated: false, // Non-animated for fallback connections
           style: { stroke: '#94a3b8', strokeWidth: 1.5, strokeDasharray: '5,5' }, // Dotted line in slate-400
           markerEnd: {
@@ -182,17 +230,18 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
       
       // Update the last node ID for the next iteration
       lastNodeId = nodeId;
-      yPosition += yStep;
     });
 
     // Debug: Log information about nodes and edges
     console.log('Nodes created:', newNodes.length);
     console.log('Edges created:', newEdges.length);
-    console.log('Edges data:', newEdges);
     
-    // Update the nodes and edges
-    setNodes(newNodes);
-    setEdges(newEdges);
+    // Apply the Dagre layout to our nodes and edges
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(newNodes, newEdges, 'TB');
+    
+    // Update the nodes and edges with the layouted ones
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
     
   }, [workflowData, timezone]);
 
