@@ -71,26 +71,6 @@ export const getEventIcon = (eventType: IwfHistoryEventType) => {
   }
 };
 
-// Helper function to get a human-readable title for event types
-export const getEventTypeTitle = (eventType: IwfHistoryEventType): string => {
-  switch (eventType) {
-    case 'StateWaitUntil':
-      return 'State Wait Until Event';
-    case 'StateExecute':
-      return 'State Execute Event';
-    case 'WorkflowClosed':
-      return 'Workflow Closed Event';
-    case 'WorkflowStarted':
-      return 'Workflow Started Event';
-    case 'SignalReceived':
-      return 'Signal Received Event';
-    case 'RpcExecution':
-      return 'RPC Execution Event';
-    default:
-      return `${eventType} Event`;
-  }
-};
-
 // Function to format timestamp with timezone
 export const formatWithTimezone = (timestamp: number, timezone: TimezoneOption) => {
   return formatTimestamp(timestamp * 1000, timezone);

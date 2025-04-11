@@ -5,7 +5,7 @@ import { NodeProps } from '@xyflow/react';
 import { IwfHistoryEventType } from '../../ts-api/src/api-gen/api';
 import { formatTimestamp } from '../../components/utils';
 import { TimezoneOption } from '../../components/types';
-import EventDetailsRenderer, { getEventTypeTitle } from './EventDetailsRenderer';
+import EventDetailsRenderer from './EventDetailsRenderer';
 
 // Define custom node data type
 export type WorkflowEventNodeData = {
@@ -36,7 +36,7 @@ const EventDetailsPopup = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
         <div className="flex justify-between items-center p-4 border-b">
-          <h3 className="text-xl font-semibold">{getEventTypeTitle(eventType)}</h3>
+          <h3 className="text-xl font-semibold">{eventType}</h3>
           <button 
             onClick={onClose} 
             className="text-gray-500 hover:text-gray-700 text-xl"
@@ -75,30 +75,6 @@ const WorkflowEventNode = ({ data }: NodeProps) => {
     <>
       <div className={`p-4 border rounded-md shadow-md ${data.className} mb-2`}>
         <div className="font-semibold mb-2">{data.label}</div>
-        
-        {/* Simple summary of the event */}
-        <div className="text-xs text-gray-600 mb-3">
-          {data.eventType === 'StateWaitUntil' && data.eventData?.stateId && (
-            <div className="flex">
-              <span className="font-medium mr-1">State ID:</span>
-              <span>{data.eventData.stateId}</span>
-            </div>
-          )}
-          
-          {data.eventType === 'StateExecute' && data.eventData?.stateId && (
-            <div className="flex">
-              <span className="font-medium mr-1">State ID:</span>
-              <span>{data.eventData.stateId}</span>
-            </div>
-          )}
-          
-          {data.eventType === 'WorkflowClosed' && data.eventData?.workflowClosedTimestamp && (
-            <div className="flex">
-              <span className="font-medium mr-1">Closed At:</span>
-              <span>{formatTimestamp(data.eventData.workflowClosedTimestamp * 1000, data.timezone)}</span>
-            </div>
-          )}
-        </div>
         
         {/* Button to show details popup */}
         <button 
