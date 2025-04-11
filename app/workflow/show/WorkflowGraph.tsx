@@ -72,6 +72,9 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
     const xPosition = 250;
     const yStep = 160; // Increased vertical spacing between nodes
 
+    // Track the last node ID to create a default flow
+    let lastNodeId = '';
+
     // Create nodes and edges for each history event
     workflowData.historyEvents.forEach((event, index) => {
       const nodeId = `event-${index}`;
@@ -86,14 +89,24 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
         case 'StateWaitUntil':
           if (event.stateWaitUntil) {
             label = `StateWaitUntil: ${event.stateWaitUntil.stateExecutionId}`;
-            sourceNodeId = `event-${event.stateWaitUntil.fromEventId}`;
+            if (event.stateWaitUntil.fromEventId !== undefined && event.stateWaitUntil.fromEventId >= 0) {
+              sourceNodeId = `event-${event.stateWaitUntil.fromEventId}`;
+              console.log(`StateWaitUntil node ${nodeId} has source: ${sourceNodeId} (from event ID: ${event.stateWaitUntil.fromEventId})`);
+            } else {
+              console.log(`StateWaitUntil node ${nodeId} has invalid fromEventId: ${event.stateWaitUntil.fromEventId}`);
+            }
           }
           break;
           
         case 'StateExecute':
           if (event.stateExecute) {
             label = `Execute: ${event.stateExecute.stateExecutionId}`;
-            sourceNodeId = `event-${event.stateExecute.fromEventId}`;
+            if (event.stateExecute.fromEventId !== undefined && event.stateExecute.fromEventId >= 0) {
+              sourceNodeId = `event-${event.stateExecute.fromEventId}`;
+              console.log(`StateExecute node ${nodeId} has source: ${sourceNodeId} (from event ID: ${event.stateExecute.fromEventId})`);
+            } else {
+              console.log(`StateExecute node ${nodeId} has invalid fromEventId: ${event.stateExecute.fromEventId}`);
+            }
           }
           break;
           
@@ -132,12 +145,15 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
       });
       
       // Create edge from source node to this node
-      if (sourceNodeId) {
+      if (sourceNodeId && sourceNodeId !== nodeId) {
+        // Create edge if we have a valid source node from the event
         newEdges.push({
           id: `edge-${sourceNodeId}-${nodeId}`,
           source: sourceNodeId,
           target: nodeId,
-          type: 'step', // Use step edge type for angled connections
+          sourceHandle: 'output', // Use the output handle
+          targetHandle: 'input', // Use the input handle
+          type: 'smoothstep', // Use smoothstep for better appearance
           animated: true,
           style: { stroke: '#555', strokeWidth: 2 }, // Add explicit styling
           markerEnd: {
@@ -151,16 +167,46 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           labelStyle: { fontSize: 12, fill: '#555' },
           labelBgStyle: { fill: 'rgba(255, 255, 255, 0.75)', fillOpacity: 0.8 },
         });
+      } else if (lastNodeId && index > 0) {
+        // Fallback: If no specific source node is defined but we have a previous node,
+        // connect from the last node to create a sequential flow
+        newEdges.push({
+          id: `edge-${lastNodeId}-${nodeId}`,
+          source: lastNodeId,
+          target: nodeId,
+          sourceHandle: 'output', // Use the output handle
+          targetHandle: 'input', // Use the input handle
+          type: 'smoothstep',
+          animated: false, // Non-animated for fallback connections
+          style: { stroke: '#aaa', strokeWidth: 1, strokeDasharray: '5,5' }, // Dotted line for fallback
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 15,
+            height: 15,
+            color: '#aaa',
+          },
+        });
       }
       
+      // Update the last node ID for the next iteration
+      lastNodeId = nodeId;
       yPosition += yStep;
     });
 
+    // Debug: Log information about nodes and edges
+    console.log('Nodes created:', newNodes.length);
+    console.log('Edges created:', newEdges.length);
+    console.log('Edges data:', newEdges);
+    
     // Update the nodes and edges
     setNodes(newNodes);
     setEdges(newEdges);
     
   }, [workflowData, timezone]);
+
+  // Add some debug output for the nodes and edges
+  console.log('Current nodes state:', nodes.length);
+  console.log('Current edges state:', edges.length);
 
   return (
     <div className="h-[700px] border border-gray-200 rounded-lg">
@@ -176,7 +222,7 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           minZoom={0.1}
           maxZoom={2}
           defaultEdgeOptions={{
-            type: 'step',
+            type: 'smoothstep',
             style: { strokeWidth: 2 },
           }}
         >

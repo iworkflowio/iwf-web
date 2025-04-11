@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { NodeProps } from '@xyflow/react';
+import { NodeProps, Handle, Position } from '@xyflow/react';
 import { IwfHistoryEventType } from '../../ts-api/src/api-gen/api';
 import { formatTimestamp } from '../../components/utils';
 import { TimezoneOption } from '../../components/types';
@@ -79,7 +79,20 @@ const WorkflowEventNode = ({ data }: NodeProps) => {
 
   return (
     <>
-      <div className={`p-4 border rounded-md shadow-md ${data.className} mb-2`}>
+      {/* Input handle at the top of the node */}
+      <Handle 
+        type="target" 
+        position={Position.Top} 
+        id="input"
+        style={{ 
+          background: '#555',
+          width: 8,
+          height: 8,
+          top: -4,
+        }}
+      />
+
+      <div className={`p-4 border rounded-md shadow-md ${data.className} mb-2 relative`}>
         <div className="font-semibold mb-2">{data.label}</div>
         
         {/* Button to show details popup */}
@@ -90,6 +103,19 @@ const WorkflowEventNode = ({ data }: NodeProps) => {
           View Details
         </button>
       </div>
+
+      {/* Output handle at the bottom of the node */}
+      <Handle 
+        type="source" 
+        position={Position.Bottom} 
+        id="output"
+        style={{ 
+          background: '#555',
+          width: 8,
+          height: 8, 
+          bottom: -4,
+        }}
+      />
       
       {/* Event details popup */}
       <EventDetailsPopup 
