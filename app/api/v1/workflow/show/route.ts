@@ -622,7 +622,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     console.error('Temporal API error:', error);
 
     return NextResponse.json({
-      detail: "Error retrieving workflow details",
+      detail: "Error retrieving workflow details: "+ error.message,
       error: error.message,
       errorType: "TEMPORAL_API_ERROR"
     }, { status: 400 });
