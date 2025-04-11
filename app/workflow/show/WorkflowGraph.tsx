@@ -30,6 +30,26 @@ const nodeTypes = {
   workflowEvent: WorkflowEventNode,
 };
 
+// Function to get an appropriate icon for each event type
+const getEventIcon = (eventType: IwfHistoryEventType) => {
+  switch (eventType) {
+    case 'WorkflowStarted':
+      return '🚀'; // Rocket
+    case 'StateWaitUntil':
+      return '⏳'; // Hourglass
+    case 'StateExecute':
+      return '▶️'; // Play button
+    case 'RpcExecution':
+      return '🔄'; // Cycle arrows
+    case 'SignalReceived':
+      return '📡'; // Satellite antenna
+    case 'WorkflowClosed':
+      return '🏁'; // Checkered flag
+    default:
+      return '📋'; // Clipboard
+  }
+};
+
 // This helper function uses the dagre library to automatically layout the nodes in a tree structure
 const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
   // Create a new dagre graph
@@ -136,11 +156,18 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
       // Get event type and details based on event type
       switch (event.eventType) {
         case 'WorkflowStarted':
-          label = 'Workflow Started: '+event.workflowStarted.workflowType;
+          label = 'Workflow Started';
+          if (event.workflowStarted?.workflowType) {
+            label += `: ${event.workflowStarted.workflowType}`;
+          }
           break;
         case 'StateWaitUntil':
           if (event.stateWaitUntil) {
-            label = `StateWaitUntil: ${event.stateWaitUntil.stateExecutionId}`;
+            label = 'Wait Until';
+            if (event.stateWaitUntil.stateId) {
+              label += `: ${event.stateWaitUntil.stateId}`;
+            }
+            
             if (event.stateWaitUntil.fromEventId !== undefined && event.stateWaitUntil.fromEventId >= 0) {
               sourceNodeId = `event-${event.stateWaitUntil.fromEventId}`;
               console.log(`StateWaitUntil node ${nodeId} has source: ${sourceNodeId} (from event ID: ${event.stateWaitUntil.fromEventId})`);
@@ -152,7 +179,11 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           
         case 'StateExecute':
           if (event.stateExecute) {
-            label = `Execute: ${event.stateExecute.stateExecutionId}`;
+            label = 'Execute';
+            if (event.stateExecute.stateId) {
+              label += `: ${event.stateExecute.stateId}`;
+            }
+            
             if (event.stateExecute.fromEventId !== undefined && event.stateExecute.fromEventId >= 0) {
               sourceNodeId = `event-${event.stateExecute.fromEventId}`;
               console.log(`StateExecute node ${nodeId} has source: ${sourceNodeId} (from event ID: ${event.stateExecute.fromEventId})`);
@@ -166,6 +197,20 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
           label = 'Workflow Completed';
           // TODO fix this
           //  sourceNodeId = `event-${event.workflowClosed.fromEventId}`;
+          break;
+          
+        case 'SignalReceived':
+          label = 'Signal Received';
+          if (event.signalReceived?.signalName) {
+            label += `: ${event.signalReceived.signalName}`;
+          }
+          break;
+          
+        case 'RpcExecution':
+          label = 'RPC Execution';
+          if (event.rpcExecution?.rpcName) {
+            label += `: ${event.rpcExecution.rpcName}`;
+          }
           break;
           
         default:
@@ -301,9 +346,14 @@ export default function WorkflowGraph({ workflowData, timezone, timezoneTrigger 
       {selectedEvent && (
         <div className="w-1/3 overflow-auto border-l border-gray-200">
           <div className="sticky top-0 bg-white border-b border-gray-200 p-3 flex justify-between items-center">
-            <h3 className="text-lg font-medium">
-              {selectedEvent.eventType}
-            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xl" role="img" aria-label={selectedEvent.eventType}>
+                {getEventIcon(selectedEvent.eventType)}
+              </span>
+              <h3 className="text-lg font-medium">
+                {selectedEvent.eventType}
+              </h3>
+            </div>
             <button 
               onClick={() => setSelectedEvent(null)}
               className="text-gray-500 hover:text-gray-700"
