@@ -508,6 +508,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           jsonData += dump.jsonData
         }
       }
+      // TODO catch this error and ignore -- the history is not ready to parse yet.
       continueAsNewSnapshot = JSON.parse(jsonData) as ContinueAsNewDumpResponse
       // update stateExecutionIdToWaitUntilIndex
       continueAsNewSnapshot.StateExecutionsToResume
