@@ -34,19 +34,19 @@ const WorkflowEventNode = ({ data }: NodeProps) => {
         }}
       />
 
-      <div className={`p-4 border rounded-md shadow-md ${getEventTypeColor(event.eventType)} mb-2 relative cursor-pointer`}>
+      <div className={`p-4 border rounded-md shadow-md ${getEventTypeColor(event.eventType)} mb-2 relative cursor-pointer w-[230px]`}>
         <span className={`${getBadgeColor(event.eventType)} text-white px-2 py-0.5 rounded-md text-xs font-bold mr-2 inline-flex items-center shadow-sm`}>
             <span className="mr-0.5">{getEventIcon(event.eventType)}</span> Event {index}
           </span>
-          <span className="text-gray-800">
-            {event.eventType}
-              {event.eventType === 'StateWaitUntil' && event.stateWaitUntil?.stateExecutionId && (
-                  <span className="text-xs text-gray-500 ml-2">({event.stateWaitUntil.stateExecutionId})</span>
-              )}
-              {event.eventType === 'StateExecute' && event.stateExecute?.stateExecutionId && (
-                  <span className="text-xs text-gray-500 ml-2">({event.stateExecute.stateExecutionId})</span>
-              )}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-gray-800">{event.eventType}</span>
+            {event.eventType === 'StateWaitUntil' && event.stateWaitUntil?.stateExecutionId && (
+                <span className="text-xs text-gray-500 mt-1 truncate">ID: {event.stateWaitUntil.stateExecutionId}</span>
+            )}
+            {event.eventType === 'StateExecute' && event.stateExecute?.stateExecutionId && (
+                <span className="text-xs text-gray-500 mt-1 truncate">ID: {event.stateExecute.stateExecutionId}</span>
+            )}
+          </div>
       </div>
 
       {/* Output handle at the bottom of the node */}

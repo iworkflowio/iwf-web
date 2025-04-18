@@ -44,12 +44,16 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
     ranksep: 100, // Vertical spacing between ranks/levels
   });
 
-  // Add nodes to the dagre graph.
+  // First, calculate the maximum dimensions needed for all nodes
+  // This ensures all nodes will have the same width for proper alignment
+  let maxWidth = 250; // Default minimum width
+  
+  // Add nodes to the dagre graph with the consistent width
   // The width and height are required by dagre
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { 
-      width: 220, // Approximate width of our nodes
-      height: 80,  // Approximate height of our nodes
+      width: maxWidth, // Consistent width for all nodes
+      height: 100,  // Increased height to account for additional content
     });
   });
 
@@ -70,8 +74,8 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
       ...node,
       // Position is different based on direction
       position: {
-        x: nodeWithPosition.x - 110, // Center the node (half of our estimated width)
-        y: nodeWithPosition.y - 40,  // Center the node (half of our estimated height)
+        x: nodeWithPosition.x - (maxWidth / 2), // Center the node using the consistent width
+        y: nodeWithPosition.y - 50,  // Center the node (half of our increased height)
       },
       // We also preserve source/target positions to ensure edges connect properly
       sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
