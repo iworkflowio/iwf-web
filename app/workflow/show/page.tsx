@@ -109,7 +109,7 @@ export default function WorkflowShow() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto p-4">
+      <div className="max-w-[95%] 2xl:max-w-[90%] mx-auto p-4">
         {/* App header component with title and controls */}
         <AppHeader 
           config={{

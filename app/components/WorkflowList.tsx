@@ -191,15 +191,15 @@ const WorkflowList = ({
       </div>
       
       {/* Workflow data table with nowrap */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white border whitespace-nowrap">
+      <div className="overflow-x-auto w-full">
+        <table className="w-full bg-white border whitespace-nowrap">
           {/* Table header with column titles */}
           <thead>
             <tr className="bg-gray-100">
               {visibleColumns.map(column => (
                 <th 
                   key={column.id}
-                  className="py-2 px-4 border text-left cursor-move"
+                  className={`py-2 px-4 border text-left cursor-move ${column.id === 'workflowId' || column.id === 'workflowRunId' ? 'max-w-md' : ''}`}
                   // Enable drag-and-drop column reordering
                   draggable
                   onDragStart={() => handleDragStart(column.id)}
@@ -261,7 +261,7 @@ const WorkflowList = ({
                     className="hover:bg-gray-50"
                   >
                     {visibleColumns.map(column => (
-                      <td key={column.id} className={`py-2 px-4 border ${isClickableColumn(column.id) ? 'cursor-pointer' : ''}`}>
+                      <td key={column.id} className={`py-2 px-4 border ${isClickableColumn(column.id) ? 'cursor-pointer' : ''} ${column.id === 'workflowId' || column.id === 'workflowRunId' ? 'max-w-md truncate' : ''}`}>
                         {column.id === 'customSearchAttributes' ? (
                           <button
                             onClick={() => showSearchAttributes(workflow.customSearchAttributes)}

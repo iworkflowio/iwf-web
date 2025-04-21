@@ -409,7 +409,7 @@ export default function WorkflowSearchPage() {
   // Visible columns are now calculated within the WorkflowList component
   
   return (
-    <div className="container mx-auto p-4">
+    <div className="max-w-[95%] 2xl:max-w-[90%] mx-auto p-4">
       {/* App header component with title and controls */}
       <AppHeader 
         config={{
