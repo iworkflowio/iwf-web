@@ -131,7 +131,6 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     // when the index is 0, it's the workflow starting states, or starting states from continueAsNew
     // when it's >=0, it's starting from other states, where the number is the index of historyEvents
     let startingStateLookup: Map<string, IndexAndStateOption[]> = new Map();
-    let continueAsNewSnapshot: ContinueAsNewDumpResponse|undefined;
     const continueAsNewActivityScheduleIds = new Map<number, boolean>();
 
     // 0 is always the started event
@@ -161,69 +160,21 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     };
 
     if(workflowInput.isResumeFromContinueAsNew){
-      let currentChecksum = ""
-      let jsonData = ""
-      for (let i = 1; i < rawHistories.events.length; i++) {
-        const event = rawHistories.events[i];
-        if (event.activityTaskScheduledEventAttributes) {
-          if(event.activityTaskScheduledEventAttributes.activityType.name!="DumpWorkflowInternal"){
-            break;
-          }
-          continueAsNewActivityScheduleIds.set(event.eventId.toNumber(), true)
-        }
-        if (event.activityTaskCompletedEventAttributes) {
-          // just assuming it's continueAsNew and try to decode it
-          const result = event.activityTaskCompletedEventAttributes.result?.payloads;
-          // Decode the response from the payload
-          const responseData = arrayFromPayloads(dataConverter.payloadConverter, result);
-          // this must be a continueAsNew dump activity completed event,
-          // because there shouldn't any other activity before continueAsNew dump is completed.
-          const dump = responseData[0] as WorkflowDumpResponse
-          if(dump.checksum != currentChecksum){
-            // always reset when checksum changed
-            currentChecksum = dump.checksum
-            jsonData = ""
-          }
-          jsonData += dump.jsonData
-        }
-      }
-      // catch this error because the history is not ready to parse yet.
-      try{
-        continueAsNewSnapshot = JSON.parse(jsonData) as ContinueAsNewDumpResponse
-      } catch (error) {
+      const continueAsNewResult = handleResumeFromContinueAsNew(
+        rawHistories,
+        dataConverter,
+        startEvent,
+        stateExecutionIdToWaitUntilIndex,
+        startingStateLookup,
+        continueAsNewActivityScheduleIds
+      );
+      
+      // Check if we should return early
+      if (continueAsNewResult.shouldReturn) {
         return NextResponse.json(response, { status: 200 });
       }
-      startEvent.workflowStarted.continueAsNewSnapshot = continueAsNewSnapshot
-
-      // update stateExecutionIdToWaitUntilIndex
-      continueAsNewSnapshot.StateExecutionsToResume
-      for(const key in continueAsNewSnapshot.StateExecutionsToResume){
-        stateExecutionIdToWaitUntilIndex.set(key, 0)
-      }
-
-      // update startingStateLookup
-      const length:number = continueAsNewSnapshot.StatesToStartFromBeginning ? continueAsNewSnapshot.StatesToStartFromBeginning.length:0;
-      for (let i = 0; i < length; i++) {
-        const stateMovement = continueAsNewSnapshot.StatesToStartFromBeginning[i]
-        const stateId = stateMovement.stateId
-        let lookup: IndexAndStateOption[] = startingStateLookup.get(stateId);
-        // Fix: Check if lookup is undefined or empty
-        if (!lookup || lookup.length === 0) {
-          startingStateLookup.set(stateId,
-              [{
-                index: 0,
-                option: stateMovement.stateOptions,
-                input: stateMovement.stateInput
-              }])
-        } else {
-          lookup.push({
-            index: 0,
-            option: stateMovement.stateOptions,
-            input: stateMovement.stateInput
-          })
-        }
-      }
-    }else{
+      
+    } else {
       // for non continueAsNew, there can be at most only one starting state
       if(workflowInput.startStateId){
         startingStateLookup.set(workflowInput.startStateId,
@@ -345,6 +296,90 @@ async function handleDescribeWorkflowExecution(client: WorkflowClient, params: W
     startTimeSeconds,
     statusCode: workflowInfo.status
   };
+}
+
+// Helper function to handle resume from continue as new logic
+function handleResumeFromContinueAsNew(
+  rawHistories: any,
+  dataConverter: LoadedDataConverter,
+  startEvent: IwfHistoryEvent,
+  stateExecutionIdToWaitUntilIndex: Map<string, number>,
+  startingStateLookup: Map<string, IndexAndStateOption[]>,
+  continueAsNewActivityScheduleIds: Map<number, boolean>
+) {
+  let currentChecksum = "";
+  let jsonData = "";
+  let continueAsNewSnapshot: ContinueAsNewDumpResponse | undefined;
+  let shouldReturn = false;
+  
+  // Extract continueAsNew data from history events
+  for (let i = 1; i < rawHistories.events.length; i++) {
+    const event = rawHistories.events[i];
+    if (event.activityTaskScheduledEventAttributes) {
+      if(event.activityTaskScheduledEventAttributes.activityType.name != "DumpWorkflowInternal"){
+        break;
+      }
+      continueAsNewActivityScheduleIds.set(event.eventId.toNumber(), true);
+    }
+    if (event.activityTaskCompletedEventAttributes) {
+      // just assuming it's continueAsNew and try to decode it
+      const result = event.activityTaskCompletedEventAttributes.result?.payloads;
+      // Decode the response from the payload
+      const responseData = arrayFromPayloads(dataConverter.payloadConverter, result);
+      // this must be a continueAsNew dump activity completed event,
+      // because there shouldn't any other activity before continueAsNew dump is completed.
+      const dump = responseData[0] as WorkflowDumpResponse;
+      if(dump.checksum != currentChecksum){
+        // always reset when checksum changed
+        currentChecksum = dump.checksum;
+        jsonData = "";
+      }
+      jsonData += dump.jsonData;
+    }
+  }
+  
+  // Parse the JSON data, or return early if parsing fails
+  try {
+    continueAsNewSnapshot = JSON.parse(jsonData) as ContinueAsNewDumpResponse;
+  } catch (error) {
+    shouldReturn = true;
+    return { continueAsNewSnapshot, shouldReturn };
+  }
+  
+  // Update startEvent with the snapshot
+  startEvent.workflowStarted.continueAsNewSnapshot = continueAsNewSnapshot;
+
+  // Update stateExecutionIdToWaitUntilIndex
+  for(const key in continueAsNewSnapshot.StateExecutionsToResume){
+    stateExecutionIdToWaitUntilIndex.set(key, 0);
+  }
+
+  // Update startingStateLookup
+  const length: number = continueAsNewSnapshot.StatesToStartFromBeginning ? 
+    continueAsNewSnapshot.StatesToStartFromBeginning.length : 0;
+    
+  for (let i = 0; i < length; i++) {
+    const stateMovement = continueAsNewSnapshot.StatesToStartFromBeginning[i];
+    const stateId = stateMovement.stateId;
+    let lookup: IndexAndStateOption[] = startingStateLookup.get(stateId);
+    
+    // Check if lookup is undefined or empty
+    if (!lookup || lookup.length === 0) {
+      startingStateLookup.set(stateId, [{
+        index: 0,
+        option: stateMovement.stateOptions,
+        input: stateMovement.stateInput
+      }]);
+    } else {
+      lookup.push({
+        index: 0,
+        option: stateMovement.stateOptions,
+        input: stateMovement.stateInput
+      });
+    }
+  }
+  
+  return { shouldReturn };
 }
 
 
