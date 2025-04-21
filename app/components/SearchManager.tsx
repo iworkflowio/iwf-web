@@ -139,6 +139,9 @@ export function useSearchManager(saveRecentSearch, setAppliedFilters){
                     localStorage.setItem(STORAGE_KEY_PAGE_HISTORY, JSON.stringify(['']));
                 }
             }
+            
+            // Update URL parameters with current search state
+            updateUrlWithParams(searchQuery, currentPage, pageSize || 20, pageToken);
 
             // Use specified page size or current page size with fallback
             const currentPageSize = pageSize || 20;

@@ -122,6 +122,8 @@ const SearchBox = ({
             onClear={() => {
               setQuery('');
               setAppliedFilters({});
+              // Execute search with empty query to refresh results
+              fetchWorkflows('');
             }} 
           />
         </div>

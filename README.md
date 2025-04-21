@@ -2,28 +2,49 @@
 
 ## Overview
 
-iWF Web is a web-based user interface for [iWF (Indeed Workflow Framework)](https://github.com/indeedeng/iwf), an open-source framework that simplifies building highly reliable applications with Temporal. This UI allows users to search, view, and monitor workflow executions by connecting directly to a Temporal server.
+iWF Web is a powerful web-based user interface for [iWF (Indeed Workflow Framework)](https://github.com/indeedeng/iwf), an open-source framework that simplifies building highly reliable applications with Temporal. This UI allows users to search, view, and monitor workflow executions by connecting directly to a Temporal server.
+
+### Demo Video
+
+Watch a walkthrough of iWF WebUI features:
+
+[![iWF WebUI Demo](https://img.youtube.com/vi/nMg_L2UskBY/0.jpg)](https://www.youtube.com/watch?v=nMg_L2UskBY)
 
 ## About iWF
 
-[iWF (Indeed Workflow Framework)](https://github.com/indeedeng/iwf) is an innovative framework built on top of Temporal that simplifies building highly reliable applications. Key features of iWF include:
+### What Makes iWF Unique
+* Workflow-As-Code uses native code to define everything: branching, looping, parallel threads, variables, schema etc.
+* Simplified Architecture: iWF applications are all REST based micro-services which are easy to deploy, monitor, scale, maintain(version) and operate with industry standards.
+* Simplicity and explicitness of APIs: uses as few concepts as possible to model complex logic. It uses clear abstractions to defines workflows in terms of discrete states, with waitUntil conditions and execute actions, declarative schema for data and search attributes for persistence, and RPC for external interaction for both read and write.
+* Dynamic Interactions: allows external applications to interact with running workflows through RPC, signals, and internal channels.
+* Extensive tooling: provides tooling to look up running state definitions, skipping timers, enhanced resetting etc.
 
-- **Simplified API**: iWF provides an intuitive API that abstracts away many of the complexities of working directly with Temporal.
-- **State Management**: Built-in state management for your workflow applications.
-- **Flexibility**: Support for various programming models and custom extensions.
-- **Reliability**: Leverages Temporal's durability and fault-tolerance capabilities.
+## WebUI Features
 
-While iWF Web serves as a companion UI to the iWF framework, it connects directly to a Temporal server to search and display workflow executions.
+### Workflow Search Page
 
-## Features
+- **Advanced Search**: Search workflow executions by various criteria with a powerful query syntax
+- **Customizable Filters**: Apply filters by column with various operators (=, !=, >, <, etc.)
+- **Shareable URLs**: Search parameters are preserved in the URL for easy sharing with teammates
+- **Search History**: Recent searches are automatically saved and can be accessed quickly
+- **Named Queries**: Save important searches with custom names for future reference
+- **Customizable Display**: Personalize your table columns, order, and visibility
+- **Timezone Selection**: View timestamps in your preferred timezone
+- **Pagination Controls**: Navigate through search results with adjustable page sizes
 
-- Search workflow executions by various criteria
-- Display workflow executions in a customizable table
-- View detailed workflow information, including status, type, IDs, and timestamps
-- Support for custom search attributes
-- Timezone selection for timestamp display
-- Customizable column visibility and ordering
-- Responsive UI for desktop and mobile
+### Workflow Details Page
+
+- **Workflow Timeline**: Chronological view of all workflow events
+- **Interactive Graph View**: Visualize workflow execution in a tree-based graph representation
+- **Event Details**: Expand individual events to see complete details
+- **Workflow Summary**: View key workflow information including status, IDs, and timestamps
+- **Custom Search Attributes**: Display of workflow-specific metadata and custom attributes
+
+### User Experience
+
+- **Responsive Design**: Works on both desktop and mobile devices
+- **Persistent Preferences**: User settings for columns and timezone are saved between sessions
+- **Real-time Updates**: Workflow information is fetched directly from the Temporal server
 
 ## Prerequisites
 
@@ -54,12 +75,6 @@ While iWF Web serves as a companion UI to the iWF framework, it connects directl
    npm install
    ```
 
-3. Generate TypeScript API client (optional, requires Java):
-   ```
-   make gen
-   ```
-   This uses OpenAPI Generator to create TypeScript clients from the API schema.
-
 ### Development
 
 Start the development server:
@@ -84,68 +99,32 @@ Start the production server:
 npm start
 ```
 
-## Configuration
+## Quick Start Guide
 
-The application is designed to connect directly to a Temporal server. By default, it will attempt to connect to a Temporal server at `localhost:7233` with the `default` namespace. If the connection fails, it falls back to using mock data.
+### 1. Configuration
 
-You can configure the Temporal connection by:
+Before launching iWF WebUI, check the `.env.local` file to make sure you're connecting to the right Temporal service and namespace:
 
-1. Creating or editing `.env.local` in the project root:
-   ```
-   # Temporal Configuration
-   TEMPORAL_HOST_PORT=localhost:7233
-   TEMPORAL_NAMESPACE=default
-   ```
+For production, you can set environment variables directly.
 
-2. Or by modifying the configuration directly in `/app/api/v1/workflow/search/route.ts`:
-   ```typescript
-   // Configuration for Temporal connection
-   const temporalConfig = {
-     // Default connection parameters, can be overridden with environment variables
-     hostPort: process.env.TEMPORAL_HOST_PORT || 'localhost:7233',
-     namespace: process.env.TEMPORAL_NAMESPACE || 'default',
-   };
-   ```
+```
+# Temporal Configuration
+TEMPORAL_HOST_PORT=localhost:7233  # Change to your Temporal server address
+TEMPORAL_NAMESPACE=default         # Change to your namespace
+TEMPORAL_API_KEY=""                # Change to your API key to connect to Temporal Cloud
+```
 
-## Connecting to iWF-Temporal
+By default, the application will connect to a local Temporal server on port 7233 with the "default" namespace.
 
-This UI is specifically designed for iWF workflows running on Temporal. It connects to the Temporal server used by iWF to search and display workflow executions.
+### 2. Launch the Application
 
-To connect to your iWF-Temporal instance:
+```
+npm run dev
+```
 
-1. Ensure your iWF server with Temporal is running
-2. Update the Temporal connection parameters in `.env.local` or directly in the code
-3. Restart the application to apply the changes
+## Development & Contribution
 
-### Setting up iWF with Temporal
-
-If you don't have an iWF server with Temporal running yet, follow these steps:
-
-1. Set up iWF and Temporal using the all-in-one Docker image by following the instructions in the [iWF documentation](https://github.com/indeedeng/iwf?tab=readme-ov-file#using-all-in-one-docker-image)
-
-2. This will start:
-   - An iWF server on port 8801
-   - The Temporal frontend service on port 7233
-   - The Temporal web UI on port 8233
-
-3. Configure this application to connect to your Temporal server (default: localhost:7233)
-4. Start the application to begin querying your iWF workflow executions
-
-### Working with iWF Workflows
-
-This UI is optimized for workflows created using [iWF (Indeed Workflow Framework)](https://github.com/indeedeng/iwf). It specifically looks for the `IwfWorkflowType` search attribute that iWF automatically adds to workflows.
-
-When displaying workflow executions:
-- It uses the `IwfWorkflowType` search attribute value to display the workflow type
-- If the search attribute is not present, it will display "N/A" as the workflow type
-
-The search functionality also includes the `IwfWorkflowType` attribute in queries, making it easier to find workflows by their iWF workflow type name.
-
-## Development Tasks
-
-### Customizing the UI
-
-The UI is built with React and uses Tailwind CSS for styling. You can customize the appearance by modifying the CSS classes in `/app/page.tsx` or by updating the Tailwind configuration in `tailwind.config.js`.
+Any contribution is welcome!
 
 ### Updating API Definitions
 

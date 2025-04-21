@@ -183,7 +183,7 @@ export default function WorkflowSearchPage() {
     // Before searching, parse the current query to update applied filters
     syncFiltersWithQuery(query);
     
-    // Then execute the search
+    // Then execute the search (which will also update URL parameters)
     fetchWorkflows(query);
   };
   
@@ -303,7 +303,7 @@ export default function WorkflowSearchPage() {
     // Close the popup
     setShowFilterPopup(false);
     
-    // Execute the search with the updated query
+    // Execute the search with the updated query (which also updates URL)
     setTimeout(() => {
       fetchWorkflows(updatedQuery);
     }, 50);
@@ -333,9 +333,9 @@ export default function WorkflowSearchPage() {
     setAppliedFilters({});
     setQuery('');
     
-    // Automatically execute the search with empty query
+    // Automatically execute the search with empty query and update URL
     setTimeout(() => {
-      handleSearch();
+      fetchWorkflows('');
     }, 0);
   };
   
@@ -389,6 +389,11 @@ export default function WorkflowSearchPage() {
   
   // Initialize workflows
   useEffect(() => {
+    // Sync applied filters with query from URL parameters
+    if (initialQueryParams.query) {
+      syncFiltersWithQuery(initialQueryParams.query);
+    }
+    
     // Initialize with URL parameters
     if (initialQueryParams.token) {
       // If we have a token in URL, use it directly
