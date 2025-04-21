@@ -2,7 +2,7 @@ import {NextRequest, NextResponse} from 'next/server';
 import {Connection, WorkflowClient} from '@temporalio/client';
 import {
   ContinueAsNewDumpResponse,
-  EncodedObject,
+  EncodedObject, ExecuteRpcSignalRequest,
   InterpreterWorkflowInput,
   IwfHistoryEvent,
   IwfHistoryEventType,
@@ -211,8 +211,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           continueAsNewActivityScheduleIds
         );
       } else if (event.workflowExecutionSignaledEventAttributes) {
-        // TODO processing RPC (regular) and signal
-        console.log(`  signal received=${event}`);
+        processWorkflowSignalEvent(event, dataConverter, historyEvents);
       } else if (event.activityTaskFailedEventAttributes) {
         // TODO process the stateApiFailure policy
       } else if (event.workflowExecutionCompletedEventAttributes ||
@@ -479,6 +478,7 @@ function processStateApiWaitUntilScheduled(
   historyEvents.push(iwfEvent);
 }
 
+
 // Process StateApiExecute for activity task scheduled
 function processStateApiExecuteScheduled(
     event: temporal.api.history.v1.IHistoryEvent,
@@ -555,6 +555,7 @@ function processStateApiExecuteScheduled(
   historyLookupByScheduledId.set(event.eventId.toNumber(), eventIndex);
   historyEvents.push(iwfEvent);
 }
+
 
 // Helper function to process activity task completed events
 function processActivityTaskCompletedEvent(
@@ -683,4 +684,66 @@ function processWorkflowClosedEvent(
   }
 
   historyEvents.push(iwfEvent);
+}
+
+
+
+// Process workflow signal events
+function processWorkflowSignalEvent(
+  event: temporal.api.history.v1.IHistoryEvent,
+  dataConverter: LoadedDataConverter,
+  historyEvents: IwfHistoryEvent[]
+) {
+  const attributes = event.workflowExecutionSignaledEventAttributes;
+  
+  if (!attributes) {
+    console.error("No signal attributes found in the event");
+    return;
+  }
+  
+  const signalName = attributes.signalName;
+  const timestamp = event.eventTime.seconds.toNumber();
+  
+  // Check if this is an RPC execution
+  if (signalName === "__IwfSystem_ExecuteRpc") {
+    try {
+      // This is an RPC signal, decode the input data
+      const payload = attributes.input?.payloads;
+      const rpcData = payload ? arrayFromPayloads(dataConverter.payloadConverter, payload)[0] : undefined;
+      
+      // Create RPC execution event
+      const rpcEvent: IwfHistoryEvent = {
+        eventType: "RpcExecution",
+        rpcExecution: {
+          response: rpcData as ExecuteRpcSignalRequest,
+          completedTimestamp: timestamp
+        }
+      };
+      
+      historyEvents.push(rpcEvent);
+    } catch (error) {
+      console.error("Failed to process RPC execution signal:", error);
+    }
+  } else {
+    // This is a regular signal
+    try {
+      // Decode the signal input data
+      const payload = attributes.input?.payloads;
+      const signalData = payload ? arrayFromPayloads(dataConverter.payloadConverter, payload)[0] : undefined;
+      
+      // Create signal received event
+      const signalEvent: IwfHistoryEvent = {
+        eventType: "SignalReceived",
+        signalReceived: {
+          signalName: signalName,
+          value: signalData as any, // Cast to EncodedObject
+          completedTimestamp: timestamp
+        }
+      };
+      
+      historyEvents.push(signalEvent);
+    } catch (error) {
+      console.error("Failed to process signal event:", error);
+    }
+  }
 }
