@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Connection, WorkflowClient, WorkflowExecutionInfo } from '@temporalio/client';
+import { WorkflowClient, WorkflowExecutionInfo } from '@temporalio/client';
 import {temporalConfig, mapTemporalStatus, extractStringValue, decodeSearchAttributes} from '../utils';
-import {ConnectionOptions} from "@temporalio/client/src/connection";
+import {createWorkflowClient, convertPageToken, convertBufferToTokenString} from '../clientManager';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,24 +17,8 @@ export async function POST(request: NextRequest) {
     console.log("Next page token type:", typeof nextPageToken, "value:", nextPageToken);
 
     try {
-      // Create connection to Temporal
-      const connOpts: ConnectionOptions = {
-        address: temporalConfig.hostPort,
-      }
-      if(temporalConfig.apiKey){
-        connOpts.tls = true
-        connOpts.apiKey = temporalConfig.apiKey
-        connOpts. metadata ={
-          'temporal-namespace': temporalConfig.namespace
-        }
-      }
-      const connection = await Connection.connect(connOpts);
-
-      // Create a client to interact with Temporal
-      const client = new WorkflowClient({
-        connection,
-        namespace: temporalConfig.namespace,
-      });
+      // Create a client to interact with Temporal using the shared utility
+      const client = await createWorkflowClient();
 
       // Get the service client to access more advanced APIs
       const service = client.workflowService
@@ -64,21 +48,12 @@ export async function POST(request: NextRequest) {
         console.log(`Replaced query: Original [${query}] → Transformed [${transformedQuery}]`);
       }
       
-      // Handle next page token with extra care to avoid deserialization issues
-      let tokenBuffer = undefined;
-      if (nextPageToken && typeof nextPageToken === 'string' && nextPageToken.trim() !== '') {
-        try {
-          // Only try to use the token if it's a non-empty string that looks like proper base64
-          if (/^[A-Za-z0-9+/=]+$/.test(nextPageToken)) {
-            tokenBuffer = Buffer.from(nextPageToken, 'base64');
-            console.log("Successfully converted token to buffer");
-          } else {
-            console.log("Token is not valid base64, skipping");
-          }
-        } catch (err) {
-          console.error("Error converting token to buffer:", err);
-          // Ignore invalid tokens - just use undefined
-        }
+      // Convert page token using our shared utility function
+      const tokenBuffer = convertPageToken(nextPageToken);
+      if (tokenBuffer) {
+        console.log("Successfully converted token to buffer");
+      } else {
+        console.log("No valid token available or conversion failed");
       }
       
       // Use the ListWorkflowExecutions method from service client
@@ -120,17 +95,10 @@ export async function POST(request: NextRequest) {
         return convertTemporalWorkflow(clientWorkflow);
       });
 
-      // Safely convert the next page token to a string
-      let nextPageTokenString = '';
-      if (listResponse.nextPageToken && listResponse.nextPageToken.length > 0) {
-        try {
-          // Convert the Buffer to a Base64 string
-          nextPageTokenString = Buffer.from(listResponse.nextPageToken).toString('base64');
-          console.log("Generated next page token:", nextPageTokenString.substring(0, 20) + "...");
-        } catch (err) {
-          console.error("Error encoding next page token:", err);
-          // Just return empty string if encoding fails
-        }
+      // Convert the next page token buffer to a string using our shared utility
+      const nextPageTokenString = convertBufferToTokenString(listResponse.nextPageToken);
+      if (nextPageTokenString) {
+        console.log("Generated next page token:", nextPageTokenString.substring(0, 20) + "...");
       }
       
       // Build and return response

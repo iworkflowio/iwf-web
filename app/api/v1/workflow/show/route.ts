@@ -1,5 +1,5 @@
 import {NextRequest, NextResponse} from 'next/server';
-import {Connection, WorkflowClient} from '@temporalio/client';
+import {WorkflowClient} from '@temporalio/client';
 import {
   ContinueAsNewDumpResponse,
   EncodedObject, ExecuteRpcSignalRequest,
@@ -17,7 +17,7 @@ import {
 import {decodeSearchAttributes, extractStringValue, mapTemporalStatus, temporalConfig} from '../utils';
 import {arrayFromPayloads, defaultDataConverter, LoadedDataConverter} from "@temporalio/common";
 import {temporal} from '@temporalio/proto';
-import {ConnectionOptions} from "@temporalio/client/src/connection";
+import {createWorkflowClient} from '../clientManager';
 
 // Handler for GET requests
 export async function GET(request: NextRequest) {
@@ -91,24 +91,8 @@ interface IndexAndStateOption {
 // Common handler implementation for both GET and POST
 async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
   try {
-    // Create connection to Temporal
-    const connOpts: ConnectionOptions = {
-      address: temporalConfig.hostPort,
-    }
-    if(temporalConfig.apiKey){
-      connOpts.tls = true
-      connOpts.apiKey = temporalConfig.apiKey
-      connOpts. metadata ={
-        'temporal-namespace': temporalConfig.namespace
-      }
-    }
-    const connection = await Connection.connect(connOpts);
-
-    // Create a client to interact with Temporal
-    const client = new WorkflowClient({
-      connection,
-      namespace: temporalConfig.namespace,
-    });
+    // Create a client to interact with Temporal using the shared utility
+    const client = await createWorkflowClient();
 
     // Get workflow details
     const workflowDetails = await handleDescribeWorkflowExecution(client, params);
