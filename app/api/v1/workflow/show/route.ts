@@ -101,53 +101,15 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       namespace: temporalConfig.namespace,
     });
 
-    // Get the workflow details
-    const workflow = await client.workflowService.describeWorkflowExecution(
-        {
-          namespace: temporalConfig.namespace,
-          execution:{
-            workflowId: params.workflowId,
-            runId: params.runId
-          }
-    });
-
-    // Access the workflowExecutionInfo from the response
-    const workflowInfo = workflow.workflowExecutionInfo;
+    // Get workflow details
+    const workflowDetails = await handleDescribeWorkflowExecution(client, params);
     
-    if (!workflowInfo) {
-      throw new Error("Workflow execution info not found in the response");
+    // Check for error response
+    if (workflowDetails.error) {
+      return NextResponse.json(workflowDetails.error, { status: workflowDetails.status });
     }
     
-    // Extract search attributes and decode them properly using the utility function
-    const searchAttributes = decodeSearchAttributes(workflowInfo.searchAttributes);
-
-    // Get workflow type - preferring IwfWorkflowType search attribute 
-    let workflowType = workflowInfo.type?.name || 'Unknown';
-    if (searchAttributes.IwfWorkflowType) {
-      // Use the IwfWorkflowType from search attributes
-      workflowType = typeof searchAttributes.IwfWorkflowType === 'string' 
-        ? searchAttributes.IwfWorkflowType 
-        : extractStringValue(searchAttributes.IwfWorkflowType);
-    }else{
-      return NextResponse.json({
-        detail: "Not an iWF workflow execution",
-        error: `unsupported temporal workflow type ${workflowInfo.type}`,
-        errorType: "TEMPORAL_API_ERROR"
-      }, { status: 400 });
-    }
-    
-    // Extract timestamp from the Temporal format (keeping in seconds)
-    let startTimeSeconds = 0;
-    if (workflowInfo.startTime?.seconds) {
-      // Extract seconds (handling both number and Long)
-      // Keep as seconds, not converting to milliseconds
-      startTimeSeconds = typeof workflowInfo.startTime.seconds === 'number'
-          ? workflowInfo.startTime.seconds
-          : Number(workflowInfo.startTime.seconds);
-    }
-    
-    // Map numeric status code to status enum
-    const statusCode = workflowInfo.status;
+    const { workflowType, startTimeSeconds, statusCode } = workflowDetails;
 
     // Now fetch history and get the other fields
     // TODO support configuring data converter(for encryption)
@@ -325,6 +287,64 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       errorType: "SERVER_API_ERROR"
     }, { status: 400 });
   }
+}
+
+
+// Helper function to handle describeWorkflowExecution call
+async function handleDescribeWorkflowExecution(client: WorkflowClient, params: WorkflowShowRequest) {
+  // Get the workflow details
+  const workflow = await client.workflowService.describeWorkflowExecution(
+      {
+        namespace: temporalConfig.namespace,
+        execution:{
+          workflowId: params.workflowId,
+          runId: params.runId
+        }
+      });
+
+  // Access the workflowExecutionInfo from the response
+  const workflowInfo = workflow.workflowExecutionInfo;
+
+  if (!workflowInfo) {
+    throw new Error("Workflow execution info not found in the response");
+  }
+
+  // Extract search attributes and decode them properly using the utility function
+  const searchAttributes = decodeSearchAttributes(workflowInfo.searchAttributes);
+
+  // Get workflow type - preferring IwfWorkflowType search attribute
+  let workflowType = workflowInfo.type?.name || 'Unknown';
+  if (searchAttributes.IwfWorkflowType) {
+    // Use the IwfWorkflowType from search attributes
+    workflowType = typeof searchAttributes.IwfWorkflowType === 'string'
+        ? searchAttributes.IwfWorkflowType
+        : extractStringValue(searchAttributes.IwfWorkflowType);
+  } else {
+    return {
+      error: {
+        detail: "Not an iWF workflow execution",
+        error: `unsupported temporal workflow type ${workflowInfo.type}`,
+        errorType: "TEMPORAL_API_ERROR"
+      },
+      status: 400
+    };
+  }
+
+  // Extract timestamp from the Temporal format (keeping in seconds)
+  let startTimeSeconds = 0;
+  if (workflowInfo.startTime?.seconds) {
+    // Extract seconds (handling both number and Long)
+    // Keep as seconds, not converting to milliseconds
+    startTimeSeconds = typeof workflowInfo.startTime.seconds === 'number'
+        ? workflowInfo.startTime.seconds
+        : Number(workflowInfo.startTime.seconds);
+  }
+
+  return {
+    workflowType,
+    startTimeSeconds,
+    statusCode: workflowInfo.status
+  };
 }
 
 
