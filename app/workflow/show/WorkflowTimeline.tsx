@@ -36,6 +36,12 @@ export default function WorkflowTimeline(
     if(event.workflowClosed?.workflowClosedTimestamp){
       return event.workflowClosed.workflowClosedTimestamp
     }
+    if(event.signalReceived?.completedTimestamp){
+      return event.signalReceived?.completedTimestamp
+    }
+    if(event.rpcExecution?.completedTimestamp){
+      return event.rpcExecution?.completedTimestamp
+    }
     return undefined;
   };
 
