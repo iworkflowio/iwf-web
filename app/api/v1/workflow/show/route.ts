@@ -87,6 +87,247 @@ interface IndexAndStateOption {
   input?: EncodedObject
 }
 
+// Common handler implementation for both GET and POST
+async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
+  try {
+    // Create connection to Temporal
+    const connection = await Connection.connect({
+      address: temporalConfig.hostPort,
+    });
+
+    // Create a client to interact with Temporal
+    const client = new WorkflowClient({
+      connection,
+      namespace: temporalConfig.namespace,
+    });
+
+    // Get the workflow details
+    const workflow = await client.workflowService.describeWorkflowExecution(
+        {
+          namespace: temporalConfig.namespace,
+          execution:{
+            workflowId: params.workflowId,
+            runId: params.runId
+          }
+    });
+
+    // Access the workflowExecutionInfo from the response
+    const workflowInfo = workflow.workflowExecutionInfo;
+    
+    if (!workflowInfo) {
+      throw new Error("Workflow execution info not found in the response");
+    }
+    
+    // Extract search attributes and decode them properly using the utility function
+    const searchAttributes = decodeSearchAttributes(workflowInfo.searchAttributes);
+
+    // Get workflow type - preferring IwfWorkflowType search attribute 
+    let workflowType = workflowInfo.type?.name || 'Unknown';
+    if (searchAttributes.IwfWorkflowType) {
+      // Use the IwfWorkflowType from search attributes
+      workflowType = typeof searchAttributes.IwfWorkflowType === 'string' 
+        ? searchAttributes.IwfWorkflowType 
+        : extractStringValue(searchAttributes.IwfWorkflowType);
+    }else{
+      return NextResponse.json({
+        detail: "Not an iWF workflow execution",
+        error: `unsupported temporal workflow type ${workflowInfo.type}`,
+        errorType: "TEMPORAL_API_ERROR"
+      }, { status: 400 });
+    }
+    
+    // Extract timestamp from the Temporal format (keeping in seconds)
+    let startTimeSeconds = 0;
+    if (workflowInfo.startTime?.seconds) {
+      // Extract seconds (handling both number and Long)
+      // Keep as seconds, not converting to milliseconds
+      startTimeSeconds = typeof workflowInfo.startTime.seconds === 'number'
+          ? workflowInfo.startTime.seconds
+          : Number(workflowInfo.startTime.seconds);
+    }
+    
+    // Map numeric status code to status enum
+    const statusCode = workflowInfo.status;
+
+    // Now fetch history and get the other fields
+    // TODO support configuring data converter(for encryption)
+    const dataConverter = defaultDataConverter
+    const handle = client.getHandle(params.workflowId, params.runId)
+    const rawHistories = await handle.fetchHistory()
+    const startInputs = arrayFromPayloads(dataConverter.payloadConverter, rawHistories.events[0].workflowExecutionStartedEventAttributes.input.payloads)
+
+    // scheduledId -> index of iWF history event.
+    // This is for processing activity task started/completed event
+    // to look up the event based on scheduledEventId, which inserted the iwfHistory event. So that activity task started/completed
+    // can read it back and update the iWF event
+    let historyLookupByScheduledId = new Map<number, number>();
+    // stateExecutionId -> index of the waitUntil event.
+    // This is for processing activity task scheduled event for stateExecute, which is from a waitUntil
+    // (Note, if the stateExecute is not from waitUntil, it should use fromStateLookup to find the eventId)
+    let stateExecutionIdToWaitUntilIndex = new Map<string, number>();
+    // stateId -> a list of indexes of iWF history events that decide to this stateId
+    // when the index is 0, it's the workflow starting states, or starting states from continueAsNew
+    // when it's >=0, it's starting from other states, where the number is the index of historyEvents
+    let startingStateLookup: Map<string, IndexAndStateOption[]> = new Map();
+    let continueAsNewSnapshot: ContinueAsNewDumpResponse|undefined;
+    const continueAsNewActivityScheduleIds = new Map<number, boolean>();
+
+    // 0 is always the started event
+    // -1 (or <0) is unknown.
+    const historyEvents: IwfHistoryEvent[] = []
+
+    // Extract and process history events
+    // Convert the raw input to InterpreterWorkflowInput type
+    const workflowInput: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
+
+    const startEvent:IwfHistoryEvent = {
+      eventType: "WorkflowStarted",
+      workflowStarted: {
+        workflowStartedTimestamp: startTimeSeconds,
+        workflowType: workflowType,
+        input: workflowInput,
+      }
+    }
+    historyEvents.push(startEvent);
+
+    // Build the response
+    const response: WorkflowShowResponse = {
+      workflowStartedTimestamp: startTimeSeconds,
+      workflowType: workflowType,
+      status: statusCode ? mapTemporalStatus(String(statusCode)):undefined,
+      historyEvents: historyEvents
+    };
+
+    if(workflowInput.isResumeFromContinueAsNew){
+      let currentChecksum = ""
+      let jsonData = ""
+      for (let i = 1; i < rawHistories.events.length; i++) {
+        const event = rawHistories.events[i];
+        if (event.activityTaskScheduledEventAttributes) {
+          if(event.activityTaskScheduledEventAttributes.activityType.name!="DumpWorkflowInternal"){
+            break;
+          }
+          continueAsNewActivityScheduleIds.set(event.eventId.toNumber(), true)
+        }
+        if (event.activityTaskCompletedEventAttributes) {
+          // just assuming it's continueAsNew and try to decode it
+          const result = event.activityTaskCompletedEventAttributes.result?.payloads;
+          // Decode the response from the payload
+          const responseData = arrayFromPayloads(dataConverter.payloadConverter, result);
+          // this must be a continueAsNew dump activity completed event,
+          // because there shouldn't any other activity before continueAsNew dump is completed.
+          const dump = responseData[0] as WorkflowDumpResponse
+          if(dump.checksum != currentChecksum){
+            // always reset when checksum changed
+            currentChecksum = dump.checksum
+            jsonData = ""
+          }
+          jsonData += dump.jsonData
+        }
+      }
+      // catch this error because the history is not ready to parse yet.
+      try{
+        continueAsNewSnapshot = JSON.parse(jsonData) as ContinueAsNewDumpResponse
+      } catch (error) {
+        return NextResponse.json(response, { status: 200 });
+      }
+      startEvent.workflowStarted.continueAsNewSnapshot = continueAsNewSnapshot
+
+      // update stateExecutionIdToWaitUntilIndex
+      continueAsNewSnapshot.StateExecutionsToResume
+      for(const key in continueAsNewSnapshot.StateExecutionsToResume){
+        stateExecutionIdToWaitUntilIndex.set(key, 0)
+      }
+
+      // update startingStateLookup
+      const length:number = continueAsNewSnapshot.StatesToStartFromBeginning ? continueAsNewSnapshot.StatesToStartFromBeginning.length:0;
+      for (let i = 0; i < length; i++) {
+        const stateMovement = continueAsNewSnapshot.StatesToStartFromBeginning[i]
+        const stateId = stateMovement.stateId
+        let lookup: IndexAndStateOption[] = startingStateLookup.get(stateId);
+        // Fix: Check if lookup is undefined or empty
+        if (!lookup || lookup.length === 0) {
+          startingStateLookup.set(stateId,
+              [{
+                index: 0,
+                option: stateMovement.stateOptions,
+                input: stateMovement.stateInput
+              }])
+        } else {
+          lookup.push({
+            index: 0,
+            option: stateMovement.stateOptions,
+            input: stateMovement.stateInput
+          })
+        }
+      }
+    }else{
+      // for non continueAsNew, there can be at most only one starting state
+      if(workflowInput.startStateId){
+        startingStateLookup.set(workflowInput.startStateId,
+            [{
+              index: 0,
+              option: workflowInput.stateOptions,
+              input: workflowInput.stateInput
+            }])
+      }
+    }
+    
+    // Iterate through raw Temporal events starting from the second event
+    // Note that we always start from 1, even it could include continueAsNew.
+    // Because there could be some signals during continueAsNew activity
+    for (let i = 1; i < rawHistories.events.length; i++) {
+      const event = rawHistories.events[i];
+      if (event.activityTaskScheduledEventAttributes) {
+        processActivityTaskScheduledEvent(
+          event, 
+          dataConverter, 
+          historyEvents, 
+          historyLookupByScheduledId, 
+          stateExecutionIdToWaitUntilIndex, 
+          startingStateLookup, 
+          continueAsNewActivityScheduleIds
+        );
+      } else if (event.activityTaskCompletedEventAttributes) {
+        processActivityTaskCompletedEvent(
+          event, 
+          dataConverter, 
+          historyEvents, 
+          historyLookupByScheduledId, 
+          startingStateLookup, 
+          continueAsNewActivityScheduleIds
+        );
+      } else if (event.workflowExecutionSignaledEventAttributes) {
+        // TODO processing RPC (regular) and signal
+        console.log(`  signal received=${event}`);
+      } else if (event.activityTaskFailedEventAttributes) {
+        // TODO process the stateApiFailure policy
+      } else if (event.workflowExecutionCompletedEventAttributes ||
+          event.workflowExecutionFailedEventAttributes ||
+          event.workflowExecutionCanceledEventAttributes ||
+          event.workflowExecutionContinuedAsNewEventAttributes ||
+          event.workflowExecutionTerminatedEventAttributes ||
+          event.workflowExecutionTimedOutEventAttributes) {
+        
+        processWorkflowClosedEvent(event, statusCode, dataConverter, historyEvents);
+      }
+      // TODO local activity
+      // TODO activity task started event for last failure details
+    }
+
+    return NextResponse.json(response, { status: 200 });
+  } catch (error) {
+    console.error('Server error:', error);
+
+    return NextResponse.json({
+      detail: "Error retrieving workflow details: "+ error.message,
+      error: error.message,
+      errorType: "SERVER_API_ERROR"
+    }, { status: 400 });
+  }
+}
+
+
 // Helper function to process activity task scheduled events
 function processActivityTaskScheduledEvent(
     event: temporal.api.history.v1.IHistoryEvent,
@@ -270,19 +511,19 @@ function processActivityTaskCompletedEvent(
     continueAsNewActivityScheduleIds: Map<number, boolean>
 ) {
   const scheduledId = event.activityTaskCompletedEventAttributes.scheduledEventId.toNumber();
-  
+
   if (continueAsNewActivityScheduleIds.has(scheduledId)) {
     // Skip continueAsNew and invokeRPC activity
     return;
   }
-  
+
   const indexToUpdate = historyLookupByScheduledId.get(scheduledId);
-  
+
   if (!historyEvents[indexToUpdate]) {
     console.log(`ERROR: No scheduled event id ${scheduledId}`);
     return;
   }
-  
+
   if (historyEvents[indexToUpdate].eventType === "StateWaitUntil") {
     processStateWaitUntilCompleted(event, dataConverter, historyEvents, indexToUpdate);
   } else if (historyEvents[indexToUpdate].eventType === "StateExecute") {
@@ -295,7 +536,7 @@ function processActivityTaskCompletedEvent(
 // Process StateApiWaitUntil for activity task completed
 function processStateWaitUntilCompleted(event, dataConverter, historyEvents, indexToUpdate) {
   let waitUntilDetails = historyEvents[indexToUpdate].stateWaitUntil;
-  
+
   // Get the activity result payload
   const result = event.activityTaskCompletedEventAttributes.result?.payloads;
   // Decode the response from the payload
@@ -312,26 +553,26 @@ function processStateWaitUntilCompleted(event, dataConverter, historyEvents, ind
 // Process StateApiExecute for activity task completed
 function processStateExecuteCompleted(event, dataConverter, historyEvents, indexToUpdate, startingStateLookup) {
   let executeDetails = historyEvents[indexToUpdate].stateExecute;
-  
+
   // Get the activity result payload
   const result = event.activityTaskCompletedEventAttributes.result?.payloads;
   // Decode the response from the payload
   const responseData = arrayFromPayloads(dataConverter.payloadConverter, result);
   // The first element contains the activity output which is the WorkflowStateDecideResponse
   executeDetails.response = responseData[0];
-  
+
   // Add the completedTimestamp from the event time
   executeDetails.completedTimestamp = event.eventTime.seconds.toNumber();
   // Update the event in the array with the added details
   historyEvents[indexToUpdate].stateExecute = executeDetails;
-  
+
   // Check if the response has a stateDecision with nextStates
-  if (executeDetails.response && 
-      executeDetails.response.stateDecision && 
+  if (executeDetails.response &&
+      executeDetails.response.stateDecision &&
       executeDetails.response.stateDecision.nextStates) {
-    
+
     const nextStates = executeDetails.response.stateDecision.nextStates;
-    
+
     // Iterate through each next state movement from the decision
     for (const stateMovement of nextStates) {
       // Create an entry for this state in fromStateLookup
@@ -340,7 +581,7 @@ function processStateExecuteCompleted(event, dataConverter, historyEvents, index
         option: stateMovement.stateOptions,  // StateOptions from the movement
         input: stateMovement.stateInput  // Input from the movement
       };
-      
+
       // Check if the state already exists in the lookup
       if (startingStateLookup.has(stateMovement.stateId)) {
         // Append to existing array
@@ -369,9 +610,9 @@ function processWorkflowClosedEvent(
       closedType: mapTemporalStatus(String(statusCode)),
     }
   };
-  
+
   // Extract output from workflowExecutionCompletedEventAttributes if available
-  if (event.workflowExecutionCompletedEventAttributes && 
+  if (event.workflowExecutionCompletedEventAttributes &&
       event.workflowExecutionCompletedEventAttributes.result?.payloads) {
     // Decode the output from the payload
     const resultPayloads = event.workflowExecutionCompletedEventAttributes.result.payloads;
@@ -387,245 +628,4 @@ function processWorkflowClosedEvent(
   }
 
   historyEvents.push(iwfEvent);
-}
-
-// Common handler implementation for both GET and POST
-async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
-  try {
-    // Create connection to Temporal
-    const connection = await Connection.connect({
-      address: temporalConfig.hostPort,
-    });
-
-    // Create a client to interact with Temporal
-    const client = new WorkflowClient({
-      connection,
-      namespace: temporalConfig.namespace,
-    });
-
-    // Get the workflow details
-    const workflow = await client.workflowService.describeWorkflowExecution(
-        {
-          namespace: temporalConfig.namespace,
-          execution:{
-            workflowId: params.workflowId,
-            runId: params.runId
-          }
-    });
-
-    // Access the workflowExecutionInfo from the response
-    const workflowInfo = workflow.workflowExecutionInfo;
-    
-    if (!workflowInfo) {
-      throw new Error("Workflow execution info not found in the response");
-    }
-    
-    // Extract search attributes and decode them properly using the utility function
-    const searchAttributes = decodeSearchAttributes(workflowInfo.searchAttributes);
-
-    // Get workflow type - preferring IwfWorkflowType search attribute 
-    let workflowType = workflowInfo.type?.name || 'Unknown';
-    if (searchAttributes.IwfWorkflowType) {
-      // Use the IwfWorkflowType from search attributes
-      workflowType = typeof searchAttributes.IwfWorkflowType === 'string' 
-        ? searchAttributes.IwfWorkflowType 
-        : extractStringValue(searchAttributes.IwfWorkflowType);
-    }else{
-      return NextResponse.json({
-        detail: "Not an iWF workflow execution",
-        error: `unsupported temporal workflow type ${workflowInfo.type}`,
-        errorType: "TEMPORAL_API_ERROR"
-      }, { status: 400 });
-    }
-    
-    // Extract timestamp from the Temporal format (keeping in seconds)
-    let startTimeSeconds = 0;
-    if (workflowInfo.startTime?.seconds) {
-      // Extract seconds (handling both number and Long)
-      // Keep as seconds, not converting to milliseconds
-      startTimeSeconds = typeof workflowInfo.startTime.seconds === 'number'
-          ? workflowInfo.startTime.seconds
-          : Number(workflowInfo.startTime.seconds);
-    }
-    
-    // Map numeric status code to status enum
-    const statusCode = workflowInfo.status;
-
-    // Now fetch history and get the other fields
-    // TODO support configuring data converter
-    const dataConverter = defaultDataConverter
-    const handle = client.getHandle(params.workflowId, params.runId)
-    const rawHistories = await handle.fetchHistory()
-    const startInputs = arrayFromPayloads(dataConverter.payloadConverter, rawHistories.events[0].workflowExecutionStartedEventAttributes.input.payloads)
-
-    // scheduledId -> index of iWF history event.
-    // This is for processing activity task started/completed event
-    // to look up the event based on scheduledEventId, which inserted the iwfHistory event. So that activity task started/completed
-    // can read it back and update the iWF event
-    let historyLookupByScheduledId = new Map<number, number>();
-    // stateExecutionId -> index of the waitUntil event.
-    // This is for processing activity task scheduled event for stateExecute, which is from a waitUntil
-    // (Note, if the stateExecute is not from waitUntil, it should use fromStateLookup to find the eventId)
-    let stateExecutionIdToWaitUntilIndex = new Map<string, number>();
-    // stateId -> a list of indexes of iWF history events that decide to this stateId
-    // when the index is 0, it's the workflow starting states, or starting states from continueAsNew
-    // when it's >=0, it's starting from other states, where the number is the index of historyEvents
-    let startingStateLookup: Map<string, IndexAndStateOption[]> = new Map();
-    let continueAsNewSnapshot: ContinueAsNewDumpResponse|undefined;
-    const continueAsNewActivityScheduleIds = new Map<number, boolean>();
-
-    // 0 is always the started event
-    // -1 (or <0) is unknown.
-    const historyEvents: IwfHistoryEvent[] = []
-
-    // Extract and process history events
-    // Convert the raw input to InterpreterWorkflowInput type
-    const workflowInput: InterpreterWorkflowInput = startInputs[0] as InterpreterWorkflowInput
-    if(workflowInput.isResumeFromContinueAsNew){
-      let currentChecksum = ""
-      let jsonData = ""
-      for (let i = 1; i < rawHistories.events.length; i++) {
-        const event = rawHistories.events[i];
-        if (event.activityTaskScheduledEventAttributes) {
-          if(event.activityTaskScheduledEventAttributes.activityType.name!="DumpWorkflowInternal"){
-            break;
-          }
-          continueAsNewActivityScheduleIds.set(event.eventId.toNumber(), true)
-        }
-        if (event.activityTaskCompletedEventAttributes) {
-          // just assuming it's continueAsNew and try to decode it
-          const result = event.activityTaskCompletedEventAttributes.result?.payloads;
-          // Decode the response from the payload
-          const responseData = arrayFromPayloads(dataConverter.payloadConverter, result);
-          // this must be a continueAsNew dump activity completed event,
-          // because there shouldn't any other activity before continueAsNew dump is completed.
-          const dump = responseData[0] as WorkflowDumpResponse
-          if(dump.checksum != currentChecksum){
-            // always reset when checksum changed
-            currentChecksum = dump.checksum
-            jsonData = ""
-          }
-          jsonData += dump.jsonData
-        }
-      }
-      // TODO catch this error and ignore -- the history is not ready to parse yet.
-      continueAsNewSnapshot = JSON.parse(jsonData) as ContinueAsNewDumpResponse
-      // update stateExecutionIdToWaitUntilIndex
-      continueAsNewSnapshot.StateExecutionsToResume
-      for(const key in continueAsNewSnapshot.StateExecutionsToResume){
-        stateExecutionIdToWaitUntilIndex.set(key, 0)
-      }
-
-      // update startingStateLookup
-      const length:number = continueAsNewSnapshot.StatesToStartFromBeginning ? continueAsNewSnapshot.StatesToStartFromBeginning.length:0;
-      for (let i = 0; i < length; i++) {
-        const stateMovement = continueAsNewSnapshot.StatesToStartFromBeginning[i]
-        const stateId = stateMovement.stateId
-        let lookup: IndexAndStateOption[] = startingStateLookup.get(stateId);
-        // Fix: Check if lookup is undefined or empty
-        if (!lookup || lookup.length === 0) {
-          startingStateLookup.set(stateId,
-              [{
-                index: 0,
-                option: stateMovement.stateOptions,
-                input: stateMovement.stateInput
-              }])
-        } else {
-          lookup.push({
-            index: 0,
-            option: stateMovement.stateOptions,
-            input: stateMovement.stateInput
-          })
-        }
-      }
-    }else{
-      // for non continueAsNew, there can be at most only one starting state
-      if(workflowInput.startStateId){
-        startingStateLookup.set(workflowInput.startStateId,
-            [{
-              index: 0,
-              option: workflowInput.stateOptions,
-              input: workflowInput.stateInput
-            }])
-      }
-    }
-
-    const startEvent:IwfHistoryEvent = {
-      eventType: "WorkflowStarted",
-      workflowStarted: {
-        workflowStartedTimestamp: startTimeSeconds,
-        workflowType: workflowType,
-        input: workflowInput,
-        continueAsNewSnapshot: continueAsNewSnapshot
-      }
-    }
-    historyEvents.push(startEvent);
-    
-    // Iterate through raw Temporal events starting from the second event
-    // Note that we always start from 1, even it could include continueAsNew.
-    // Because there could be some signals during continueAsNew activity
-    for (let i = 1; i < rawHistories.events.length; i++) {
-      const event = rawHistories.events[i];
-      if (event.activityTaskScheduledEventAttributes) {
-        processActivityTaskScheduledEvent(
-          event, 
-          dataConverter, 
-          historyEvents, 
-          historyLookupByScheduledId, 
-          stateExecutionIdToWaitUntilIndex, 
-          startingStateLookup, 
-          continueAsNewActivityScheduleIds
-        );
-      } else if (event.activityTaskCompletedEventAttributes) {
-        processActivityTaskCompletedEvent(
-          event, 
-          dataConverter, 
-          historyEvents, 
-          historyLookupByScheduledId, 
-          startingStateLookup, 
-          continueAsNewActivityScheduleIds
-        );
-      } else if (event.workflowExecutionSignaledEventAttributes) {
-        // TODO processing RPC (regular) and signal
-        console.log(`  signal received=${event}`);
-      } else if (event.activityTaskFailedEventAttributes) {
-        // TODO process the stateApiFailure policy
-      } else if (event.workflowExecutionCompletedEventAttributes ||
-          event.workflowExecutionFailedEventAttributes ||
-          event.workflowExecutionCanceledEventAttributes ||
-          event.workflowExecutionContinuedAsNewEventAttributes ||
-          event.workflowExecutionTerminatedEventAttributes ||
-          event.workflowExecutionTimedOutEventAttributes) {
-        
-        processWorkflowClosedEvent(event, statusCode, dataConverter, historyEvents);
-      }
-      // TODO local activity
-      // TODO activity task started event for last failure details
-    }
-    
-    // For now, we'll return an empty array as we're just logging the events
-    
-    // Build the response
-    const response: WorkflowShowResponse = {
-      workflowStartedTimestamp: startTimeSeconds,
-      workflowType: workflowType,
-      status: statusCode ? mapTemporalStatus(String(statusCode)):undefined,
-      // Include the decoded input in the response
-      // input: workflowInput,
-      // continueAsNewSnapshot: continueAsNewSnapshot,
-      historyEvents: historyEvents
-    };
-
-    return NextResponse.json(response, { status: 200 });
-    
-  } catch (error) {
-    // Handle specific Temporal errors
-    console.error('Temporal API error:', error);
-
-    return NextResponse.json({
-      detail: "Error retrieving workflow details: "+ error.message,
-      error: error.message,
-      errorType: "TEMPORAL_API_ERROR"
-    }, { status: 400 });
-  }
 }
