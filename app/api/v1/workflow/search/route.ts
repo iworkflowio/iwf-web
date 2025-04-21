@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, WorkflowClient, WorkflowExecutionInfo } from '@temporalio/client';
 import {temporalConfig, mapTemporalStatus, extractStringValue, decodeSearchAttributes} from '../utils';
+import {ConnectionOptions} from "@temporalio/client/src/connection";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,9 +18,17 @@ export async function POST(request: NextRequest) {
 
     try {
       // Create connection to Temporal
-      const connection = await Connection.connect({
+      const connOpts: ConnectionOptions = {
         address: temporalConfig.hostPort,
-      });
+      }
+      if(temporalConfig.apiKey){
+        connOpts.tls = true
+        connOpts.apiKey = temporalConfig.apiKey
+        connOpts. metadata ={
+          'temporal-namespace': temporalConfig.namespace
+        }
+      }
+      const connection = await Connection.connect(connOpts);
 
       // Create a client to interact with Temporal
       const client = new WorkflowClient({
