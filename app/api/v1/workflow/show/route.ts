@@ -739,14 +739,14 @@ function processLocalActivityEvent(
       try {
         // Process "details" field as a map of key to encoded payload
         const details = markerAttributes.details;
-        if (details && details.fields) {
+        if (details) {
           // Decode the "data" field, which contains an object with 'ActivityType' field
-          const dataPayload = details.fields['data']?.payloads;
+          const dataPayload = details['data']?.payloads;
           if (dataPayload) {
             const dataValue = arrayFromPayloads(dataConverter.payloadConverter, dataPayload)[0] as any;
             
             // Decode the "result" field, which contains an object
-            const resultPayload = details.fields['result']?.payloads;
+            const resultPayload = details['result']?.payloads;
             if (resultPayload) {
               const resultValue = arrayFromPayloads(dataConverter.payloadConverter, resultPayload)[0] as any;
               
