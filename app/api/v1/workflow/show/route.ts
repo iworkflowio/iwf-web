@@ -257,6 +257,20 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       //
     }
 
+    // TODO add prettifyHistoryEvents to prettify the historyEvents in response
+    // for each event, recursively look at each field until the leaf fields of the object,
+    // if any level of the object has both "data" and "encoding" field,
+    // and value of "encoding" field is either "json" or "BuiltinJacksonJson", then use JSON.parse
+    // to parse the value of "data" field, then replace the level into this new object.
+    // For example:
+    //    historyEvents:[
+    //        { "abc": {"def": {"data": "test-data-1","encoding": "json"} } }
+    //    ]
+    //    will become
+    //    historyEvents:[
+    //        { "abc": {"def": "test-data-1" } }
+    //    ]
+
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
     console.error('Server error:', error);
@@ -288,6 +302,8 @@ async function handleDescribeWorkflowExecution(client: WorkflowClient, params: W
   if (!workflowInfo) {
     throw new Error("Workflow execution info not found in the response");
   }
+
+  // TODO: handle pendingActivities to show the currently executing states with errors
 
   // Extract search attributes and decode them properly using the utility function
   const searchAttributes = decodeSearchAttributes(workflowInfo.searchAttributes);
