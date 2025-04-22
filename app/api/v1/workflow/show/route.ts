@@ -244,14 +244,12 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           stateExecutionIdToWaitUntilIndex,
           startingStateLookup
         );
-      }else if(event.workflowExecutionUpdateCompletedEventAttributes){
-        // TODO workflow update event for rpc locking
       }else if(event.activityTaskStartedEventAttributes){
         // TODO process activity task started event for last failure details
       }
       // ignore all remaining events:
       //    upsert search attributes,
-      //    update accepted & admitted,
+      //    update accepted & admitted & completed,
       //    cancel requested,
       //    timer started/fired/canceled,
       //    activity canceled.
@@ -452,7 +450,9 @@ function processActivityTaskScheduledEvent(
         startingStateLookup
     );
   } else if (activityType === "InvokeWorkerRpc") {
-    // activity for RPC locking can be ignored because the input/output can be found in update events
+    // TODO process in processInvokeWorkerRpcScheduled
+    // create an rpcExecution event and add to the historyEvents
+    // then add the entry to historyLookupByScheduledId for later lookup
   } else if (activityType === "DumpWorkflowInternal") {
     // activity for continueAsNew can be ignored because they are already processed
   }else{
