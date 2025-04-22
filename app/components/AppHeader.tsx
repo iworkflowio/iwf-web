@@ -80,7 +80,7 @@ const AppHeader = ({
         <div>
           <h1 className="text-2xl font-bold flex items-center">
             <img src="/iwf-logo.svg" alt="iWF Logo" className="h-7 w-7 mr-2" />
-            iWF Workflows
+            iWF Workflows - {config.temporalNamespace}
           </h1>
           <div className="mt-1 text-blue-100 text-sm">
             <a 

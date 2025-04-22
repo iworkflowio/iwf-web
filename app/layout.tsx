@@ -3,7 +3,7 @@ import './styles.css';
 import { ConfigProvider } from './components/ConfigContext';
 
 export const metadata = {
-  title: 'iWF Workflows',
+  title: `iWF Workflows - ${process.env.TEMPORAL_NAMESPACE || 'default'}`,
   description: 'Search and view iWF workflow executions',
   icons: {
     icon: '/iwf-logo.svg',

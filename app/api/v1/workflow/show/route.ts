@@ -125,6 +125,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
 
     // Now fetch history and get the other fields
     // TODO support configuring data converter(for encryption)
+    // follow https://github.com/temporalio/samples-typescript/tree/main/encryption
     const dataConverter = defaultDataConverter
     const handle = client.getHandle(params.workflowId, params.runId)
     const rawHistories = await handle.fetchHistory()
