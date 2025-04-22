@@ -791,6 +791,13 @@ function processLocalActivityEvent(
                   stateExecutionIdToWaitUntilIndex,
                   startingStateLookup
                 );
+              } else if (activityType === 'InvokeWorkerRpc') {
+                processLocalActivityInvokeWorkerRpc(
+                  dataValue,
+                  resultValue,
+                  event,
+                  historyEvents
+                );
               }
             }
           }
@@ -956,6 +963,34 @@ function processLocalActivityExecute(
 }
 
 // Process workflow signal events
+// Process local activity invoke worker RPC events
+function processLocalActivityInvokeWorkerRpc(
+  dataValue: any,
+  resultValue: any,
+  event: temporal.api.history.v1.IHistoryEvent,
+  historyEvents: IwfHistoryEvent[]
+) {
+  try {
+    // Get timestamp from event time or ReplayTime
+    const completedTimestamp = dataValue['ReplayTime'] ?
+      parseGoTimeToUnixSeconds(dataValue['ReplayTime']):0;
+
+    // Create an RPC execution event with the information from the local activity
+    const rpcEvent: IwfHistoryEvent = {
+      eventType: "RpcExecution",
+      rpcExecution: {
+        completedTimestamp: completedTimestamp,
+        response: resultValue // Contains the RPC request/response data
+      }
+    };
+    
+    // Add to history events
+    historyEvents.push(rpcEvent);
+  } catch (error) {
+    console.error('Error processing local activity InvokeWorkerRpc:', error);
+  }
+}
+
 // Process InvokeWorkerRpc for activity task scheduled
 function processInvokeWorkerRpcScheduled(
   event: temporal.api.history.v1.IHistoryEvent,
