@@ -257,19 +257,8 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       //
     }
 
-    // TODO add prettifyHistoryEvents to prettify the historyEvents in response
-    // for each event, recursively look at each field until the leaf fields of the object,
-    // if any level of the object has both "data" and "encoding" field,
-    // and value of "encoding" field is either "json" or "BuiltinJacksonJson", then use JSON.parse
-    // to parse the value of "data" field, then replace the level into this new object.
-    // For example:
-    //    historyEvents:[
-    //        { "abc": {"def": {"data": "test-data-1","encoding": "json"} } }
-    //    ]
-    //    will become
-    //    historyEvents:[
-    //        { "abc": {"def": "test-data-1" } }
-    //    ]
+    // Prettify history events before sending the response
+    response.historyEvents = prettifyHistoryEvents(response.historyEvents);
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
@@ -977,6 +966,52 @@ function processLocalActivityExecute(
       }
     }
   }
+}
+
+/**
+ * Recursively prettifies JSON encoded payloads in the history events
+ * Looks for objects with both "data" and "encoding" fields, where encoding is "json" or "BuiltinJacksonJson",
+ * and replaces them with the parsed JSON value from the "data" field
+ * 
+ * @param obj Any object or array to scan and prettify
+ * @returns The prettified object with decoded JSON values
+ */
+function prettifyHistoryEvents(obj: any): any {
+  // Base case: if obj is null, undefined, or primitive, return as is
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return obj;
+  }
+  
+  // Handle arrays: recursively prettify each item
+  if (Array.isArray(obj)) {
+    return obj.map(item => prettifyHistoryEvents(item));
+  }
+  
+  // Check if this object has both "data" and "encoding" properties
+  if (
+    obj.hasOwnProperty('data') && 
+    obj.hasOwnProperty('encoding') && 
+    (obj.encoding === 'json' || obj.encoding === 'BuiltinJacksonJson')
+  ) {
+    try {
+      // Attempt to parse the JSON data
+      return JSON.parse(obj.data);
+    } catch (e) {
+      // If parsing fails, return the original object
+      console.warn('Failed to parse encoded JSON data:', e);
+      return obj;
+    }
+  }
+  
+  // For regular objects, process each property recursively
+  const result = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      result[key] = prettifyHistoryEvents(obj[key]);
+    }
+  }
+  
+  return result;
 }
 
 // Process workflow signal events
