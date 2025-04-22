@@ -53,6 +53,9 @@ export default function WorkflowEventDetails({
             {event.eventType === 'StateExecute' && event.stateExecute?.stateExecutionId && (
               <span className="text-xs text-gray-500 ml-2">({event.stateExecute.stateExecutionId})</span>
             )}
+            {event.eventType === 'SignalReceived' && (
+                <span className="text-xs text-gray-500 ml-2">({event.signalReceived.signalName})</span>
+            )}
           </span>
         </div>
         <button className={`${expanded ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'} hover:opacity-80 w-6 h-6 flex items-center justify-center rounded-full font-bold text-sm transition-colors`}>

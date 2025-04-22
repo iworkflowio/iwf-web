@@ -46,6 +46,9 @@ const WorkflowEventNode = ({ data }: NodeProps) => {
             {event.eventType === 'StateExecute' && event.stateExecute?.stateExecutionId && (
                 <span className="text-xs text-gray-500 mt-1 truncate">ID: {event.stateExecute.stateExecutionId}</span>
             )}
+            {event.eventType === 'SignalReceived' && event.signalReceived?.signalName && (
+                <span className="text-xs text-gray-500 mt-1 truncate">Name: {event.signalReceived.signalName}</span>
+            )}
           </div>
       </div>
 

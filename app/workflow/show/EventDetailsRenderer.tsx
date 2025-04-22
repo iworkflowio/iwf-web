@@ -225,6 +225,57 @@ export default function EventDetailsRenderer({
           </div>
         );
         
+      case 'SignalReceived':
+        return (
+          <div className={`p-4 text-sm ${className}`}>
+            <div><span className="font-semibold">Signal Name:</span> {eventData.signalName}</div>
+            {eventData.completedTimestamp && (
+              <div>
+                <span className="font-semibold">Received At:</span> 
+                {formatWithTimezone(eventData.completedTimestamp, timezone)}
+              </div>
+            )}
+            {eventData.value && (
+              <div>
+                <div className="font-semibold mt-3">Signal Value:</div>
+                <div className="relative">
+                  <pre className="text-xs mt-1 bg-gray-50 p-2 rounded overflow-auto max-h-60 border border-gray-200">
+                    {JSON.stringify(eventData.value, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'RpcExecution':
+        return (
+          <div className={`p-4 text-sm ${className}`}>
+            {eventData.scheduledTimestamp && (
+              <div>
+                <span className="font-semibold">Scheduled At:</span> 
+                {formatWithTimezone(eventData.scheduledTimestamp, timezone)}
+              </div>
+            )}
+            {eventData.completedTimestamp && (
+              <div>
+                <span className="font-semibold">Completed At:</span> 
+                {formatWithTimezone(eventData.completedTimestamp, timezone)}
+              </div>
+            )}
+            {eventData.response && (
+              <div>
+                <div className="font-semibold mt-3">RPC Result:</div>
+                <div className="relative">
+                  <pre className="text-xs mt-1 bg-gray-50 p-2 rounded overflow-auto max-h-60 border border-gray-200">
+                    {JSON.stringify(eventData.response, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+        
       case 'WorkflowClosed':
         return (
           <div className={`p-4 text-sm ${className}`}>
