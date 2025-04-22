@@ -26,6 +26,18 @@ function extractStateIdFromExecutionId(stateExecutionId: string): string {
   return lastDashIndex > 0 ? stateExecutionId.substring(0, lastDashIndex) : stateExecutionId;
 }
 
+// Helper function to parse Golang time.Time format to Unix timestamp in seconds
+function parseGoTimeToUnixSeconds(goTime: string): number {
+  try {
+    // Example format: 2025-04-22T17:41:00.910017909Z
+    const date = new Date(goTime);
+    return Math.floor(date.getTime() / 1000); // Convert to seconds
+  } catch (error) {
+    console.error('Error parsing Golang time format:', error);
+    return 0;
+  }
+}
+
 // Handler for GET requests
 export async function GET(request: NextRequest) {
   try {
@@ -228,7 +240,6 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           event,
           dataConverter,
           historyEvents,
-          historyLookupByScheduledId,
           stateExecutionIdToWaitUntilIndex,
           startingStateLookup
         );
@@ -716,7 +727,6 @@ function processLocalActivityEvent(
   event: temporal.api.history.v1.IHistoryEvent,
   dataConverter: LoadedDataConverter,
   historyEvents: IwfHistoryEvent[],
-  historyLookupByScheduledId: Map<number, number>, // Fixme: remove this field. Local activity doesn't relate to scheduledId
   stateExecutionIdToWaitUntilIndex: Map<string, number>,
   startingStateLookup: Map<string, IndexAndStateOption[]>
 ) {
@@ -734,8 +744,7 @@ function processLocalActivityEvent(
           const dataPayload = details.fields['data']?.payloads;
           if (dataPayload) {
             const dataValue = arrayFromPayloads(dataConverter.payloadConverter, dataPayload)[0] as any;
-            // Fixme: use the "ActivityType" field of the dataValue to decide if it's waitUntil or execute:
-            //    The value is either StateApiExecute or StateApiWaitUntil.
+            
             // Decode the "result" field, which contains an object
             const resultPayload = details.fields['result']?.payloads;
             if (resultPayload) {
@@ -749,8 +758,10 @@ function processLocalActivityEvent(
                 stateExecutionId = localActivityInput.substring('stateExeId:'.length).trim();
               }
               
-              // Create the appropriate event based on contents
-              if (resultValue['commandRequest']) {
+              // Determine if this is a WaitUntil or Execute event based on the ActivityType field
+              const activityType = dataValue['ActivityType'];
+              
+              if (activityType === 'StateApiWaitUntil' || resultValue['commandRequest']) {
                 // Create StateWaitUntil event for commandRequest (WorkflowStateStartResponse)
                 processLocalActivityWaitUntil(
                   dataValue,
@@ -761,7 +772,7 @@ function processLocalActivityEvent(
                   stateExecutionIdToWaitUntilIndex,
                   startingStateLookup
                 );
-              } else if (resultValue['stateDecision']) {
+              } else if (activityType === 'StateApiExecute' || resultValue['stateDecision']) {
                 // Create StateExecute event for stateDecision (WorkflowStateDecideResponse)
                 processLocalActivityExecute(
                   dataValue,
@@ -830,7 +841,7 @@ function processLocalActivityWaitUntil(
     stateOptions: stateOptions,
     response: resultValue['commandRequest'],
     completedTimestamp: event.eventTime.seconds.toNumber(),
-    firstAttemptStartedTimestamp: event.eventTime.seconds.toNumber() // Fixme: use the ReplayTime field from the dataValue
+    firstAttemptStartedTimestamp: dataValue['ReplayTime'] ? parseGoTimeToUnixSeconds(dataValue['ReplayTime']) : 0
   };
   
   const iwfEvent: IwfHistoryEvent = {
@@ -905,7 +916,7 @@ function processLocalActivityExecute(
     stateOptions: stateOptions,
     response: resultValue['stateDecision'],
     completedTimestamp: event.eventTime.seconds.toNumber(),
-    firstAttemptStartedTimestamp: event.eventTime.seconds.toNumber() // Fixme: use the ReplayTime field from the dataValue
+    firstAttemptStartedTimestamp: dataValue['ReplayTime'] ? parseGoTimeToUnixSeconds(dataValue['ReplayTime']) : 0
   };
   
   const iwfEvent: IwfHistoryEvent = {
