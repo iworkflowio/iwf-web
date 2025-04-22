@@ -450,9 +450,13 @@ function processActivityTaskScheduledEvent(
         startingStateLookup
     );
   } else if (activityType === "InvokeWorkerRpc") {
-    // TODO process in processInvokeWorkerRpcScheduled
-    // create an rpcExecution event and add to the historyEvents
-    // then add the entry to historyLookupByScheduledId for later lookup
+    processInvokeWorkerRpcScheduled(
+        event,
+        activityInputs,
+        firstAttemptStartedTimestamp,
+        historyEvents,
+        historyLookupByScheduledId
+    )
   } else if (activityType === "DumpWorkflowInternal") {
     // activity for continueAsNew can be ignored because they are already processed
   }else{
@@ -620,6 +624,8 @@ function processActivityTaskCompletedEvent(
     processStateWaitUntilCompleted(event, dataConverter, historyEvents, indexToUpdate);
   } else if (historyEvents[indexToUpdate].eventType === "StateExecute") {
     processStateExecuteCompleted(event, dataConverter, historyEvents, indexToUpdate, startingStateLookup);
+  } else if (historyEvents[indexToUpdate].eventType === "RpcExecution") {
+    processRpcExecutionCompleted(event, dataConverter, historyEvents, indexToUpdate);
   } else {
     // activity for RPC locking can be ignored because the input/output can be found in update events
   }
@@ -950,6 +956,69 @@ function processLocalActivityExecute(
 }
 
 // Process workflow signal events
+// Process InvokeWorkerRpc for activity task scheduled
+function processInvokeWorkerRpcScheduled(
+  event: temporal.api.history.v1.IHistoryEvent,
+  activityInputs: unknown[],
+  firstAttemptStartedTimestamp: import("long"),
+  historyEvents: IwfHistoryEvent[],
+  historyLookupByScheduledId: Map<number, number>
+) {
+  try {
+    // Get the event ID to track it for later lookups
+    const eventId = event.eventId.toNumber();
+    
+    // Create an RPC execution event with basic information
+    const rpcEvent: IwfHistoryEvent = {
+      eventType: "RpcExecution",
+    };
+    
+    // Add the event to history and record its position for lookup
+    const eventIndex = historyEvents.length;
+    historyLookupByScheduledId.set(eventId, eventIndex);
+    historyEvents.push(rpcEvent);
+  } catch (error) {
+    console.error('Error processing InvokeWorkerRpc scheduled event:', error);
+  }
+}
+
+// Process RPC execution for activity task completed
+function processRpcExecutionCompleted(
+  event: temporal.api.history.v1.IHistoryEvent,
+  dataConverter: LoadedDataConverter,
+  historyEvents: IwfHistoryEvent[],
+  indexToUpdate: number
+) {
+  try {
+    // Get the existing RPC execution details or initialize if not present
+    let rpcExecutionDetails = historyEvents[indexToUpdate].rpcExecution;
+    if (!rpcExecutionDetails) {
+      rpcExecutionDetails = {};
+      historyEvents[indexToUpdate].rpcExecution = rpcExecutionDetails;
+    }
+    
+    // Get the activity result payload
+    const result = event.activityTaskCompletedEventAttributes.result?.payloads;
+    if (result) {
+      // Decode the response from the payload
+      const responseData = arrayFromPayloads(dataConverter.payloadConverter, result);
+      
+      // The first element contains the RPC response data
+      if (responseData && responseData.length > 0) {
+        rpcExecutionDetails.response = responseData[0] as ExecuteRpcSignalRequest;
+      }
+    }
+    
+    // Add the completed timestamp from the event time
+    rpcExecutionDetails.completedTimestamp = event.eventTime.seconds.toNumber();
+    
+    // Update the event in the history with the added details
+    historyEvents[indexToUpdate].rpcExecution = rpcExecutionDetails;
+  } catch (error) {
+    console.error('Error processing RPC execution completed event:', error);
+  }
+}
+
 function processWorkflowSignalEvent(
   event: temporal.api.history.v1.IHistoryEvent,
   dataConverter: LoadedDataConverter,
