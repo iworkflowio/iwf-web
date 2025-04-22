@@ -19,6 +19,13 @@ import {arrayFromPayloads, defaultDataConverter, LoadedDataConverter} from "@tem
 import {temporal} from '@temporalio/proto';
 import {createWorkflowClient} from '../clientManager';
 
+// Helper function to extract stateId from stateExecutionId
+function extractStateIdFromExecutionId(stateExecutionId: string): string {
+  // StateExecutionId format is typically "stateId-number"
+  const lastDashIndex = stateExecutionId.lastIndexOf('-');
+  return lastDashIndex > 0 ? stateExecutionId.substring(0, lastDashIndex) : stateExecutionId;
+}
+
 // Handler for GET requests
 export async function GET(request: NextRequest) {
   try {
@@ -123,6 +130,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
     // stateId -> a list of indexes of iWF history events that decide to this stateId
     // when the index is 0, it's the workflow starting states, or starting states from continueAsNew
     // when it's >=0, it's starting from other states, where the number is the index of historyEvents
+    // Make sure remove the key/value from startingStateLookup after reading
     let startingStateLookup: Map<string, IndexAndStateOption[]> = new Map();
     const continueAsNewActivityScheduleIds = new Map<number, boolean>();
 
@@ -216,15 +224,14 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
         
         processWorkflowClosedEvent(event, statusCode, dataConverter, historyEvents);
       }else if(event.markerRecordedEventAttributes){
-        // TODO local activity
-        // first, check markerName is LocalActivity, and ignore if the "failure" field is not empty
-        // then, process "details" field as a map of key to encoded payload
-        // decode the value of the "data" field, which is an object that has 'ActivityType' field
-        // decode the value of the "result" field, which is an object.
-        //    one field of the object is "localActivityInput" and the value is a string of format ""stateExeId: <stateExecutionId>"
-        //    another field of the object is either commandRequest or stateDecision.
-        //    If commandRequest, then the value is WorkflowStateStartResponse.
-        //    If stateDecision, the value is  WorkflowStateDecideResponse.
+        processLocalActivityEvent(
+          event,
+          dataConverter,
+          historyEvents,
+          historyLookupByScheduledId,
+          stateExecutionIdToWaitUntilIndex,
+          startingStateLookup
+        );
       }else if(event.workflowExecutionUpdateCompletedEventAttributes){
         // TODO workflow update event for rpc locking
       }else if(event.activityTaskStartedEventAttributes){
@@ -703,6 +710,231 @@ function processWorkflowClosedEvent(
 }
 
 
+
+// Process local activity marker events
+function processLocalActivityEvent(
+  event: temporal.api.history.v1.IHistoryEvent,
+  dataConverter: LoadedDataConverter,
+  historyEvents: IwfHistoryEvent[],
+  historyLookupByScheduledId: Map<number, number>, // Fixme: remove this field. Local activity doesn't relate to scheduledId
+  stateExecutionIdToWaitUntilIndex: Map<string, number>,
+  startingStateLookup: Map<string, IndexAndStateOption[]>
+) {
+  const markerAttributes = event.markerRecordedEventAttributes;
+  
+  // First, check if the marker name is LocalActivity
+  if (markerAttributes.markerName === 'LocalActivity') {
+    // Ignore if the "failure" field is not empty (failed local activities)
+    if (!markerAttributes.failure) {
+      try {
+        // Process "details" field as a map of key to encoded payload
+        const details = markerAttributes.details;
+        if (details && details.fields) {
+          // Decode the "data" field, which contains an object with 'ActivityType' field
+          const dataPayload = details.fields['data']?.payloads;
+          if (dataPayload) {
+            const dataValue = arrayFromPayloads(dataConverter.payloadConverter, dataPayload)[0] as any;
+            // Fixme: use the "ActivityType" field of the dataValue to decide if it's waitUntil or execute:
+            //    The value is either StateApiExecute or StateApiWaitUntil.
+            // Decode the "result" field, which contains an object
+            const resultPayload = details.fields['result']?.payloads;
+            if (resultPayload) {
+              const resultValue = arrayFromPayloads(dataConverter.payloadConverter, resultPayload)[0] as any;
+              
+              // Extract stateExecutionId from localActivityInput
+              const localActivityInput = resultValue['localActivityInput'];
+              let stateExecutionId = '';
+              
+              if (typeof localActivityInput === 'string' && localActivityInput.startsWith('stateExeId:')) {
+                stateExecutionId = localActivityInput.substring('stateExeId:'.length).trim();
+              }
+              
+              // Create the appropriate event based on contents
+              if (resultValue['commandRequest']) {
+                // Create StateWaitUntil event for commandRequest (WorkflowStateStartResponse)
+                processLocalActivityWaitUntil(
+                  dataValue,
+                  resultValue,
+                  stateExecutionId,
+                  event,
+                  historyEvents,
+                  stateExecutionIdToWaitUntilIndex,
+                  startingStateLookup
+                );
+              } else if (resultValue['stateDecision']) {
+                // Create StateExecute event for stateDecision (WorkflowStateDecideResponse)
+                processLocalActivityExecute(
+                  dataValue,
+                  resultValue,
+                  stateExecutionId,
+                  event,
+                  historyEvents,
+                  stateExecutionIdToWaitUntilIndex,
+                  startingStateLookup
+                );
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error processing local activity marker:', error);
+      }
+    }
+  }
+}
+
+// Process local activity wait until events
+function processLocalActivityWaitUntil(
+  dataValue: any,
+  resultValue: any,
+  stateExecutionId: string,
+  event: temporal.api.history.v1.IHistoryEvent,
+  historyEvents: IwfHistoryEvent[],
+  stateExecutionIdToWaitUntilIndex: Map<string, number>,
+  startingStateLookup?: Map<string, IndexAndStateOption[]>
+) {
+  // Extract stateId from stateExecutionId
+  const stateId = extractStateIdFromExecutionId(stateExecutionId);
+  
+  // Initialize default values
+  let fromEventId = 0;
+  let input = undefined;
+  let stateOptions = undefined;
+  
+  // Use startingStateLookup to look up source state info if available
+  if (startingStateLookup && stateId) {
+    const lookup = startingStateLookup.get(stateId);
+    if (lookup && lookup.length > 0) {
+      const from = lookup[0];
+      lookup.shift();
+      
+      // Remove entry if empty
+      if (lookup.length === 0) {
+        startingStateLookup.delete(stateId);
+      } else {
+        startingStateLookup.set(stateId, lookup);
+      }
+      
+      // Use values from lookup
+      fromEventId = from.index;
+      input = from.input;
+      stateOptions = from.option;
+    }
+  }
+  
+  const waitUntilDetail: StateWaitUntilDetails = {
+    stateExecutionId: stateExecutionId,
+    stateId: stateId,
+    fromEventId: fromEventId,
+    input: input,
+    stateOptions: stateOptions,
+    response: resultValue['commandRequest'],
+    completedTimestamp: event.eventTime.seconds.toNumber(),
+    firstAttemptStartedTimestamp: event.eventTime.seconds.toNumber() // Fixme: use the ReplayTime field from the dataValue
+  };
+  
+  const iwfEvent: IwfHistoryEvent = {
+    eventType: "StateWaitUntil",
+    stateWaitUntil: waitUntilDetail
+  };
+  
+  historyEvents.push(iwfEvent);
+  
+  // If this is a StateWaitUntil, add to the stateExecutionIdToWaitUntilIndex map
+  if (stateExecutionId) {
+    stateExecutionIdToWaitUntilIndex.set(stateExecutionId, historyEvents.length - 1);
+  }
+}
+
+// Process local activity execute events
+function processLocalActivityExecute(
+  dataValue: any,
+  resultValue: any,
+  stateExecutionId: string,
+  event: temporal.api.history.v1.IHistoryEvent,
+  historyEvents: IwfHistoryEvent[],
+  stateExecutionIdToWaitUntilIndex: Map<string, number>,
+  startingStateLookup: Map<string, IndexAndStateOption[]>
+) {
+  // Extract stateId from stateExecutionId
+  const stateId = extractStateIdFromExecutionId(stateExecutionId);
+  
+  // Initialize default values
+  let fromEventId = -1;
+  let input = undefined;
+  let stateOptions = undefined;
+  
+  // First, try to find the source from stateExecutionIdToWaitUntilIndex
+  if (stateExecutionId && stateExecutionIdToWaitUntilIndex.has(stateExecutionId)) {
+    const waitUntilIndex = stateExecutionIdToWaitUntilIndex.get(stateExecutionId);
+    fromEventId = waitUntilIndex;
+    
+    // Copy input and stateOptions from the referenced waitUntil event
+    const waitUntilEvent = historyEvents[waitUntilIndex];
+    if (waitUntilEvent && waitUntilEvent.stateWaitUntil) {
+      input = waitUntilEvent.stateWaitUntil.input;
+      stateOptions = waitUntilEvent.stateWaitUntil.stateOptions;
+    }
+  } 
+  // If not found in stateExecutionIdToWaitUntilIndex, try startingStateLookup
+  else if (startingStateLookup && stateId) {
+    const lookup = startingStateLookup.get(stateId);
+    if (lookup && lookup.length > 0) {
+      const from = lookup[0];
+      lookup.shift();
+      
+      // Remove entry if empty
+      if (lookup.length === 0) {
+        startingStateLookup.delete(stateId);
+      } else {
+        startingStateLookup.set(stateId, lookup);
+      }
+      
+      // Use values from lookup
+      fromEventId = from.index;
+      input = from.input;
+      stateOptions = from.option;
+    }
+  }
+  
+  const executeDetail: StateExecuteDetails = {
+    stateExecutionId: stateExecutionId,
+    stateId: stateId,
+    fromEventId: fromEventId,
+    input: input,
+    stateOptions: stateOptions,
+    response: resultValue['stateDecision'],
+    completedTimestamp: event.eventTime.seconds.toNumber(),
+    firstAttemptStartedTimestamp: event.eventTime.seconds.toNumber() // Fixme: use the ReplayTime field from the dataValue
+  };
+  
+  const iwfEvent: IwfHistoryEvent = {
+    eventType: "StateExecute",
+    stateExecute: executeDetail
+  };
+  
+  historyEvents.push(iwfEvent);
+  
+  // Process next states if available
+  const nextStates = resultValue['stateDecision']?.nextStates;
+  if (nextStates) {
+    for (const stateMovement of nextStates) {
+      const indexOption: IndexAndStateOption = {
+        index: historyEvents.length - 1,  // Current event index as the source
+        option: stateMovement.stateOptions,
+        input: stateMovement.stateInput
+      };
+      
+      if (startingStateLookup.has(stateMovement.stateId)) {
+        const existingOptions = startingStateLookup.get(stateMovement.stateId);
+        existingOptions.push(indexOption);
+        startingStateLookup.set(stateMovement.stateId, existingOptions);
+      } else {
+        startingStateLookup.set(stateMovement.stateId, [indexOption]);
+      }
+    }
+  }
+}
 
 // Process workflow signal events
 function processWorkflowSignalEvent(
