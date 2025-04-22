@@ -206,7 +206,7 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       } else if (event.workflowExecutionSignaledEventAttributes) {
         processWorkflowSignalEvent(event, dataConverter, historyEvents);
       } else if (event.activityTaskFailedEventAttributes) {
-        // TODO process the stateApiFailure policy
+        // TODO process the activity failed event (with stateApiFailure policy)
       } else if (event.workflowExecutionCompletedEventAttributes ||
           event.workflowExecutionFailedEventAttributes ||
           event.workflowExecutionCanceledEventAttributes ||
@@ -215,9 +215,28 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
           event.workflowExecutionTimedOutEventAttributes) {
         
         processWorkflowClosedEvent(event, statusCode, dataConverter, historyEvents);
+      }else if(event.markerRecordedEventAttributes){
+        // TODO local activity
+        // first, check markerName is LocalActivity, and ignore if the "failure" field is not empty
+        // then, process "details" field as a map of key to encoded payload
+        // decode the value of the "data" field, which is an object that has 'ActivityType' field
+        // decode the value of the "result" field, which is an object.
+        //    one field of the object is "localActivityInput" and the value is a string of format ""stateExeId: <stateExecutionId>"
+        //    another field of the object is either commandRequest or stateDecision.
+        //    If commandRequest, then the value is WorkflowStateStartResponse.
+        //    If stateDecision, the value is  WorkflowStateDecideResponse.
+      }else if(event.workflowExecutionUpdateCompletedEventAttributes){
+        // TODO workflow update event for rpc locking
+      }else if(event.activityTaskStartedEventAttributes){
+        // TODO process activity task started event for last failure details
       }
-      // TODO local activity
-      // TODO activity task started event for last failure details
+      // ignore all remaining events:
+      //    upsert search attributes,
+      //    update accepted & admitted,
+      //    cancel requested,
+      //    timer started/fired/canceled,
+      //    activity canceled.
+      //
     }
 
     return NextResponse.json(response, { status: 200 });
@@ -413,9 +432,11 @@ function processActivityTaskScheduledEvent(
         startingStateLookup
     );
   } else if (activityType === "InvokeWorkerRpc") {
-    throw new Error("RPC locking is not supported");
-  } else {
-    // NOTE: this must be continueAsNew
+    // activity for RPC locking can be ignored because the input/output can be found in update events
+  } else if (activityType === "DumpWorkflowInternal") {
+    // activity for continueAsNew can be ignored because they are already processed
+  }else{
+    throw new Error("unsupported activity type: " + activityType)
   }
 }
 
@@ -573,12 +594,14 @@ function processActivityTaskCompletedEvent(
     return;
   }
 
+  // TODO add number of attempts for the activity
+
   if (historyEvents[indexToUpdate].eventType === "StateWaitUntil") {
     processStateWaitUntilCompleted(event, dataConverter, historyEvents, indexToUpdate);
   } else if (historyEvents[indexToUpdate].eventType === "StateExecute") {
     processStateExecuteCompleted(event, dataConverter, historyEvents, indexToUpdate, startingStateLookup);
   } else {
-    // TODO: for RPC locking. We need another lookup for RPC locking
+    // activity for RPC locking can be ignored because the input/output can be found in update events
   }
 }
 
