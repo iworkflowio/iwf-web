@@ -169,7 +169,8 @@ async function handleWorkflowShowRequest(params: WorkflowShowRequest) {
       workflowStartedTimestamp: startTimeSeconds,
       workflowType: workflowType,
       status: statusCode ? mapTemporalStatus(String(statusCode)):undefined,
-      historyEvents: historyEvents
+      historyEvents: historyEvents,
+      runId: workflowDetails.runId
     };
 
     if(workflowInput.isResumeFromContinueAsNew){
@@ -323,7 +324,8 @@ async function handleDescribeWorkflowExecution(client: WorkflowClient, params: W
   return {
     workflowType,
     startTimeSeconds,
-    statusCode: workflowInfo.status
+    statusCode: workflowInfo.status,
+    runId: workflowInfo.execution.runId
   };
 }
 

@@ -1209,6 +1209,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/IwfHistoryEvent'
+        runId: # the actual runId
+          type: string
     IwfHistoryEventType:
       type: string
       enum:

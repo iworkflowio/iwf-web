@@ -155,10 +155,10 @@ export default function WorkflowShow() {
                 </div>
                 <div className="col-span-1">
                   <div className="text-sm font-medium text-gray-500">Run ID</div>
-                  {runId && (
+                  {workflowData.runId && (
                     <div className="mt-1 text-gray-900 break-all font-mono text-xs">
                       <span className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs rounded mr-1">Current</span> 
-                      {runId}
+                      {workflowData.runId}
                     </div>
                   )}
                   {workflowData.historyEvents[0].workflowStarted.input?.isResumeFromContinueAsNew &&

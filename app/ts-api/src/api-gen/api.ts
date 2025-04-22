@@ -2778,6 +2778,12 @@ export interface WorkflowShowResponse {
      * @memberof WorkflowShowResponse
      */
     'historyEvents'?: Array<IwfHistoryEvent>;
+    /**
+     * 
+     * @type {string}
+     * @memberof WorkflowShowResponse
+     */
+    'runId'?: string;
 }
 
 
